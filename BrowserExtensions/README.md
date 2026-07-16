@@ -1,6 +1,8 @@
 # CC FLOW browser extensions
 
-Run `./scripts/build-browser-extensions.sh`, then load `BrowserExtensions/dist/Chrome` or `dist/Edge` as an unpacked extension. Copy the pairing token from CC FLOW settings into the extension options page.
+Run `./scripts/build-browser-extensions.sh`, then load `BrowserExtensions/dist/Chrome` or `BrowserExtensions/dist/Edge` as an unpacked extension. Do not load the source-only `BrowserExtensions/Chrome` or `BrowserExtensions/Edge` directory.
+
+On first use, click the CC FLOW toolbar icon. If no pairing token is configured, the extension opens its configuration page automatically. Copy the token from CC FLOW under **Settings → Left Features → Productivity Connection**, paste it into the configuration page, and choose **Save and Connect**. After pairing, clicking the toolbar icon saves the active HTTP(S) page to Browser Resources.
 
 For Safari, generate the installable macOS Safari Web Extension container, then build/sign it with your Apple Developer identity:
 

@@ -18,7 +18,7 @@ struct BrowserResourcesFeatureView: View {
                 HStack { TextField("https://…", text: $service.inputURL).textFieldStyle(.roundedBorder)
                     Button("保存资源") { service.saveCurrentInput() }.buttonStyle(.borderedProminent) }
                 ScrollView { LazyVStack(spacing: 7) { ForEach(service.resources) { item in
-                    HStack { Image(systemName: "link"); VStack(alignment: .leading) { Text(item.title).fontWeight(.semibold); Text(item.url.absoluteString).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }; Spacer()
+                    HStack { FeatureIconView(iconID: item.iconID, fallbackSymbol: "link", size: 20, color: .primary).frame(width: 24, height: 24); VStack(alignment: .leading) { Text(item.title).fontWeight(.semibold); Text(item.url.absoluteString).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }; Spacer()
                         Button { NSWorkspace.shared.open(item.url) } label: { Image(systemName: "arrow.up.right.square") }.buttonStyle(.plain).frame(width: 44, height: 44)
                         Button { service.remove(item) } label: { Image(systemName: "trash") }.buttonStyle(.plain).frame(width: 44, height: 44)
                     }.padding(8).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))

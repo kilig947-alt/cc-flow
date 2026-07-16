@@ -96,7 +96,6 @@ final class BrowserBridgeService: ObservableObject {
     }
 
     func connect(to target: BrowserExtensionTarget) {
-        ensureListenerStarted()
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(pairingToken, forType: .string)
         NotificationCenter.default.post(name: .ccFlowCollapseForBrowserConnection, object: nil)
@@ -148,12 +147,7 @@ final class BrowserBridgeService: ObservableObject {
     }
 
     func start() {
-        consumers += 1
-        ensureListenerStarted()
-    }
-
-    private func ensureListenerStarted() {
-        guard listener == nil else { return }
+        consumers += 1; guard listener == nil else { return }
         do {
             let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: Self.port)!)
             listener.newConnectionHandler = { [weak self] connection in Task { @MainActor in self?.accept(connection) } }

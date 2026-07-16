@@ -48,13 +48,42 @@ struct FeatureIconView: View {
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
             } else {
-                // 图片加载失败回退到 SF Symbol "globe"
+                fallbackContent
+            }
+        case .none:
+            // iconID 与 fallbackSymbol 都为空 → 最终兜底 "globe"
+            Image(systemName: "globe")
+                .font(.system(size: size))
+                .foregroundColor(color)
+        }
+    }
+
+    @ViewBuilder
+    private var fallbackContent: some View {
+        switch resolveIconKind(fallbackSymbol) {
+        case .sfSymbol(let name):
+            Image(systemName: name)
+                .font(.system(size: size))
+                .foregroundColor(color)
+        case .text(let str):
+            Text(str)
+                .font(.system(size: size * 0.72, weight: .semibold))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .frame(maxWidth: size * 1.6)
+        case .image(let filename):
+            if let nsImage = IconImageStore.nsImage(for: "img:\(filename)") {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
+            } else {
                 Image(systemName: "globe")
                     .font(.system(size: size))
                     .foregroundColor(color)
             }
         case .none:
-            // iconID 与 fallbackSymbol 都为空 → 最终兜底 "globe"
             Image(systemName: "globe")
                 .font(.system(size: size))
                 .foregroundColor(color)

@@ -20,7 +20,7 @@ final class ProductivityFeatureTests: XCTestCase {
 
     @MainActor
     func testProactiveEventsAggregateAndConsumeOnce() async throws {
-        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01)
+        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01, shouldAcceptEvent: { _ in true })
         center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "A")
         center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadCompleted, summary: "B")
         try await Task.sleep(for: .milliseconds(50))
@@ -31,6 +31,44 @@ final class ProductivityFeatureTests: XCTestCase {
         XCTAssertEqual(event.count, 2)
         XCTAssertTrue(center.consume(event.sequence))
         XCTAssertFalse(center.consume(event.sequence))
+    }
+
+    @MainActor
+    func testProactiveEventsRemainQueuedUntilExplicitlyConsumed() async throws {
+        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01, shouldAcceptEvent: { _ in true })
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "download")
+        try await Task.sleep(for: .milliseconds(30))
+        center.publish(targetFeatureID: LeftFeature.mailAssistantID, kind: .mailReceived, summary: "mail")
+        try await Task.sleep(for: .milliseconds(30))
+
+        XCTAssertEqual(center.pendingEvents.map(\.targetFeatureID), [
+            LeftFeature.downloadMonitorID,
+            LeftFeature.mailAssistantID
+        ])
+        let first = try XCTUnwrap(center.nextEvent)
+        XCTAssertTrue(center.consume(first.sequence))
+        XCTAssertEqual(center.nextEvent?.targetFeatureID, LeftFeature.mailAssistantID)
+    }
+
+    @MainActor
+    func testProactiveEventsAreRejectedAtPublishTimeWhenPolicyBlocksThem() async throws {
+        let center = ProductivityProactiveEventCenter(
+            aggregationInterval: 0.01,
+            shouldAcceptEvent: { $0 != LeftFeature.mailAssistantID }
+        )
+        center.publish(targetFeatureID: LeftFeature.mailAssistantID, kind: .mailReceived, summary: "muted")
+        try await Task.sleep(for: .milliseconds(30))
+        XCTAssertTrue(center.pendingEvents.isEmpty)
+    }
+
+    func testBrowserResourceDecodesLegacyRecordWithoutFavicon() throws {
+        let id = UUID()
+        let json = """
+        {"id":"\(id.uuidString)","url":"https://example.com/page","title":"Example","browser":"Chrome","savedAt":0}
+        """
+        let resource = try JSONDecoder().decode(BrowserResource.self, from: Data(json.utf8))
+        XCTAssertEqual(resource.url.absoluteString, "https://example.com/page")
+        XCTAssertNil(resource.iconID)
     }
 
     func testLocalAIProviderProducesVersionedNonExecutableResult() {

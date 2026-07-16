@@ -651,11 +651,11 @@ final class AppSettingsStore: ObservableObject {
     // Spec: 紧凑态/展开态功能选择由 LeftFeatureStore 统一管理（compactFeatureID / expandedActiveFeatureID），
     // Settings 不再重复持有这两个字段，避免双套持久化键冲突。
 
-    /// Spec: 紧凑态左半区高度（默认 24，范围 24–80，步长 1），调高后可承载歌词等富内容。
+    /// Spec: 紧凑态左半区高度（默认 24，范围 30–80，步长 1），调高后可承载歌词等富内容。
     /// flow Island `closedNotchSize.height` 跟随该值动态扩展以避免内容被截断。
     @Published var compactLeftHeight: CGFloat = 24 {
         didSet {
-            let clamped = min(max(compactLeftHeight, 24), 80)
+            let clamped = min(max(compactLeftHeight, 30), 80)
             if compactLeftHeight != clamped {
                 compactLeftHeight = clamped
                 return
@@ -1568,7 +1568,7 @@ final class AppSettingsStore: ObservableObject {
             exists: persistedKeys.contains(Keys.autoOpenCompactedNotificationPanel),
             default: true
         ))
-        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(24, Self.doubleValue(
+        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(30, Self.doubleValue(
             from: defaults,
             key: Keys.compactLeftHeight,
             exists: persistedKeys.contains(Keys.compactLeftHeight),

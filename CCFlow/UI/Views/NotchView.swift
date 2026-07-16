@@ -72,6 +72,8 @@ struct NotchView: View {
     @State private var completionNotificationQueue: [SessionCompletionNotification] = []
     @State private var activeCompletionNotification: SessionCompletionNotification?
     @State private var completionNotificationDismissWorkItem: DispatchWorkItem?
+    @State private var productivityNotificationRetryWorkItem: DispatchWorkItem?
+    @State private var productivityNotificationCooldownUntil: Date?
     @State private var shouldDismissCompletionNotificationOnHoverExit: Bool = false
     @State private var isShowingDetachmentHint: Bool = false
     @State private var detachmentHintDismissWorkItem: DispatchWorkItem?
@@ -380,6 +382,8 @@ struct NotchView: View {
             }
             .onDisappear {
                 cancelScheduledDetachmentHintPresentation()
+                productivityNotificationRetryWorkItem?.cancel()
+                productivityNotificationRetryWorkItem = nil
                 unregisterAppActiveNotifications()
             }
             .onChange(of: viewModel.status) { oldStatus, newStatus in
@@ -443,24 +447,8 @@ struct NotchView: View {
             .onReceive(sessionMonitor.$pendingInstances) { sessions in
                 handlePendingSessionsChange(sessions)
             }
-            .onReceive(CalendarService.shared.$reminderPromptToken) { token in
-                guard token > 0,
-                      CalendarService.shared.consumeReminderPrompt(token),
-                      leftFeatureStore.features.contains(where: { $0.id == LeftFeature.calendarID && $0.isEnabled }),
-                      !AppSettings.areReminderNotificationsSuppressed else { return }
-                leftFeatureStore.expandedActiveFeatureID = LeftFeature.calendarID
-                viewModel.presentCustomExpanded(reason: .notification)
-            }
-            .onReceive(ProductivityProactiveEventCenter.shared.$latestEvent.compactMap { $0 }) { event in
-                guard ProductivityProactiveEventCenter.shared.consume(event.sequence) else { return }
-                guard leftFeatureStore.features.contains(where: { $0.id == event.targetFeatureID && $0.isEnabled }),
-                      !AppSettings.areReminderNotificationsSuppressed,
-                      !viewModel.isInlineTextInputActive,
-                      !viewModel.isSettingsPopoverPresented,
-                      !hasPendingPermission,
-                      !hasHumanIntervention else { return }
-                leftFeatureStore.expandedActiveFeatureID = event.targetFeatureID
-                viewModel.presentCustomExpanded(reason: .notification)
+            .onReceive(ProductivityProactiveEventCenter.shared.$pendingEvents) { _ in
+                presentNextProductivityNotificationIfPossible()
             }
             .onReceive(sessionMonitor.$instances) { instances in
                 viewModel.setManualAttentionActive(
@@ -1140,8 +1128,65 @@ struct NotchView: View {
             }
             isVisible = !viewModel.shouldHideWindowPresentation
             maybePresentNextCompletionNotification()
+            presentNextProductivityNotificationIfPossible()
             scheduleDetachmentHintPresentationIfNeeded(delay: Self.detachmentHintRetryDelay)
         }
+    }
+
+    private func presentNextProductivityNotificationIfPossible() {
+        let center = ProductivityProactiveEventCenter.shared
+        guard let event = center.nextEvent else {
+            productivityNotificationRetryWorkItem?.cancel()
+            productivityNotificationRetryWorkItem = nil
+            return
+        }
+
+        let featureEnabled = leftFeatureStore.features.contains {
+            $0.id == event.targetFeatureID && $0.isEnabled
+        }
+        if AppSettings.areReminderNotificationsSuppressed || !featureEnabled {
+            _ = center.consume(event.sequence)
+            return
+        }
+
+        if activeCompletionNotification != nil {
+            scheduleProductivityNotificationRetry()
+            return
+        }
+
+        if let cooldownUntil = productivityNotificationCooldownUntil,
+           cooldownUntil > Date() {
+            scheduleProductivityNotificationRetry(after: cooldownUntil.timeIntervalSinceNow)
+            return
+        }
+
+        guard !viewModel.isInlineTextInputActive,
+              !viewModel.isSettingsPopoverPresented,
+              !hasPendingPermission,
+              !hasHumanIntervention else {
+            scheduleProductivityNotificationRetry()
+            return
+        }
+
+        leftFeatureStore.expandedActiveFeatureID = event.targetFeatureID
+        if viewModel.presentCustomExpanded(reason: .notification) {
+            productivityNotificationRetryWorkItem?.cancel()
+            productivityNotificationRetryWorkItem = nil
+            productivityNotificationCooldownUntil = Date().addingTimeInterval(5)
+            _ = center.consume(event.sequence)
+        } else {
+            scheduleProductivityNotificationRetry()
+        }
+    }
+
+    private func scheduleProductivityNotificationRetry(after delay: TimeInterval = 1) {
+        guard productivityNotificationRetryWorkItem == nil else { return }
+        let workItem = DispatchWorkItem {
+            productivityNotificationRetryWorkItem = nil
+            presentNextProductivityNotificationIfPossible()
+        }
+        productivityNotificationRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, delay), execute: workItem)
     }
 
     private func recordIslandOpened() {

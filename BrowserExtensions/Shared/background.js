@@ -18,6 +18,11 @@ async function sendEvent(payload) {
 const sendHeartbeat = () => sendEvent({ type: "heartbeat" });
 chrome.runtime.onInstalled.addListener(sendHeartbeat);
 chrome.runtime.onStartup.addListener(sendHeartbeat);
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "pairingTokenSaved") return false;
+  sendHeartbeat().then((ok) => sendResponse({ ok }));
+  return true;
+});
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes.pairingToken) sendHeartbeat();
 });
@@ -31,10 +36,24 @@ if (chrome.alarms) {
 }
 sendHeartbeat();
 
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.url && /^https?:/.test(tab.url)) {
-    sendEvent({ type: "pageSaved", id: String(tab.id || ""), url: tab.url, title: tab.title || "" });
+async function showActionFeedback(text, color) {
+  await chrome.action.setBadgeBackgroundColor({ color });
+  await chrome.action.setBadgeText({ text });
+  setTimeout(() => chrome.action.setBadgeText({ text: "" }), 1800);
+}
+
+chrome.action.onClicked.addListener(async (tab) => {
+  const { pairingToken = "" } = await chrome.storage.local.get("pairingToken");
+  if (!pairingToken.trim()) {
+    await chrome.runtime.openOptionsPage();
+    return;
   }
+  if (!tab.url || !/^https?:/.test(tab.url)) {
+    await showActionFeedback("!", "#b42318");
+    return;
+  }
+  const ok = await sendEvent({ type: "pageSaved", id: String(tab.id || ""), url: tab.url, title: tab.title || "" });
+  await showActionFeedback(ok ? "✓" : "!", ok ? "#067647" : "#b42318");
 });
 
 if (chrome.downloads) {

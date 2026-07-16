@@ -1139,12 +1139,17 @@ class NotchViewModel: ObservableObject {
     }
 
     /// Spec 2.4: 切换到自定义内容全屏面板，并确保展开态可见
-    func presentCustomExpanded(reason: NotchOpenReason = .click) {
+    @discardableResult
+    func presentCustomExpanded(reason: NotchOpenReason = .click) -> Bool {
+        if reason == .notification && shouldSuppressAutomaticPresentation {
+            return false
+        }
         contentType = .customExpanded
         openReason = reason
         if status != .opened {
             status = .opened
         }
+        return true
     }
 
     func presentSessionList(reason: NotchOpenReason = .click) {

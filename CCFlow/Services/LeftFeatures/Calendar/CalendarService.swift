@@ -26,13 +26,10 @@ final class CalendarService: ObservableObject {
     @Published private(set) var authorization = EKEventStore.authorizationStatus(for: .event)
     @Published private(set) var reminderAuthorization = EKEventStore.authorizationStatus(for: .reminder)
     @Published private(set) var reminders: [ReminderAgendaItem] = []
-    @Published private(set) var reminderPromptToken = 0
     @Published private(set) var errorMessage: String?
     private let store = EKEventStore()
-    private var eventReferenceDate = Date()
     private var reminderTimer: AnyCancellable?
     private var lifecycleCancellables: Set<AnyCancellable> = []
-    private var consumedReminderPromptToken = 0
     private let lastPromptKey = "productivity.calendar.lastReminderPromptAt"
     private var lastReminderPromptAt: Date? {
         get { UserDefaults.standard.object(forKey: lastPromptKey) as? Date }
@@ -62,7 +59,6 @@ final class CalendarService: ObservableObject {
     }
 
     func refresh(referenceDate: Date = Date()) {
-        eventReferenceDate = referenceDate
         authorization = EKEventStore.authorizationStatus(for: .event)
         guard authorization == .fullAccess || authorization == .authorized else { return }
         let calendar = Calendar.current
@@ -87,10 +83,7 @@ final class CalendarService: ObservableObject {
         NotificationCenter.default.publisher(for: NSWorkspace.didWakeNotification)
             .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.refresh(referenceDate: self.eventReferenceDate)
-            }
+            .sink { [weak self] _ in self?.refresh() }
             .store(in: &lifecycleCancellables)
         refreshReminders()
     }
@@ -141,17 +134,17 @@ final class CalendarService: ObservableObject {
         }
     }
 
-    func consumeReminderPrompt(_ token: Int) -> Bool {
-        guard token > consumedReminderPromptToken else { return false }
-        consumedReminderPromptToken = token
-        return true
-    }
-
     private func evaluateReminderPrompt(now: Date = Date()) {
-        guard !Self.actionableReminders(reminders, now: now).isEmpty else { return }
+        let actionable = Self.actionableReminders(reminders, now: now)
+        guard !actionable.isEmpty else { return }
         guard lastReminderPromptAt.map({ now.timeIntervalSince($0) >= 30 * 60 }) ?? true else { return }
         lastReminderPromptAt = now
-        reminderPromptToken &+= 1
+        ProductivityProactiveEventCenter.shared.publish(
+            targetFeatureID: LeftFeature.calendarID,
+            kind: .calendarReminderDue,
+            summary: actionable.count == 1 ? "提醒事项：\(actionable[0].title)" : "有 \(actionable.count) 项提醒事项已到期或今天到期",
+            count: actionable.count
+        )
     }
 
     var nextEvent: CalendarAgendaItem? { events.first { $0.end >= Date() } }

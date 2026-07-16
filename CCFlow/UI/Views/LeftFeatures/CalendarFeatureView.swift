@@ -15,7 +15,7 @@ struct CalendarFeatureView: View {
                 permissionContent
             }
         }
-        .onAppear { service.refresh(referenceDate: displayedMonth) }
+        .onAppear { service.refresh() }
     }
 
     private var compactContent: some View {
@@ -37,12 +37,10 @@ struct CalendarFeatureView: View {
                 Label("日历", systemImage: "calendar").font(.headline)
                 Spacer()
                 Button("今天") {
-                    let today = Date()
-                    selectedDate = today
-                    displayedMonth = Calendar.current.dateInterval(of: .month, for: today)?.start ?? today
-                    service.refresh(referenceDate: today)
+                    selectedDate = Date()
+                    displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
                 }
-                Button { service.refresh(referenceDate: displayedMonth) } label: { Image(systemName: "arrow.clockwise") }
+                Button { service.refresh() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.plain).frame(width: 44, height: 44)
             }
             HStack(alignment: .top, spacing: 12) {
@@ -61,7 +59,8 @@ struct CalendarFeatureView: View {
                 Spacer()
                 Button { changeMonth(1) } label: { Image(systemName: "chevron.right") }
             }.buttonStyle(.plain)
-            HStack { ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
+            let symbols = Calendar.current.veryShortStandaloneWeekdaySymbols
+            HStack { ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
             } }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 6) {
@@ -126,14 +125,6 @@ struct CalendarFeatureView: View {
         return Array(repeating: nil, count: leading) + range.compactMap { day in
             calendar.date(byAdding: .day, value: day - 1, to: first)
         }.map(Optional.some)
-    }
-
-    private var weekdaySymbols: [String] {
-        let calendar = Calendar.current
-        let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        guard symbols.count == 7 else { return symbols }
-        let firstIndex = min(max(calendar.firstWeekday - 1, 0), symbols.count - 1)
-        return Array(symbols[firstIndex...] + symbols[..<firstIndex])
     }
 
     private func dayButton(_ date: Date) -> some View {
