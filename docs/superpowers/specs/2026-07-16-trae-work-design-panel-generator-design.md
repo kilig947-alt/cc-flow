@@ -2,13 +2,13 @@
 
 ## Summary
 
-Add a panel-generation section below the left-feature list in Settings. It reuses the existing mascot-generation interaction: users can open TRAE Work Design, copy a fixed prompt, and ask the AI to create a local HTML panel that uses CC FLOW's public JavaScript Bridge APIs.
+Add a panel-generation section below the left-feature list in Settings. It reuses the existing mascot-generation interaction: users can copy a fixed prompt, open Codex Design, Claude Code Design, or TRAE Work Design, and ask the AI to create a local HTML panel that uses CC FLOW's public JavaScript Bridge APIs.
 
 Generated panels are written beneath `~/Library/Application Support/cc-flow/custom-areas/`. CC FLOW watches that root, validates newly generated panel directories, and registers valid panels automatically. Manual scanning and directory import remain available as recovery paths.
 
 ## Goals
 
-- Make TRAE Work Design a guided entry point for creating custom left-side panels.
+- Make Codex Design, Claude Code Design, and TRAE Work Design guided entry points for creating custom left-side panels.
 - Give the AI a complete, fixed prompt that documents output requirements and supported Bridge APIs.
 - Automatically discover and register newly generated panels without letting the AI edit CC FLOW's central configuration.
 - Preserve manual scan and directory selection as reliable fallbacks.
@@ -20,7 +20,7 @@ Generated panels are written beneath `~/Library/Application Support/cc-flow/cust
 - Do not let generated content modify `custom-areas.json` directly.
 - Do not expose Mineradio's internal message handlers as public panel APIs.
 - Do not invent new Bridge APIs as part of this feature.
-- Do not install or invoke TRAE Work Design automatically beyond opening TRAE Work CN.
+- Do not install or invoke a Design application automatically beyond opening the application selected by the user.
 
 ## Generated Panel Contract
 
@@ -79,7 +79,7 @@ Initial startup scanning must be conservative: it imports only valid directories
 
 ### Manual recovery paths
 
-The generator card exposes two fallback actions:
+The feature-list title bar exposes two fallback actions:
 
 - **Scan generated panels:** invokes the same managed-root scan used by automatic discovery and reports its result.
 - **Choose directory to import:** opens a folder picker for an arbitrary local panel directory. The app validates the directory, saves a security-scoped bookmark, and imports it through `CustomAreaStore`.
@@ -88,16 +88,18 @@ Both paths share validation and import behavior with automatic discovery to avoi
 
 ## Settings UI
 
-Add a `SettingsSectionCard` immediately below the existing feature-list card with the title “用 TRAE Work Design 生成面板”. Its layout follows the mascot-generation card:
+The feature-list card title bar places the panel recovery controls on its left side and retains “添加自定义功能” on its right side. The left control group contains “扫描生成面板”, “选择目录导入”, and the latest scan status. The controls remain compact and keep text or symbol-based success and error feedback.
 
-1. An information row explains that the prompt should be pasted into TRAE Work Design and that generated panels appear automatically.
-2. The primary “去 TRAE Work Design 生成” button calls `TraeSessionLauncher.activate(.traeWorkCN)`.
+The feature list sizes itself to its actual rows up to the current 330-point maximum. Short lists no longer leave a large empty region. Once the content exceeds the maximum, the list scrolls internally and retains drag-to-reorder behavior.
+
+Add a `SettingsSectionCard` immediately below the feature-list card with the title “用 Design 生成面板”. Its layout follows the mascot-generation card:
+
+1. An information row explains that the prompt should be copied and pasted into the selected Design conversation and that generated panels appear automatically.
+2. Three equal-width primary buttons open “Codex Design”, “Claude Code Design”, or “TRAE Work Design”. Selecting a destination copies the fixed panel prompt before activating its desktop application. Codex and Claude use their desktop bundle identifiers with application-name fallback; TRAE Work uses `TraeSessionLauncher.activate(.traeWorkCN)`.
 3. A prompt header contains “生成面板提示词” and a “复制提示词” action.
 4. A selectable, monospaced, vertically scrollable prompt preview shows the full fixed template.
-5. A compact action row provides “扫描生成面板” and “选择目录导入”.
-6. A status row reports the most recent success, empty result, or recoverable error.
 
-The existing Settings card style, system colors, SF Symbols, typography, and spacing remain the source of truth. The external-app launch is the single primary action; copy, scan, and import are secondary actions. Controls have text labels, keyboard focus, and VoiceOver labels. Result states use text and symbols as well as color.
+The existing Settings card style, system colors, SF Symbols, typography, and spacing remain the source of truth. The three external-app launch buttons are co-equal primary actions; copy, scan, and import are secondary actions. Controls have text labels, keyboard focus, and VoiceOver labels. Result states use text and symbols as well as color.
 
 Copying the prompt changes the button label to “已复制” for two seconds. Scanning reports such results as “已导入 1 个面板”, “没有发现新面板”, or an actionable validation error. Automatic imports update the feature list immediately and surface a brief success status in the card.
 
@@ -163,8 +165,8 @@ The prompt explicitly excludes the Mineradio API, binary, and playback handlers.
 
 ## Data Flow
 
-1. The user copies the fixed prompt and opens TRAE Work Design.
-2. TRAE Work Design asks for the desired panel and writes the generated files.
+1. The user selects a Design destination; CC FLOW copies the fixed prompt and opens the chosen application.
+2. The selected Design assistant asks for the desired panel and writes the generated files.
 3. The root watcher receives filesystem changes and starts a debounced scan.
 4. The scanner validates the directory, manifest, entry point, and duplicate path.
 5. Valid candidates are registered through `CustomAreaStore`.
@@ -181,7 +183,7 @@ The prompt explicitly excludes the Mineradio API, binary, and playback handlers.
 - **Partially written output:** debounce and retry on later filesystem changes instead of permanently marking the directory invalid.
 - **External-directory permission failure:** explain that the user must choose the directory again to grant access.
 - **Watcher or scan failure:** leave existing features operational and keep both manual recovery actions available.
-- **Launcher failure:** keep the prompt copyable and report that TRAE Work CN could not be opened.
+- **Launcher failure:** keep the prompt copyable and report which selected Design application could not be opened.
 
 ## Testing
 
@@ -199,8 +201,10 @@ Logic tests cover:
 
 UI and integration coverage verifies:
 
-- the generator card appears below the feature list;
-- the launcher targets TRAE Work CN;
+- the feature list grows with its rows, caps at the existing maximum, and scrolls beyond it;
+- scan, directory import, and scan status appear in the feature-list title bar;
+- the generator card appears below the feature list with its updated title;
+- the three launchers target Codex, Claude, and TRAE Work CN respectively and copy the prompt;
 - copying the prompt updates and resets its feedback state;
 - manual scan feedback distinguishes imports, empty results, and errors;
 - directory selection imports a valid panel;
