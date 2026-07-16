@@ -87,6 +87,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.usageID && $0.isEnabled }) {
             UsageService.shared.start()
         }
+        if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.systemMonitorID && $0.isEnabled }) {
+            AppUsageTracker.shared.start()
+        }
+        for feature in LeftFeatureStore.shared.features where feature.isEnabled &&
+            (feature.id == LeftFeature.downloadMonitorID || feature.id == LeftFeature.browserResourcesID) {
+            BrowserBridgeService.shared.start()
+        }
 
         // Spec: 延迟启动 MediaRemote Now Playing 轮询 —— 避免应用启动时
         // `MRMediaRemoteRegisterForNowPlayingNotifications` 的 arm64↔arm64e PAC 崩溃。

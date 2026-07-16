@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "CC FLOW Safari",
+  "version": "1.0.0",
+  "description": "将下载状态和用户主动保存的页面发送到本机 CC FLOW。",
+  "permissions": ["activeTab", "downloads", "storage"],
+  "host_permissions": ["http://127.0.0.1:43128/*"],
+  "background": {"service_worker": "background.js"},
+  "action": {"default_title": "保存到 CC FLOW"},
+  "options_page": "options.html"
+}

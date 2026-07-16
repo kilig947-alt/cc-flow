@@ -383,6 +383,10 @@ final class LeftFeatureStore: ObservableObject {
                 }
             case .usage:
                 UsageService.shared.stop()
+            case .systemMonitor:
+                AppUsageTracker.shared.stop()
+            case .downloadMonitor, .browserResources:
+                BrowserBridgeService.shared.stop()
             default:
                 break
             }
@@ -394,6 +398,8 @@ final class LeftFeatureStore: ObservableObject {
             UsageService.shared.start()
             Task { await UsageService.shared.refresh(reason: .passive) }
         }
+        if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
+        if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

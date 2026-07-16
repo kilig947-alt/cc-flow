@@ -910,6 +910,7 @@ private struct SettingsPanelContentView: View {
     @State private var isFetchingMetadata = false
     @State private var githubPATDraft = ""
     @State private var openAIKeyDraft = ""
+    @State private var browserPairingTokenDraft = ""
     @State private var productivitySecretMessage: String?
 
     var body: some View {
@@ -2119,6 +2120,21 @@ private struct SettingsPanelContentView: View {
                         }
                     }
                 }
+                Divider()
+                Text("Chrome / Edge / Safari 配对").font(.system(size: 12, weight: .semibold))
+                HStack {
+                    TextField("点击显示配对令牌", text: $browserPairingTokenDraft).textFieldStyle(.roundedBorder)
+                    Button("显示并复制") {
+                        browserPairingTokenDraft = BrowserBridgeService.shared.pairingToken
+                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
+                    }
+                    Button("轮换") {
+                        browserPairingTokenDraft = BrowserBridgeService.shared.rotateToken()
+                        NSPasteboard.general.clearContents(); NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
+                    }
+                }
+                Text("本地端点：127.0.0.1:\(BrowserBridgeService.port) · \(BrowserBridgeService.shared.status)")
+                    .font(.caption).foregroundStyle(.secondary)
                 if let productivitySecretMessage { Text(productivitySecretMessage).font(.caption).foregroundStyle(.secondary) }
             }
         }

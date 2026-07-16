@@ -4,6 +4,7 @@ import SwiftUI
 struct BrowserResourcesFeatureView: View {
     let compact: Bool
     @ObservedObject private var service = BrowserResourceService.shared
+    @ObservedObject private var bridge = BrowserBridgeService.shared
     var body: some View {
         if compact {
             Label("已保存 \(service.resources.count) 个资源", systemImage: "safari").font(.system(size: 10, weight: .semibold))
@@ -12,6 +13,7 @@ struct BrowserResourcesFeatureView: View {
                 Label("浏览器资源", systemImage: "safari").font(.headline)
                 Text("兼容 Chrome、Edge 和 Safari。保存与分类只写入 CC FLOW，不修改浏览器书签。")
                     .font(.caption).foregroundStyle(.secondary)
+                Text(bridge.status).font(.caption2).foregroundStyle(.secondary)
                 HStack { TextField("https://…", text: $service.inputURL).textFieldStyle(.roundedBorder)
                     Button("保存资源") { service.saveCurrentInput() }.buttonStyle(.borderedProminent) }
                 ScrollView { LazyVStack(spacing: 7) { ForEach(service.resources) { item in

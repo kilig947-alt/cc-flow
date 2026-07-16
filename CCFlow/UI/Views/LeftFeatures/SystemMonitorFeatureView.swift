@@ -4,6 +4,7 @@ struct SystemMonitorFeatureView: View {
     let compact: Bool
 
     @ObservedObject private var service = SystemMonitorService.shared
+    @ObservedObject private var usage = AppUsageTracker.shared
 
     var body: some View {
         Group {
@@ -59,6 +60,16 @@ struct SystemMonitorFeatureView: View {
             .padding(12)
             .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
 
+            if !usage.today.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("今日应用使用（从启用后累计）").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                    ForEach(usage.today.prefix(4)) { item in
+                        HStack { Text(item.name).lineLimit(1); Spacer(); Text(duration(item.seconds)).monospacedDigit().foregroundStyle(.secondary) }
+                            .font(.system(size: 10))
+                    }
+                }.padding(12).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+            }
+
             Spacer(minLength: 0)
         }
         .padding(16)
@@ -110,5 +121,10 @@ struct SystemMonitorFeatureView: View {
 
     private func bytes(_ value: UInt64) -> String {
         ByteCountFormatter.string(fromByteCount: Int64(clamping: value), countStyle: .memory)
+    }
+
+    private func duration(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds) / 60
+        return minutes >= 60 ? "\(minutes / 60)小时\(minutes % 60)分" : "\(minutes)分钟"
     }
 }

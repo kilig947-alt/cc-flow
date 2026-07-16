@@ -25,6 +25,7 @@ Package.resolved
 # Misc
 *.log
 .worktrees/
+BrowserExtensions/dist/
 
 # Override global *.zip ignore for bundled resources
 !CCFlow/Resources/MediaRemoteAdapter.zip

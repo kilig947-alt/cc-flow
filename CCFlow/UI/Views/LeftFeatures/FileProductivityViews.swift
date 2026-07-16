@@ -108,14 +108,19 @@ struct NaturalSearchFeatureView: View {
 struct DownloadMonitorFeatureView: View {
     let compact: Bool
     @ObservedObject private var service = LocalFileIndexService.shared
+    @ObservedObject private var bridge = BrowserBridgeService.shared
     private var downloads: [LocalFileCard] { service.cards.filter { $0.url.path.contains("/Downloads/") } }
     var body: some View {
         Group {
-            if compact { Label("最近下载 \(downloads.count)", systemImage: "arrow.down.circle").font(.system(size: 10, weight: .semibold)) }
+            if compact { Label(bridge.downloads.first.map { "\($0.filename) · \($0.state)" } ?? "最近下载 \(downloads.count)", systemImage: "arrow.down.circle").font(.system(size: 10, weight: .semibold)).lineLimit(1) }
             else { VStack(alignment: .leading, spacing: 10) {
                 Label("下载监控", systemImage: "arrow.down.circle").font(.headline)
-                Text("显示 Chrome、Edge 和 Safari 写入下载目录的文件。安装浏览器扩展后可获得实时进度。")
+                Text("\(bridge.status)。扩展事件提供实时状态，本地目录作为完成记录兜底。")
                     .font(.caption).foregroundStyle(.secondary)
+                ForEach(bridge.downloads.prefix(8)) { item in
+                    HStack { Image(systemName: item.state == "complete" ? "checkmark.circle.fill" : "arrow.down.circle"); Text(item.filename).lineLimit(1); Spacer(); Text(item.state).font(.caption).foregroundStyle(.secondary) }
+                        .padding(8).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+                }
                 ScrollView { LazyVStack(spacing: 7) { ForEach(downloads.prefix(100)) { card in
                     Button { service.reveal(card) } label: { HStack { Image(systemName: "arrow.down.doc"); Text(card.name).lineLimit(1); Spacer(); Text(card.modifiedAt, style: .relative).font(.caption2) }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9)) }.buttonStyle(.plain)
                 } } }

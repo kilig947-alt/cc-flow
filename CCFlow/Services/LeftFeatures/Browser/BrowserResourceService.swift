@@ -23,8 +23,14 @@ final class BrowserResourceService: ObservableObject {
     func saveCurrentInput() {
         let raw = inputURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: raw), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
-        resources.insert(BrowserResource(id: UUID(), url: url, title: url.host ?? raw, browser: "手动保存", savedAt: Date()), at: 0)
+        add(url: url, title: nil, browser: "手动保存")
         inputURL = ""; persist()
+    }
+
+    func add(url: URL, title: String?, browser: String) {
+        resources.removeAll { $0.url == url }
+        resources.insert(BrowserResource(id: UUID(), url: url, title: title?.isEmpty == false ? title! : (url.host ?? url.absoluteString), browser: browser, savedAt: Date()), at: 0)
+        persist()
     }
 
     func remove(_ resource: BrowserResource) { resources.removeAll { $0.id == resource.id }; persist() }
