@@ -61,6 +61,15 @@ final class UsageCompactPresentationTests: XCTestCase {
         )
     }
 
+    func testSelectedProviderFallsBackToProviderOnlyWhenDataIsMissing() {
+        let snapshot = UsageSnapshot(providers: [], capturedAt: Date())
+
+        XCTAssertEqual(
+            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: .codex),
+            .providerOnly(.codex)
+        )
+    }
+
     func testNoSelectedProviderRetainsAggregateFallback() {
         let snapshot = makeSnapshot(
             claudeWindows: [makeWindow(id: "claude", used: 20)],
@@ -70,6 +79,22 @@ final class UsageCompactPresentationTests: XCTestCase {
         XCTAssertEqual(
             UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: nil),
             .aggregateRemaining(5)
+        )
+    }
+
+    func testNoSelectedProviderFallsBackToAggregateTodayTokens() {
+        let snapshot = makeSnapshot(claudeToday: 12_000, codexToday: 3_000)
+
+        XCTAssertEqual(
+            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: nil),
+            .aggregateTodayTokens(15_000)
+        )
+    }
+
+    func testNoSelectedProviderFallsBackToGenericWithoutUsageData() {
+        XCTAssertEqual(
+            UsageCompactMetricResolver.resolve(snapshot: nil, selectedProvider: nil),
+            .generic
         )
     }
 
