@@ -19,7 +19,7 @@ final class LifecycleCoordinator {
             appModel.update(snapshot: snapshot)
         }
         let socketServer = SocketServer(
-            socketPath: "/tmp/island.sock",
+            socketPath: "/tmp/cc-flow.sock",
             sessionStore: sessionStore,
             approvalCoordinator: approvalCoordinator
         )

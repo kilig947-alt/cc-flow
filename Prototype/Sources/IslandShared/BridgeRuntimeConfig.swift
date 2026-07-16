@@ -14,10 +14,10 @@ public struct BridgeRuntimeConfig: Sendable, Equatable {
 
     public static let `default` = BridgeRuntimeConfig()
 
-    public static let relativeConfigPath = ".trae-flow/bridge-config.json"
-    /// Spec: Launcher 导出 TRAE_FLOW_BRIDGE_CONFIG；保留 TRAE_FLOW_BRIDGE_CONFIG 作为向后兼容回退
-    public static let configPathEnvironmentKey = "TRAE_FLOW_BRIDGE_CONFIG"
+    public static let relativeConfigPath = ".cc-flow/bridge-config.json"
+    public static let configPathEnvironmentKey = "CC_FLOW_BRIDGE_CONFIG"
     public static let legacyConfigPathEnvironmentKey = "TRAE_FLOW_BRIDGE_CONFIG"
+    public static let islandConfigPathEnvironmentKey = "ISLAND_BRIDGE_CONFIG"
 
     public static func defaultConfigURL(home: URL? = nil) -> URL {
         let base = home ?? FileManager.default.homeDirectoryForCurrentUser
@@ -25,14 +25,11 @@ public struct BridgeRuntimeConfig: Sendable, Equatable {
     }
 
     public static func configuredURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL {
-        // Spec: 优先读取 TRAE_FLOW_BRIDGE_CONFIG，回退到 TRAE_FLOW_BRIDGE_CONFIG
-        if let path = environment[configPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !path.isEmpty {
-            return URL(fileURLWithPath: path)
-        }
-        if let path = environment[legacyConfigPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !path.isEmpty {
-            return URL(fileURLWithPath: path)
+        for key in [configPathEnvironmentKey, legacyConfigPathEnvironmentKey, islandConfigPathEnvironmentKey] {
+            if let path = environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !path.isEmpty {
+                return URL(fileURLWithPath: path)
+            }
         }
 
         return defaultConfigURL()

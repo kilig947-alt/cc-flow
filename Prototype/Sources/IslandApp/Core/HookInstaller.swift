@@ -142,9 +142,9 @@ private enum HookConfigParser {
 }
 
 struct HookInstaller {
-    private static let supportDirectoryName = ".trae-flow"
-    private static let bridgeLauncherName = "trae-flow-bridge"
-    private static let bridgeBinaryName = "TraeFlowBridge"
+    private static let supportDirectoryName = ".cc-flow"
+    private static let bridgeLauncherName = "cc-flow-bridge"
+    private static let bridgeBinaryName = "CCFlowBridge"
     private static let legacyBridgeBinaryName = "IslandBridge"
 
     let homeDirectory: URL
@@ -155,36 +155,57 @@ struct HookInstaller {
         self.appSupportDirectory = homeDirectory.appending(path: Self.supportDirectoryName, directoryHint: .isDirectory)
     }
 
-    func installTRAEHookAssets() throws {
+    func installDefaultHookAssets() throws {
         try ensureSupportFiles()
-        let fileURL = homeDirectory.appending(path: ".claude/settings.json")
+        try installJSONHooks(
+            at: homeDirectory.appending(path: ".claude/settings.json"),
+            source: "claude",
+            events: [
+                "SessionStart", "UserPromptSubmit", "PermissionRequest", "PreToolUse",
+                "PostToolUse", "PostToolUseFailure", "Notification", "PreCompact",
+                "SubagentStart", "SubagentStop", "Stop", "SessionEnd"
+            ],
+            installsClaudeEnvironment: true
+        )
+        try installJSONHooks(
+            at: homeDirectory.appending(path: ".codex/hooks.json"),
+            source: "codex",
+            events: [
+                "SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest",
+                "PostToolUse", "PreCompact", "PostCompact", "SubagentStart",
+                "SubagentStop", "Stop"
+            ],
+            installsClaudeEnvironment: false
+        )
+    }
+
+    func installTRAEHookAssets() throws {
+        try installDefaultHookAssets()
+    }
+
+    private func installJSONHooks(
+        at fileURL: URL,
+        source: String,
+        events: [String],
+        installsClaudeEnvironment: Bool
+    ) throws {
         let current = try readJSON(fileURL) ?? [:]
         var updated = current
         var hooks = current["hooks"] as? [String: Any] ?? [:]
 
-        for event in [
-            "SessionStart",
-            "SessionEnd",
-            "Stop",
-            "PreToolUse",
-            "PostToolUse",
-            "PermissionRequest",
-            "Notification",
-            "UserPromptSubmit",
-            "PreCompact",
-            "SubagentStart",
-            "SubagentStop"
-        ] {
+        for event in events {
             hooks[event] = installHookArray(
                 existing: hooks[event],
-                command: bridgeCommand(source: "claude"),
+                command: bridgeCommand(source: source),
                 timeout: event == "PermissionRequest" ? 86_400 : nil
             )
         }
 
         updated["hooks"] = hooks
-        updated["env"] = mergedEnvironment(from: current["env"] as? [String: Any] ?? [:])
-        if shouldInstallManagedStatusLine(current["statusLine"] as? [String: Any]) {
+        if installsClaudeEnvironment {
+            updated["env"] = mergedEnvironment(from: current["env"] as? [String: Any] ?? [:])
+        }
+        if installsClaudeEnvironment, shouldInstallManagedStatusLine(current["statusLine"] as? [String: Any]) {
             updated["statusLine"] = [
                 "type": "command",
                 "command": statusLineCommand()
@@ -196,13 +217,25 @@ struct HookInstaller {
 
     func installStatusLineScript() throws {
         try ensureBinDirectory()
-        let scriptURL = appSupportDirectory.appending(path: "bin/island-statusline")
+        let scriptURL = appSupportDirectory.appending(path: "bin/cc-flow-statusline")
         try writeExecutable(
             """
             #!/bin/bash
+            umask 077
             input=$(cat)
+            _usage_dir="${HOME}/Library/Application Support/cc-flow"
+            mkdir -p "$_usage_dir" || exit 0
+            chmod 700 "$_usage_dir" 2>/dev/null
             _rl=$(echo "$input" | jq -c '.rate_limits // empty' 2>/dev/null)
-            [ -n "$_rl" ] && echo "$_rl" > /tmp/island-rate-limits.json
+            if [ -n "$_rl" ]; then
+              _rl_tmp=$(mktemp "$_usage_dir/claude-rate-limits.XXXXXX") || exit 0
+              printf '%s\n' "$_rl" > "$_rl_tmp" && mv "$_rl_tmp" "$_usage_dir/claude-rate-limits.json"
+            fi
+            _usage=$(echo "$input" | jq -c '{captured_at: now, session_id, rate_limits, context_window, cost}' 2>/dev/null)
+            if [ -n "$_usage" ]; then
+              _usage_tmp=$(mktemp "$_usage_dir/claude-usage.XXXXXX") || exit 0
+              printf '%s\n' "$_usage" > "$_usage_tmp" && mv "$_usage_tmp" "$_usage_dir/claude-usage.json"
+            fi
             echo "$input" | jq -r 'if .model.display_name then "[\\(.model.display_name)] \\(.context_window.used_percentage // 0)% context" else empty end' 2>/dev/null
             """,
             to: scriptURL
@@ -242,7 +275,7 @@ struct HookInstaller {
             .deletingLastPathComponent()
             .appending(path: Self.bridgeBinaryName)
             .path()
-        return executable ?? "/Users/trae-flow/Island/Prototype/.build/debug/\(Self.bridgeBinaryName)"
+        return executable ?? FileManager.default.currentDirectoryPath + "/Prototype/.build/debug/\(Self.bridgeBinaryName)"
     }
 
     private func legacyBridgeBinaryPath() -> String {
@@ -250,7 +283,7 @@ struct HookInstaller {
             .deletingLastPathComponent()
             .appending(path: Self.legacyBridgeBinaryName)
             .path()
-        return executable ?? "/Users/trae-flow/Island/Prototype/.build/debug/\(Self.legacyBridgeBinaryName)"
+        return executable ?? FileManager.default.currentDirectoryPath + "/Prototype/.build/debug/\(Self.legacyBridgeBinaryName)"
     }
 
     private func bridgeCommand(source: String, extraArguments: [String] = []) -> String {
@@ -268,7 +301,7 @@ struct HookInstaller {
     }
 
     private func statusLineCommand() -> String {
-        appSupportDirectory.appending(path: "bin/island-statusline").path()
+        appSupportDirectory.appending(path: "bin/cc-flow-statusline").path()
     }
 
     private func shouldInstallManagedStatusLine(_ existingStatusLine: [String: Any]?) -> Bool {
@@ -277,6 +310,7 @@ struct HookInstaller {
         }
 
         return command == statusLineCommand()
+            || command.contains("/.cc-flow/bin/cc-flow-statusline")
             || command.contains("/.trae-flow/bin/island-statusline")
     }
 
@@ -351,8 +385,10 @@ struct HookInstaller {
 
     private static func isIslandManagedHookCommand(_ command: String, clientKind: String? = nil) -> Bool {
         let normalized = command.lowercased()
-        let isManaged = normalized.contains("/.trae-flow/bin/trae-flow-bridge")
+        let isManaged = normalized.contains("/.cc-flow/bin/cc-flow-bridge")
+            || normalized.contains("/.trae-flow/bin/trae-flow-bridge")
             || normalized.contains("/.trae-flow/bin/island-bridge")
+            || normalized.contains("/.config/trae-flow/hooks/")
         guard isManaged, let clientKind else {
             return isManaged
         }

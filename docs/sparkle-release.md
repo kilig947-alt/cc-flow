@@ -13,7 +13,7 @@ The repo ships `.github/workflows/release-packages.yml` for GitHub-hosted releas
 
 > **注意：** 此工作流不进行 Apple 代码签名和公证。用户首次打开需右键 → 打开，或运行：
 > ```bash
-> xattr -d com.apple.quarantine /Applications/TRAE\ FLOW.app
+> xattr -d com.apple.quarantine /Applications/CC\ FLOW.app
 > ```
 > Sparkle 更新通过 EdDSA 签名验证 appcast 真实性，确保更新来源可信。
 
@@ -92,7 +92,7 @@ SPARKLE_PUBLIC_ED_KEY = YOUR_PUBLIC_ED_KEY
 4. Store notarization credentials locally:
 
 ```bash
-xcrun notarytool store-credentials "TraeFlow" \
+xcrun notarytool store-credentials "CCFlow" \
   --apple-id "your@email.com" \
   --team-id "YOURTEAMID" \
   --password "xxxx-xxxx-xxxx-xxxx"
@@ -107,7 +107,7 @@ xcrun notarytool store-credentials "TraeFlow" \
 ## Notes
 
 - `Config/LocalSecrets.xcconfig` is intentionally gitignored.
-- `scripts/package-release.sh` is the shared build + sign + notarize packaging entrypoint used by both local release tooling and GitHub Actions.
-- `scripts/create-styled-dmg.sh` now defaults to the repo-tracked installer artwork at `docs/images/trae-flow-dmg-installer-background.png`; set `TRAE_FLOW_DMG_BACKGROUND_SOURCE` if you need to preview a different background locally.
-- `scripts/package-release.sh` now compares the build against the latest earlier published GitHub release and fails if `CFBundleVersion` did not increase.
-- `scripts/create-release.sh` infers the GitHub repo from `origin` by default; set `TRAE_FLOW_GITHUB_REPO=owner/repo` if you need to override it.
+- `scripts/package-release.sh` is the local Developer ID build + notarization + packaging entrypoint.
+- `scripts/package-unsigned.sh` creates an ad-hoc signed test DMG without notarization.
+- `scripts/create-styled-dmg.sh` defaults to `docs/images/cc-flow-dmg-installer-background.png`; set `CC_FLOW_DMG_BACKGROUND_SOURCE` to preview another background. Legacy `TRAE_FLOW_*` names remain accepted as fallbacks.
+- `scripts/create-release.sh` infers the GitHub repo from `origin` by default; set `CC_FLOW_GITHUB_REPO=owner/repo` to override it.

@@ -1,16 +1,9 @@
 import Foundation
 
 public enum AgentProvider: String, Codable, CaseIterable, Sendable {
+    case claude
+    case codex
     case trae
-
-    public init?(rawValue: String) {
-        switch rawValue.lowercased() {
-        case "trae", "claude":
-            self = .trae
-        default:
-            return nil
-        }
-    }
 }
 
 public enum SessionStatusKind: String, Codable, CaseIterable, Sendable {

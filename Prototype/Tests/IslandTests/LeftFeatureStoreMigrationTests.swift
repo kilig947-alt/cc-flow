@@ -1,10 +1,10 @@
-import XCTest
+import Testing
 
 /// Spec: refactor-left-island-boringnotch-features —— Task 18.1
 /// 验证 LeftFeatureStore 迁移逻辑的算法等价实现（纯函数版本，不依赖 App 层单例）。
-final class LeftFeatureStoreMigrationTests: XCTestCase {
+@Suite struct LeftFeatureStoreMigrationTests {
 
-    // MARK: - 测试用的简化模型（与 TraeFlow/LeftFeature.swift 等价，但无 AppKit 依赖）
+    // MARK: - 测试用的简化模型（与 CCFlow/LeftFeature.swift 等价，但无 AppKit 依赖）
 
     struct TestFeature: Equatable {
         let id: String
@@ -60,6 +60,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
 
     // MARK: - Tests
 
+
+    @Test
     func test_新用户初始化_无旧数据_无自定义HTML() {
         let result = planMigration(areas: [],
                                    legacyCompactAreaID: nil,
@@ -74,6 +76,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertNil(result.expandedActiveFeatureID)
     }
 
+
+    @Test
     func test_老用户迁移_有自定义HTML_无旧选择() {
         let areas = [
             TestArea(id: "weather", sortOrder: 0),
@@ -93,6 +97,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertNil(result.expandedActiveFeatureID)
     }
 
+
+    @Test
     func test_老用户迁移_旧compactAreaID迁移到compactFeatureID() {
         let areas = [TestArea(id: "weather", sortOrder: 0)]
         let result = planMigration(areas: areas,
@@ -103,6 +109,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertNil(result.expandedActiveFeatureID)
     }
 
+
+    @Test
     func test_老用户迁移_旧expandedAreaID迁移到expandedActiveFeatureID() {
         let areas = [TestArea(id: "weather", sortOrder: 0)]
         let result = planMigration(areas: areas,
@@ -113,6 +121,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertEqual(result.expandedActiveFeatureID, "feature-weather")
     }
 
+
+    @Test
     func test_老用户迁移_旧selectedID回退迁移到expandedActiveFeatureID() {
         let areas = [TestArea(id: "weather", sortOrder: 0)]
         let result = planMigration(areas: areas,
@@ -123,6 +133,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertEqual(result.expandedActiveFeatureID, "feature-weather")
     }
 
+
+    @Test
     func test_老用户迁移_旧ID指向不存在的area() {
         let areas = [TestArea(id: "weather", sortOrder: 0)]
         let result = planMigration(areas: areas,
@@ -133,6 +145,8 @@ final class LeftFeatureStoreMigrationTests: XCTestCase {
         XCTAssertNil(result.expandedActiveFeatureID)
     }
 
+
+    @Test
     func test_迁移幂等性_多次调用结果一致() {
         let areas = [TestArea(id: "weather", sortOrder: 0)]
         let r1 = planMigration(areas: areas,

@@ -35,15 +35,15 @@ jobs:
       - name: Run Xcode unit tests
         run: >
           xcodebuild
-          -project TraeFlow.xcodeproj
-          -scheme TraeFlow
+          -project CCFlow.xcodeproj
+          -scheme CCFlow
           -configuration Debug
           -destination 'platform=macOS'
           -derivedDataPath "$RUNNER_TEMP/DerivedData"
-          -resultBundlePath "$RUNNER_TEMP/TraeFlowTests.xcresult"
+          -resultBundlePath "$RUNNER_TEMP/CCFlowTests.xcresult"
           CODE_SIGNING_ALLOWED=NO
           test
-          -only-testing:TraeFlowTests
+          -only-testing:CCFlowTests
 
       - name: Upload prototype diagnostics
         if: failure()
@@ -57,6 +57,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: TraeFlowTests-xcresult
-          path: ${{ runner.temp }}/TraeFlowTests.xcresult
+          name: CCFlowTests-xcresult
+          path: ${{ runner.temp }}/CCFlowTests.xcresult
           if-no-files-found: ignore

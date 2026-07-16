@@ -3,15 +3,15 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_SVG="${ROOT_DIR}/docs/images/trae-flow-icon.svg"
-OUTPUT_DIR="${ROOT_DIR}/TraeFlow/Assets.xcassets/AppIcon.appiconset"
+SOURCE_IMAGE="${ROOT_DIR}/docs/images/cc-flow-icon.png"
+OUTPUT_DIR="${ROOT_DIR}/CCFlow/Assets.xcassets/AppIcon.appiconset"
 
 usage() {
   cat <<'EOF'
-Usage: render-app-icons.sh [--source <svg-path>] [--output-dir <path>]
+Usage: render-app-icons.sh [--source <image-path>] [--output-dir <path>]
 
-Regenerates the macOS AppIcon asset set from the TRAE FLOW SVG source.
-The export intentionally preserves SVG transparency so the rounded corners
+Regenerates the macOS AppIcon asset set from the CC FLOW master image.
+The export intentionally preserves transparency so the rounded corners
 stay transparent instead of being baked onto a white canvas.
 EOF
 }
@@ -20,7 +20,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --source)
       shift
-      SOURCE_SVG="${1:-}"
+      SOURCE_IMAGE="${1:-}"
       ;;
     --output-dir)
       shift
@@ -39,14 +39,14 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [[ -z "${SOURCE_SVG}" || -z "${OUTPUT_DIR}" ]]; then
+if [[ -z "${SOURCE_IMAGE}" || -z "${OUTPUT_DIR}" ]]; then
   echo "Both source SVG and output directory are required." >&2
   usage >&2
   exit 1
 fi
 
-if [[ ! -f "${SOURCE_SVG}" ]]; then
-  echo "Source SVG not found: ${SOURCE_SVG}" >&2
+if [[ ! -f "${SOURCE_IMAGE}" ]]; then
+  echo "Source image not found: ${SOURCE_IMAGE}" >&2
   exit 1
 fi
 
@@ -57,7 +57,7 @@ render_icon() {
   local filename="$2"
   local output_path="${OUTPUT_DIR}/${filename}"
 
-  sips -z "${size}" "${size}" -s format png "${SOURCE_SVG}" --out "${output_path}" >/dev/null
+  sips -z "${size}" "${size}" -s format png "${SOURCE_IMAGE}" --out "${output_path}" >/dev/null
 }
 
 render_icon 16 "icon_16x16.png"
@@ -71,4 +71,4 @@ render_icon 512 "icon_512x512 1.png"
 render_icon 512 "icon_512x512.png"
 render_icon 1024 "icon_1024x1024.png"
 
-echo "Rendered AppIcon assets from ${SOURCE_SVG}"
+echo "Rendered AppIcon assets from ${SOURCE_IMAGE}"

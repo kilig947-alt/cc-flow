@@ -1,6 +1,6 @@
 # Homebrew Cask Release Notes
 
-TRAE FLOW is published through the official Homebrew Cask repository. Users can
+CC FLOW is published through the official Homebrew Cask repository. Users can
 install it directly without adding a custom tap:
 
 ```bash
@@ -26,7 +26,7 @@ repository:
 1. Build and notarize the macOS app.
 2. Publish the signed DMG and ZIP to the matching GitHub Release.
 3. Publish Sparkle appcast assets when Sparkle signing secrets are configured.
-4. Publish the Linux `TraeFlowBridge` assets.
+4. Publish the Linux `CCFlowBridge` assets.
 
 The workflow no longer pushes to an external `homebrew-tap` repository. That
 keeps release CI focused on first-party build artifacts and avoids a second

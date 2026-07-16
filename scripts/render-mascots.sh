@@ -15,12 +15,12 @@ xcrun swiftc \
   -target "${ARCH}-apple-macos14.0" \
   -o "${EXECUTABLE_PATH}" \
   "${ROOT_DIR}/scripts/mascot-export/SessionStubs.swift" \
-  "${ROOT_DIR}/TraeFlow/Models/MascotStatus.swift" \
-  "${ROOT_DIR}/TraeFlow/Services/Mascot/MascotTheme.swift" \
-  "${ROOT_DIR}/TraeFlow/Services/Mascot/MascotThemeManifest.swift" \
-  "${ROOT_DIR}/TraeFlow/Services/Mascot/MascotFrameLayout.swift" \
-  "${ROOT_DIR}/TraeFlow/Services/Mascot/BuiltInMascotThemes.swift" \
-  "${ROOT_DIR}/TraeFlow/UI/Components/MascotView.swift" \
+  "${ROOT_DIR}/CCFlow/Models/MascotStatus.swift" \
+  "${ROOT_DIR}/CCFlow/Services/Mascot/MascotTheme.swift" \
+  "${ROOT_DIR}/CCFlow/Services/Mascot/MascotThemeManifest.swift" \
+  "${ROOT_DIR}/CCFlow/Services/Mascot/MascotFrameLayout.swift" \
+  "${ROOT_DIR}/CCFlow/Services/Mascot/BuiltInMascotThemes.swift" \
+  "${ROOT_DIR}/CCFlow/UI/Components/MascotView.swift" \
   "${ROOT_DIR}/scripts/mascot-export/MascotGIFExporterMain.swift"
 
 "${EXECUTABLE_PATH}" "$@"

@@ -5,13 +5,13 @@ Create one Markdown file per version:
 - `releases/notes/1.2.3.md`
 - `releases/notes/1.2.4.md`
 
-The app shows these notes in the in-app update popup and the release script publishes them as `TraeFlow-<version>.md`.
+The app shows these notes in the in-app update popup and the release script publishes them as `CCFlow-<version>.md`.
 When `scripts/create-release.sh` creates or updates a GitHub Release, it also uses `releases/notes/<version>.md` as the release body when that file exists.
 
 Recommended template:
 
 ```md
-# TRAE FLOW 1.2.3
+# CC FLOW 1.2.3
 
 ## 亮点
 

@@ -47,6 +47,7 @@ public enum HookPayloadMapper {
             ? nil
             : detectedIntervention
         let status = detectStatus(
+            provider: source,
             eventType: eventType,
             payload: payload,
             clientKind: clientKind,
@@ -91,7 +92,7 @@ public enum HookPayloadMapper {
         }
 
         switch provider {
-        case .trae:
+        case .claude, .trae:
             switch decision {
             case .approve:
                 return #"""
@@ -106,7 +107,7 @@ public enum HookPayloadMapper {
                 {"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from Island"}}}
                 """#
             case .answer(let answers):
-                let usesFullUpdatedInput = shouldPreserveFullUpdatedInputForTraeAnswer(
+                let usesFullUpdatedInput = shouldPreserveFullUpdatedInputForQuestionAnswer(
                     response: response,
                     metadata: metadata
                 )
@@ -120,6 +121,12 @@ public enum HookPayloadMapper {
                     return "{}"
                 }
 
+                if provider == .claude && eventType == "PreToolUse" {
+                    return """
+                    {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":\(payloadJson)}}
+                    """
+                }
+
                 if eventType.contains("Question") || eventType == "UserInputRequest" || eventType == "UserPromptSubmit" {
                     return """
                     {"hookSpecificOutput":{"hookEventName":"\(eventType)","permissionDecision":"allow","updatedInput":\(payloadJson)}}
@@ -130,10 +137,19 @@ public enum HookPayloadMapper {
                 {"hookSpecificOutput":{"hookEventName":"\(eventType)","decision":{"behavior":"allow","updatedInput":\(payloadJson)}}}
                 """
             }
+        case .codex:
+            switch decision {
+            case .approve, .approveForSession:
+                return #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#
+            case .deny, .cancel:
+                return #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from CC FLOW"}}}"#
+            case .answer:
+                return "{}"
+            }
         }
     }
 
-    private static func shouldPreserveFullUpdatedInputForTraeAnswer(
+    private static func shouldPreserveFullUpdatedInputForQuestionAnswer(
         response: BridgeResponse,
         metadata: [String: String]
     ) -> Bool {
@@ -203,6 +219,7 @@ public enum HookPayloadMapper {
     }
 
     private static func detectStatus(
+        provider: AgentProvider,
         eventType: String,
         payload: [String: Any],
         clientKind: String?,
@@ -258,7 +275,7 @@ public enum HookPayloadMapper {
             case "sessionend":
                 return SessionStatus(kind: .completed)
             case "stop", "stopfailure":
-                return SessionStatus(kind: .waitingForInput)
+                return SessionStatus(kind: provider == .trae ? .completed : .waitingForInput)
             default:
                 // Unknown stop/end variant from a future client we have not
                 // audited: stay conservative so we don't accumulate ghost
@@ -933,6 +950,9 @@ public enum HookPayloadMapper {
         payload: [String: Any],
         clientKind: String?
     ) -> Bool {
+        if clientKind?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "codex" {
+            return false
+        }
         if hasAnsweredQuestionPayload(payload) {
             return false
         }
@@ -992,8 +1012,12 @@ public enum HookPayloadMapper {
 private extension AgentProvider {
     var displayName: String {
         switch self {
+        case .claude:
+            return "Claude Code"
+        case .codex:
+            return "Codex"
         case .trae:
-            return "Trae"
+            return "TRAE"
         }
     }
 }

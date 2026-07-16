@@ -18,7 +18,7 @@ func islandBridgeHealthCheckRoundTripsThroughSocketServer() async throws {
             sessionStore: store,
             approvalCoordinator: coordinator
         ) { _ in
-            let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+            let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
             let process = try RunningProcess(
                 executableURL: executable,
                 arguments: ["--mode", "health-check"],
@@ -36,7 +36,7 @@ func islandBridgeHealthCheckRoundTripsThroughSocketServer() async throws {
 
 @Test
 func islandBridgeHealthCheckFailsWhenSocketIsUnavailable() throws {
-    let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+    let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
     let process = try RunningProcess(
         executableURL: executable,
         arguments: ["--mode", "health-check"],
@@ -53,7 +53,7 @@ func islandBridgeHealthCheckFailsWhenSocketIsUnavailable() throws {
 
 @Test
 func islandBridgeAllowsStateOnlyEventsWhenAppIsUnavailable() throws {
-    let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+    let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
     let process = try RunningProcess(
         executableURL: executable,
         arguments: ["--source", "trae"],
@@ -79,7 +79,7 @@ func islandBridgeAllowsStateOnlyEventsWhenAppIsUnavailable() throws {
 
 @Test
 func islandBridgeDoesNotWaitForStdinEOFWhenPayloadAlreadyArrived() async throws {
-    let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+    let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
     let process = try RunningProcess(
         executableURL: executable,
         arguments: ["--source", "trae"],
@@ -114,7 +114,7 @@ func islandBridgeDoesNotWaitForStdinEOFWhenPayloadAlreadyArrived() async throws 
 
 @Test
 func islandBridgeWaitsForSplitJSONPayloadBeforeContinuing() async throws {
-    let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+    let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
     let process = try RunningProcess(
         executableURL: executable,
         arguments: ["--source", "trae"],
@@ -167,7 +167,7 @@ func islandBridgeRoundTripsApprovalRequestsThroughSocketServer() async throws {
             sessionStore: store,
             approvalCoordinator: coordinator
         ) { _ in
-            let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+            let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
             let process = try RunningProcess(
                 executableURL: executable,
                 arguments: ["--source", "trae"],
@@ -221,7 +221,7 @@ func islandBridgeRoundTripsApprovalRequestsThroughSocketServer() async throws {
 
 @Test
 func remoteAgentFailsOpenWhenNoControlClientIsAttached() async throws {
-    let executable = try TestRuntime.executableURL(named: "TraeFlowBridge")
+    let executable = try TestRuntime.executableURL(named: "CCFlowBridge")
     let socketID = UUID().uuidString.prefix(8)
     let hookSocketPath = "/tmp/trae-\(socketID)-h.sock"
     let controlSocketPath = "/tmp/trae-\(socketID)-c.sock"

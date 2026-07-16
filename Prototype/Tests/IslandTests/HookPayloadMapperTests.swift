@@ -15,7 +15,7 @@ func mapsApprovalEventFromHookPayload() throws {
 
     let envelope = HookPayloadMapper.makeEnvelope(
         source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        arguments: ["cc-flow-bridge", "--source", "trae"],
         environment: ["TERM_PROGRAM": "iTerm.app", "ITERM_SESSION_ID": "iterm-1", "PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -25,6 +25,35 @@ func mapsApprovalEventFromHookPayload() throws {
     #expect(envelope.intervention?.kind == .approval)
     #expect(envelope.status?.kind == .waitingForApproval)
     #expect(envelope.sessionKey == "trae:abc123")
+}
+
+@Test
+func namespacesIdenticalSessionIDsByProvider() throws {
+    let payload = #"{"hook_event_name":"SessionStart","session_id":"shared-id"}"#.data(using: .utf8)!
+    let environment = ["PWD": "/tmp/demo"]
+
+    let claude = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
+        environment: environment,
+        stdinData: payload
+    )
+    let codex = HookPayloadMapper.makeEnvelope(
+        source: .codex,
+        arguments: ["cc-flow-bridge", "--source", "codex"],
+        environment: environment,
+        stdinData: payload
+    )
+    let trae = HookPayloadMapper.makeEnvelope(
+        source: .trae,
+        arguments: ["cc-flow-bridge", "--source", "trae"],
+        environment: environment,
+        stdinData: payload
+    )
+
+    #expect(claude.sessionKey == "claude:shared-id")
+    #expect(codex.sessionKey == "codex:shared-id")
+    #expect(trae.sessionKey == "trae:shared-id")
 }
 
 @Test
@@ -92,6 +121,32 @@ func bridgeRuntimeConfigLoadsFromEnvironmentPath() async throws {
         )
 
         #expect(config.routePromptsToTerminal)
+    }
+}
+
+@Test
+func bridgeRuntimeConfigUsesCCFlowPathAndEnvironmentFallbackOrder() async throws {
+    try await withTemporaryDirectory { directory in
+        let ccURL = directory.appending(path: "cc.json")
+        let traeURL = directory.appending(path: "trae.json")
+        let islandURL = directory.appending(path: "island.json")
+        try #"{"routePromptsToTerminal":true}"#.write(to: ccURL, atomically: true, encoding: .utf8)
+        try #"{"routePromptsToTerminal":false}"#.write(to: traeURL, atomically: true, encoding: .utf8)
+        try #"{"routePromptsToTerminal":false}"#.write(to: islandURL, atomically: true, encoding: .utf8)
+
+        #expect(BridgeRuntimeConfig.relativeConfigPath == ".cc-flow/bridge-config.json")
+        #expect(BridgeRuntimeConfig.configuredURL(environment: [
+            "CC_FLOW_BRIDGE_CONFIG": ccURL.path(),
+            "TRAE_FLOW_BRIDGE_CONFIG": traeURL.path(),
+            "ISLAND_BRIDGE_CONFIG": islandURL.path()
+        ]) == ccURL)
+        #expect(BridgeRuntimeConfig.configuredURL(environment: [
+            "TRAE_FLOW_BRIDGE_CONFIG": traeURL.path(),
+            "ISLAND_BRIDGE_CONFIG": islandURL.path()
+        ]) == traeURL)
+        #expect(BridgeRuntimeConfig.configuredURL(environment: [
+            "ISLAND_BRIDGE_CONFIG": islandURL.path()
+        ]) == islandURL)
     }
 }
 
@@ -257,7 +312,7 @@ func mapsQuestionEventOptions() throws {
 @Test
 func claudePermissionPayloadUsesHookSpecificOutput() throws {
     let payload = HookPayloadMapper.stdoutPayload(
-        for: .trae,
+        for: .claude,
         response: BridgeResponse(requestID: UUID(), decision: .approve),
         eventType: "PermissionRequest",
         metadata: [:]
@@ -269,6 +324,58 @@ func claudePermissionPayloadUsesHookSpecificOutput() throws {
     #expect(hookSpecificOutput["hookEventName"] as? String == "PermissionRequest")
     let decision = try #require(hookSpecificOutput["decision"] as? [String: Any])
     #expect(decision["behavior"] as? String == "allow")
+}
+
+@Test
+func codexPermissionPayloadUsesOfficialDecisionShape() throws {
+    let allowPayload = HookPayloadMapper.stdoutPayload(
+        for: .codex,
+        response: BridgeResponse(requestID: UUID(), decision: .approveForSession),
+        eventType: "PermissionRequest",
+        metadata: [:]
+    )
+    let allowJSON = try #require(JSONSerialization.jsonObject(with: Data(allowPayload.utf8)) as? [String: Any])
+    let allowOutput = try #require(allowJSON["hookSpecificOutput"] as? [String: Any])
+    let allowDecision = try #require(allowOutput["decision"] as? [String: Any])
+    #expect(allowOutput["hookEventName"] as? String == "PermissionRequest")
+    #expect(allowDecision["behavior"] as? String == "allow")
+
+    let denyPayload = HookPayloadMapper.stdoutPayload(
+        for: .codex,
+        response: BridgeResponse(requestID: UUID(), decision: .deny),
+        eventType: "PermissionRequest",
+        metadata: [:]
+    )
+    let denyJSON = try #require(JSONSerialization.jsonObject(with: Data(denyPayload.utf8)) as? [String: Any])
+    let denyOutput = try #require(denyJSON["hookSpecificOutput"] as? [String: Any])
+    let denyDecision = try #require(denyOutput["decision"] as? [String: Any])
+    #expect(denyDecision["behavior"] as? String == "deny")
+}
+
+@Test
+func codexQuestionAnswerDoesNotPretendToSupportGenericInput() {
+    let payload = HookPayloadMapper.stdoutPayload(
+        for: .codex,
+        response: BridgeResponse(requestID: UUID(), decision: .answer(["answer": "A"])),
+        eventType: "UserInputRequest",
+        metadata: [:]
+    )
+
+    #expect(payload == "{}")
+}
+
+@Test
+func codexQuestionPayloadDoesNotCreateBlockingIntervention() {
+    let payload = #"{"hook_event_name":"PreToolUse","session_id":"codex-question","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Pick","options":["A","B"]}]}}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .codex,
+        arguments: ["cc-flow-bridge", "--source", "codex", "--client-kind", "codex"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.intervention == nil)
+    #expect(envelope.expectsResponse == false)
 }
 
 @Test
@@ -294,7 +401,7 @@ func claudeQuestionAnswerPayloadPreservesFullUpdatedInputForPermissionRequests()
     )
 
     let payload = HookPayloadMapper.stdoutPayload(
-        for: .trae,
+        for: .claude,
         response: response,
         eventType: "PermissionRequest",
         metadata: [:]
@@ -309,6 +416,39 @@ func claudeQuestionAnswerPayloadPreservesFullUpdatedInputForPermissionRequests()
     let questions = try #require(updatedInput["questions"] as? [[String: Any]])
     let answers = try #require(updatedInput["answers"] as? [String: String])
     #expect(questions.first?["question"] as? String == "Which terminal?")
+    #expect(answers["Which terminal?"] == "iTerm2")
+}
+
+@Test
+func claudePreToolUseQuestionAnswerUsesOfficialUpdatedInputShape() throws {
+    let response = BridgeResponse(
+        requestID: UUID(),
+        decision: .answer([:]),
+        updatedInput: [
+            "questions": .array([
+                .object([
+                    "question": .string("Which terminal?"),
+                    "options": .array([.string("iTerm2"), .string("Terminal")])
+                ])
+            ]),
+            "answers": .object(["Which terminal?": .string("iTerm2")])
+        ]
+    )
+
+    let payload = HookPayloadMapper.stdoutPayload(
+        for: .claude,
+        response: response,
+        eventType: "PreToolUse",
+        metadata: ["tool_name": "AskUserQuestion"]
+    )
+
+    let json = try #require(JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any])
+    let output = try #require(json["hookSpecificOutput"] as? [String: Any])
+    #expect(output["hookEventName"] as? String == "PreToolUse")
+    #expect(output["permissionDecision"] as? String == "allow")
+    #expect(output["decision"] == nil)
+    let updatedInput = try #require(output["updatedInput"] as? [String: Any])
+    let answers = try #require(updatedInput["answers"] as? [String: String])
     #expect(answers["Which terminal?"] == "iTerm2")
 }
 
@@ -356,7 +496,7 @@ func claudeUserInputAnswerPayloadPreservesFullUpdatedInput() throws {
     )
 
     let payload = HookPayloadMapper.stdoutPayload(
-        for: .trae,
+        for: .claude,
         response: response,
         eventType: "UserInputRequest",
         metadata: [:]
@@ -388,7 +528,7 @@ func claudeNonQuestionAnswerPayloadKeepsLegacyFlattenedShape() throws {
     )
 
     let payload = HookPayloadMapper.stdoutPayload(
-        for: .trae,
+        for: .claude,
         response: response,
         eventType: "PermissionRequest",
         metadata: ["tool_name": "Bash"]
@@ -458,8 +598,8 @@ func claudePostToolUseResolvedQuestionDoesNotKeepSocketOpen() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -483,8 +623,8 @@ func claudeStopMapsToWaitingForInput() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["TERM_PROGRAM": "iTerm.app", "PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -492,6 +632,19 @@ func claudeStopMapsToWaitingForInput() throws {
     #expect(envelope.eventType == "Stop")
     #expect(envelope.status?.kind == .waitingForInput)
     #expect(envelope.intervention == nil)
+}
+
+@Test
+func traeStopMapsToCompleted() throws {
+    let payload = #"{"hook_event_name":"Stop","session_id":"trae-stop-1"}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .trae,
+        arguments: ["cc-flow-bridge", "--source", "trae"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.status?.kind == .completed)
 }
 
 @Test
@@ -504,8 +657,8 @@ func claudeSubagentStopMapsToRunningTool() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["TERM_PROGRAM": "iTerm.app", "PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -524,8 +677,8 @@ func claudeSubagentStartMapsToRunningTool() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["TERM_PROGRAM": "iTerm.app", "PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -545,8 +698,8 @@ func claudeStopFailureMapsToWaitingForInput() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["TERM_PROGRAM": "iTerm.app", "PWD": "/tmp/demo"],
         stdinData: payload
     )
@@ -565,8 +718,8 @@ func claudeSessionEndMapsToCompleted() throws {
     """.data(using: .utf8)!
 
     let envelope = HookPayloadMapper.makeEnvelope(
-        source: .trae,
-        arguments: ["island-bridge", "--source", "trae"],
+        source: .claude,
+        arguments: ["cc-flow-bridge", "--source", "claude"],
         environment: ["TERM_PROGRAM": "iTerm.app", "PWD": "/tmp/demo"],
         stdinData: payload
     )

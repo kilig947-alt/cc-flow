@@ -9,7 +9,7 @@ let package = Package(
     ],
     products: [
         .executable(name: "IslandApp", targets: ["IslandApp"]),
-        .executable(name: "TraeFlowBridge", targets: ["TraeFlowBridge"]),
+        .executable(name: "CCFlowBridge", targets: ["CCFlowBridge"]),
         .library(name: "IslandShared", targets: ["IslandShared"])
     ],
     targets: [
@@ -22,7 +22,7 @@ let package = Package(
             path: "Sources/IslandApp"
         ),
         .executableTarget(
-            name: "TraeFlowBridge",
+            name: "CCFlowBridge",
             dependencies: ["IslandShared"],
             path: "Sources/IslandBridge"
         ),

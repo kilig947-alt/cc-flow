@@ -66,7 +66,7 @@ func parseArguments() throws -> Configuration {
 
     guard let outputPath else {
         throw NSError(
-            domain: "TraeFlowDMG",
+            domain: "CCFlowDMG",
             code: 64,
             userInfo: [NSLocalizedDescriptionKey: "Usage: generate-dmg-background.swift --output <png-path> [--width <pixels>] [--height <pixels>]"]
         )
@@ -165,7 +165,7 @@ func drawBackground(configuration: Configuration) throws {
             bitsPerPixel: 0
         )
     else {
-        throw NSError(domain: "TraeFlowDMG", code: 65, userInfo: [NSLocalizedDescriptionKey: "Failed to allocate bitmap"])
+        throw NSError(domain: "CCFlowDMG", code: 65, userInfo: [NSLocalizedDescriptionKey: "Failed to allocate bitmap"])
     }
 
     bitmap.size = NSSize(width: width, height: height)
@@ -173,7 +173,7 @@ func drawBackground(configuration: Configuration) throws {
     defer { NSGraphicsContext.restoreGraphicsState() }
 
     guard let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
-        throw NSError(domain: "TraeFlowDMG", code: 66, userInfo: [NSLocalizedDescriptionKey: "Failed to create graphics context"])
+        throw NSError(domain: "CCFlowDMG", code: 66, userInfo: [NSLocalizedDescriptionKey: "Failed to create graphics context"])
     }
 
     NSGraphicsContext.current = context
@@ -225,7 +225,7 @@ func drawBackground(configuration: Configuration) throws {
         .paragraphStyle: titleStyle,
         .kern: canvasWidth <= 700 ? 1.2 : 2.0
     ]
-    let title = NSAttributedString(string: "PING ISLAND", attributes: titleAttributes)
+    let title = NSAttributedString(string: "CC FLOW", attributes: titleAttributes)
     title.draw(in: NSRect(x: 0, y: layout.titleY, width: canvasWidth, height: layout.titleHeight))
 
     drawInstallArrow(from: layout.arrowStart, to: layout.arrowEnd)
@@ -242,7 +242,7 @@ func drawBackground(configuration: Configuration) throws {
     caption.draw(in: layout.captionRect)
 
     guard let data = bitmap.representation(using: .png, properties: [:]) else {
-        throw NSError(domain: "TraeFlowDMG", code: 67, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
+        throw NSError(domain: "CCFlowDMG", code: 67, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
     }
 
     let outputURL = URL(fileURLWithPath: configuration.outputPath)

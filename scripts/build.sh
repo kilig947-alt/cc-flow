@@ -1,22 +1,22 @@
 #!/bin/bash
-# Build TRAE FLOW for release
+# Build CC FLOW for release
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="${TRAE_FLOW_BUILD_DIR:-$PROJECT_DIR/build}"
+BUILD_DIR="${CC_FLOW_BUILD_DIR:-${TRAE_FLOW_BUILD_DIR:-$PROJECT_DIR/build}}"
 DERIVED_DATA_PATH="$BUILD_DIR/DerivedData"
-ARCHIVE_PATH="$BUILD_DIR/TraeFlow.xcarchive"
+ARCHIVE_PATH="$BUILD_DIR/CCFlow.xcarchive"
 EXPORT_PATH="$BUILD_DIR/export"
-KEYCHAIN_PATH="${TRAE_FLOW_KEYCHAIN_PATH:-}"
-TEAM_ID="${TRAE_FLOW_TEAM_ID:-}"
-EXPORT_METHOD="${TRAE_FLOW_EXPORT_METHOD:-developer-id}"
-SIGNING_CERTIFICATE="${TRAE_FLOW_SIGNING_CERTIFICATE:-Developer ID Application}"
-ENABLE_HARDENED_RUNTIME="${TRAE_FLOW_ENABLE_HARDENED_RUNTIME:-YES}"
-SCHEME="${TRAE_FLOW_SCHEME:-TraeFlow}"
-PROJECT_FILE="${TRAE_FLOW_PROJECT_FILE:-TraeFlow.xcodeproj}"
+KEYCHAIN_PATH="${CC_FLOW_KEYCHAIN_PATH:-${TRAE_FLOW_KEYCHAIN_PATH:-}}"
+TEAM_ID="${CC_FLOW_TEAM_ID:-${TRAE_FLOW_TEAM_ID:-}}"
+EXPORT_METHOD="${CC_FLOW_EXPORT_METHOD:-${TRAE_FLOW_EXPORT_METHOD:-developer-id}}"
+SIGNING_CERTIFICATE="${CC_FLOW_SIGNING_CERTIFICATE:-${TRAE_FLOW_SIGNING_CERTIFICATE:-Developer ID Application}}"
+ENABLE_HARDENED_RUNTIME="${CC_FLOW_ENABLE_HARDENED_RUNTIME:-${TRAE_FLOW_ENABLE_HARDENED_RUNTIME:-YES}}"
+SCHEME="${CC_FLOW_SCHEME:-${TRAE_FLOW_SCHEME:-CCFlow}}"
+PROJECT_FILE="${CC_FLOW_PROJECT_FILE:-${TRAE_FLOW_PROJECT_FILE:-CCFlow.xcodeproj}}"
 
-echo "=== Building TRAE FLOW ==="
+echo "=== Building CC FLOW ==="
 echo ""
 
 # Clean previous builds
@@ -99,6 +99,6 @@ fi
 
 echo ""
 echo "=== Build Complete ==="
-echo "App exported to: $EXPORT_PATH/TRAE FLOW.app"
+echo "App exported to: $EXPORT_PATH/CC FLOW.app"
 echo ""
 echo "Next: Run ./scripts/create-release.sh to notarize and create DMG"

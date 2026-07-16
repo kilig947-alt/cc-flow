@@ -1,0 +1,328 @@
+import AppKit
+import XCTest
+@testable import CC_FLOW
+
+final class UsageDataLoaderTests: XCTestCase {
+    func testLeftFeatureExpandedSizeDefaultsToUsagePanelSize() {
+        let feature = LeftFeature(kind: .newsnow(baseURL: "https://example.com"))
+
+        XCTAssertEqual(feature.resolvedExpandedWidth, 680)
+        XCTAssertEqual(feature.resolvedExpandedHeight, 460)
+    }
+
+    func testLeftFeatureCustomExpandedSizeOverridesDefaults() {
+        let feature = LeftFeature(
+            kind: .music,
+            expandedWidth: 920,
+            expandedHeight: 540
+        )
+
+        XCTAssertEqual(feature.resolvedExpandedWidth, 920)
+        XCTAssertEqual(feature.resolvedExpandedHeight, 540)
+    }
+
+    func testLeftFeatureDecodesWithoutGlobalShortcut() throws {
+        let feature = LeftFeature(
+            id: LeftFeature.usageID,
+            kind: .usage,
+            isEnabled: true,
+            sortOrder: 0
+        )
+        let encoded = try JSONEncoder().encode(feature)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "globalShortcut")
+
+        let decoded = try JSONDecoder().decode(
+            LeftFeature.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        XCTAssertEqual(decoded.kind, .usage)
+        XCTAssertNil(decoded.globalShortcut)
+    }
+
+    func testLeftFeatureShortcutRoundTrips() throws {
+        let shortcut = try XCTUnwrap(GlobalShortcut(keyCode: 40, modifierFlags: [.option, .command]))
+        let feature = LeftFeature(kind: .usage, globalShortcut: shortcut)
+
+        let decoded = try JSONDecoder().decode(LeftFeature.self, from: JSONEncoder().encode(feature))
+
+        XCTAssertEqual(decoded.globalShortcut, shortcut)
+    }
+
+    @MainActor
+    func testShortcutConflictChecksFixedAndDisabledFeatureOwners() throws {
+        let shortcut = try XCTUnwrap(GlobalShortcut(keyCode: 40, modifierFlags: [.option, .command]))
+        let feature = LeftFeature(
+            id: "disabled-feature",
+            kind: .music,
+            isEnabled: false,
+            globalShortcut: shortcut
+        )
+
+        XCTAssertEqual(
+            LeftFeatureStore.conflictingShortcutOwner(
+                for: shortcut,
+                fixedShortcuts: [(.openActiveSession, shortcut)],
+                features: [feature]
+            ),
+            GlobalShortcutAction.openActiveSession.title
+        )
+        XCTAssertEqual(
+            LeftFeatureStore.conflictingShortcutOwner(
+                for: shortcut,
+                fixedShortcuts: [],
+                features: [feature]
+            ),
+            feature.displayName
+        )
+        XCTAssertNil(
+            LeftFeatureStore.conflictingShortcutOwner(
+                for: shortcut,
+                fixedShortcuts: [],
+                features: [feature],
+                excludingFeatureID: feature.id
+            )
+        )
+    }
+
+    @MainActor
+    func testUsageFeatureMigrationInsertsEnabledFeatureFirstAndIsIdempotent() {
+        let source = [
+            LeftFeature(id: LeftFeature.musicID, kind: .music, isEnabled: false, sortOrder: 0),
+            LeftFeature(id: LeftFeature.shelfID, kind: .shelf, isEnabled: true, sortOrder: 1)
+        ]
+
+        let migrated = LeftFeatureStore.featuresByEnsuringUsageFeature(source)
+        let ordered = migrated.sorted { $0.sortOrder < $1.sortOrder }
+
+        XCTAssertEqual(ordered.first?.id, LeftFeature.usageID)
+        XCTAssertEqual(ordered.first?.isEnabled, true)
+        XCTAssertEqual(LeftFeatureStore.featuresByEnsuringUsageFeature(migrated), migrated)
+    }
+
+    func testLoaderDeduplicatesClaudeMessagesAndUsesCodexCumulativeDeltas() throws {
+        UsageDataLoader.resetFileCacheForTesting()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let claudeRoot = root.appendingPathComponent("claude", isDirectory: true)
+        let codexRoot = root.appendingPathComponent("codex", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: codexRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let now = Date()
+        let timestamp = ISO8601DateFormatter.testFormatter.string(from: now)
+        let claudeLine = """
+        {"type":"assistant","timestamp":"\(timestamp)","message":{"id":"same-message","model":"claude-test","usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":3,"cache_creation_input_tokens":2}}}
+        """
+        try writeLines([claudeLine, claudeLine], to: claudeRoot.appendingPathComponent("session.jsonl"))
+
+        let codexLines = [
+            """
+            {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"output_tokens":10,"cached_input_tokens":20}},"rate_limits":null}}
+            """,
+            """
+            {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":150,"output_tokens":20,"reasoning_output_tokens":9,"cached_input_tokens":25}},"rate_limits":{"primary":{"used_percent":30,"window_minutes":300,"reset_at":\(Int(now.timeIntervalSince1970 + 3600))}}}}
+            """
+        ]
+        try writeLines(codexLines, to: codexRoot.appendingPathComponent("rollout-test.jsonl"))
+
+        let statusURL = root.appendingPathComponent("status.json")
+        let status: [String: Any] = [
+            "captured_at": now.timeIntervalSince1970,
+            "rate_limits": [
+                "five_hour": ["used_percentage": 25, "resets_at": now.timeIntervalSince1970 + 1800]
+            ]
+        ]
+        try JSONSerialization.data(withJSONObject: status).write(to: statusURL)
+
+        let snapshot = UsageDataLoader.load(
+            now: now,
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            statusURL: statusURL,
+            queryCodexAccount: false,
+            currentSessionIDs: [.claude: "session", .codex: "codex-session"]
+        )
+        let claude = try XCTUnwrap(snapshot.providers.first { $0.provider == .claude })
+        let codex = try XCTUnwrap(snapshot.providers.first { $0.provider == .codex })
+
+        XCTAssertEqual(claude.windows.first?.usedPercentage, 25)
+        XCTAssertEqual(claude.tokenSummary?.today, TokenUsageTotal(input: 10, output: 5, cacheRead: 3, cacheWrite: 2))
+        XCTAssertEqual(claude.tokenSummary?.currentSession, TokenUsageTotal(input: 10, output: 5, cacheRead: 3, cacheWrite: 2))
+        XCTAssertEqual(codex.windows.first?.usedPercentage, 30)
+        XCTAssertEqual(codex.windows.first?.windowMinutes, 300)
+        XCTAssertEqual(codex.tokenSummary?.today, TokenUsageTotal(input: 125, output: 20, cacheRead: 25, cacheWrite: 0))
+        XCTAssertNil(codex.tokenSummary?.currentSession)
+    }
+
+    func testLoaderMatchesCodexCurrentSessionMetadata() throws {
+        UsageDataLoader.resetFileCacheForTesting()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let claudeRoot = root.appendingPathComponent("claude", isDirectory: true)
+        let codexRoot = root.appendingPathComponent("codex", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: codexRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let now = Date()
+        let timestamp = ISO8601DateFormatter.testFormatter.string(from: now)
+        try writeLines([
+            """
+            {"type":"session_meta","payload":{"id":"active-codex"}}
+            """,
+            """
+            {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":80,"output_tokens":7,"cached_input_tokens":20}}}}
+            """
+        ], to: codexRoot.appendingPathComponent("rollout-current.jsonl"))
+
+        let snapshot = UsageDataLoader.load(
+            now: now,
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            statusURL: root.appendingPathComponent("missing.json"),
+            queryCodexAccount: false,
+            currentSessionIDs: [.codex: "active-codex"]
+        )
+        let codex = try XCTUnwrap(snapshot.providers.first { $0.provider == .codex })
+
+        XCTAssertEqual(
+            codex.tokenSummary?.currentSession,
+            TokenUsageTotal(input: 60, output: 7, cacheRead: 20, cacheWrite: 0)
+        )
+    }
+
+    func testLoaderReusesUnchangedFilesAndIncludesArchivedCodexSessions() throws {
+        UsageDataLoader.resetFileCacheForTesting()
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let claudeRoot = root.appendingPathComponent("claude", isDirectory: true)
+        let codexRoot = root.appendingPathComponent("codex", isDirectory: true)
+        let archivedRoot = root.appendingPathComponent("archived", isDirectory: true)
+        try FileManager.default.createDirectory(at: claudeRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: codexRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archivedRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let now = Date()
+        let timestamp = ISO8601DateFormatter.testFormatter.string(from: now)
+        let archivedFile = archivedRoot.appendingPathComponent("rollout-archived.jsonl")
+        try writeLines([
+            """
+            {"type":"session_meta","payload":{"id":"archived-session"}}
+            """,
+            """
+            {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":40,"output_tokens":5,"cached_input_tokens":10}}}}
+            """
+        ], to: archivedFile)
+
+        let first = UsageDataLoader.load(
+            now: now,
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            codexArchivedRoot: archivedRoot,
+            statusURL: root.appendingPathComponent("missing.json"),
+            queryCodexAccount: false
+        )
+        let firstParseCount = UsageDataLoader.parsedFileCountForTesting
+        let second = UsageDataLoader.load(
+            now: now,
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            codexArchivedRoot: archivedRoot,
+            statusURL: root.appendingPathComponent("missing.json"),
+            queryCodexAccount: false
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(UsageDataLoader.parsedFileCountForTesting, firstParseCount)
+        let codex = try XCTUnwrap(first.providers.first { $0.provider == .codex })
+        XCTAssertEqual(
+            codex.tokenSummary?.today,
+            TokenUsageTotal(input: 30, output: 5, cacheRead: 10, cacheWrite: 0)
+        )
+
+        try writeLines([
+            """
+            {"type":"session_meta","payload":{"id":"archived-session"}}
+            """,
+            """
+            {"type":"event_msg","timestamp":"\(timestamp)","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":50,"output_tokens":8,"cached_input_tokens":10}}}}
+            """
+        ], to: archivedFile)
+        _ = UsageDataLoader.load(
+            now: now,
+            claudeRoot: claudeRoot,
+            codexRoot: codexRoot,
+            codexArchivedRoot: archivedRoot,
+            statusURL: root.appendingPathComponent("missing.json"),
+            queryCodexAccount: false
+        )
+        XCTAssertGreaterThan(UsageDataLoader.parsedFileCountForTesting, firstParseCount)
+    }
+
+    func testCancelledLoaderStopsBeforeProviderQueries() {
+        let snapshot = UsageDataLoader.load(
+            queryCodexAccount: false,
+            shouldCancel: { true }
+        )
+
+        XCTAssertTrue(snapshot.providers.isEmpty)
+    }
+
+    func testRefreshMergePreservesLastSuccessfulWindowsAsStale() throws {
+        let oldWindow = UsageWindow(
+            id: "primary",
+            label: "主要限额",
+            usedPercentage: 40,
+            resetsAt: nil,
+            windowMinutes: 300
+        )
+        let previous = UsageSnapshot(providers: [
+            ProviderUsageSnapshot(
+                provider: .codex,
+                accountState: .available,
+                windows: [oldWindow],
+                tokenSummary: TokenUsageSummary(
+                    today: TokenUsageTotal(input: 10),
+                    sevenDays: TokenUsageTotal(input: 10),
+                    currentSession: nil
+                ),
+                capturedAt: Date(timeIntervalSince1970: 100),
+                errorMessage: nil
+            )
+        ], capturedAt: Date(timeIntervalSince1970: 100))
+        let incoming = UsageSnapshot(providers: [
+            ProviderUsageSnapshot(
+                provider: .codex,
+                accountState: .unavailable,
+                windows: [],
+                tokenSummary: nil,
+                capturedAt: nil,
+                errorMessage: "响应超时"
+            )
+        ], capturedAt: Date(timeIntervalSince1970: 200))
+
+        let merged = UsageService.mergingLastSuccess(new: incoming, previous: previous)
+        let codex = try XCTUnwrap(merged.providers.first)
+
+        XCTAssertEqual(codex.accountState, .stale)
+        XCTAssertEqual(codex.windows, [oldWindow])
+        XCTAssertEqual(codex.errorMessage, "响应超时")
+        XCTAssertNil(codex.tokenSummary)
+    }
+
+    private func writeLines(_ lines: [String], to url: URL) throws {
+        try (lines.joined(separator: "\n") + "\n").data(using: .utf8)?.write(to: url)
+    }
+}
+
+private extension ISO8601DateFormatter {
+    static let testFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+}

@@ -49,7 +49,7 @@ func bridgeRuntimeConfigClampsDebugLogPolicy() async throws {
 @Test
 func debugLogPrunerRemovesFilesOutsideRetentionWindow() async throws {
     try await withTemporaryDirectory { directory in
-        let logsDirectory = directory.appending(path: ".trae-flow-debug", directoryHint: .isDirectory)
+        let logsDirectory = directory.appending(path: ".cc-flow-debug", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         let oldLog = logsDirectory.appending(path: "20260501.jsonl")
         let freshLog = logsDirectory.appending(path: "20260611.jsonl")
@@ -75,7 +75,7 @@ func debugLogPrunerRemovesFilesOutsideRetentionWindow() async throws {
 @Test
 func debugLogPrunerRemovesOldestFilesUntilUnderSizeLimit() async throws {
     try await withTemporaryDirectory { directory in
-        let logsDirectory = directory.appending(path: ".trae-flow-debug", directoryHint: .isDirectory)
+        let logsDirectory = directory.appending(path: ".cc-flow-debug", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         let oldestLog = logsDirectory.appending(path: "20260609.jsonl")
         let middleLog = logsDirectory.appending(path: "20260610.jsonl")
@@ -101,7 +101,7 @@ func debugLogPrunerRemovesOldestFilesUntilUnderSizeLimit() async throws {
 @Test
 func debugLogPrunerDeletesLogsWhenPolicyDisabled() async throws {
     try await withTemporaryDirectory { directory in
-        let logsDirectory = directory.appending(path: ".trae-flow-debug", directoryHint: .isDirectory)
+        let logsDirectory = directory.appending(path: ".cc-flow-debug", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         let log = logsDirectory.appending(path: "receiver.log")
         let ignoredFile = logsDirectory.appending(path: "notes.txt")

@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 
 /// Spec: add-newsnow-built-in-feature —— Task 2.4
 /// 验证 `ensureBuiltinNewsNowFeature` 的幂等性逻辑（纯函数镜像，不依赖 App 层 @MainActor 单例）。
-final class NewsNowBuiltinEnsuranceTests: XCTestCase {
+@Suite struct NewsNowBuiltinEnsuranceTests {
 
     struct TestFeature: Equatable {
         let id: String
@@ -22,6 +22,8 @@ final class NewsNowBuiltinEnsuranceTests: XCTestCase {
         return features + [TestFeature(id: "newsnow", kind: "newsnow", isEnabled: true, sortOrder: maxSort + 1)]
     }
 
+
+    @Test
     func test_缺失时追加() {
         let initial = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -34,6 +36,8 @@ final class NewsNowBuiltinEnsuranceTests: XCTestCase {
         XCTAssertTrue(result[2].isEnabled)
     }
 
+
+    @Test
     func test_已存在不覆盖() {
         let initial = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -46,6 +50,8 @@ final class NewsNowBuiltinEnsuranceTests: XCTestCase {
         XCTAssertFalse(result[1].isEnabled)     // 未被覆盖
     }
 
+
+    @Test
     func test_空列表追加sortOrder0() {
         let result = ensureNewsNow(features: [])
         XCTAssertEqual(result.count, 1)

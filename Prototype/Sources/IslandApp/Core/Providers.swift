@@ -12,11 +12,11 @@ struct TraeProviderAdapter: AgentProviderAdapter {
     let installer: HookInstaller
 
     func installHooks() async throws {
-        try installer.installTRAEHookAssets()
+        try installer.installDefaultHookAssets()
     }
 
     func repairHooksIfNeeded() async {
-        try? installer.installTRAEHookAssets()
+        try? installer.installDefaultHookAssets()
     }
 
     func startMonitoring() async {}

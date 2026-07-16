@@ -1,6 +1,6 @@
 # Anonymous Usage Telemetry
 
-TRAE FLOW can optionally send a small amount of anonymous product telemetry to
+CC FLOW can optionally send a small amount of anonymous product telemetry to
 Alibaba Cloud Simple Log Service (SLS). Telemetry is not uploaded until the user
 confirms consent during first-run onboarding or later in Settings. The
 "匿名使用统计" switch in Settings can disable it at any time.
@@ -10,17 +10,19 @@ confirms consent during first-run onboarding or later in Settings. The
 Source builds keep telemetry disabled unless a complete SLS target is provided.
 Release builds should inject the SLS target from GitHub Actions secrets:
 
-- `TRAE_FLOW_TELEMETRY_SLS_HOST`
-- `TRAE_FLOW_TELEMETRY_SLS_PROJECT`
-- `TRAE_FLOW_TELEMETRY_SLS_LOGSTORE`
+- `CC_FLOW_TELEMETRY_SLS_HOST`
+- `CC_FLOW_TELEMETRY_SLS_PROJECT`
+- `CC_FLOW_TELEMETRY_SLS_LOGSTORE`
+
+The legacy `TRAE_FLOW_*` build settings remain accepted as fallbacks.
 
 For local release testing, set the same three values in
 `Config/LocalSecrets.xcconfig`:
 
 ```xcconfig
-TRAE_FLOW_TELEMETRY_SLS_HOST = ap-southeast-1.log.aliyuncs.com
-TRAE_FLOW_TELEMETRY_SLS_PROJECT = trae-flow-global
-TRAE_FLOW_TELEMETRY_SLS_LOGSTORE = trae-flow
+CC_FLOW_TELEMETRY_SLS_HOST = ap-southeast-1.log.aliyuncs.com
+CC_FLOW_TELEMETRY_SLS_PROJECT = cc-flow-global
+CC_FLOW_TELEMETRY_SLS_LOGSTORE = cc-flow
 ```
 
 Use the endpoint for the region where the `trae-flow` project was created.
@@ -30,7 +32,7 @@ endpoint.
 Topic and source remain non-secret build defaults:
 
 - Topic: `product-telemetry`
-- Source: `trae-flow-macos`
+- Source: `cc-flow-macos`
 
 The app writes with SLS WebTracking batch upload:
 
@@ -65,7 +67,7 @@ Current fields describe only coarse product usage:
 - app version, build, distribution channel, macOS major version, architecture,
   language bucket, surface mode, and anonymous device ID.
 - `report_date` and `active_device`, which let SLS count daily active devices.
-- Daily session counts grouped by client and provider (TRAE variants).
+- Daily session counts grouped by client and provider (Claude, Codex, TRAE).
 - Daily tmux session count.
 - Daily setting-toggle adjustment counts by setting key.
 

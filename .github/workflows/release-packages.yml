@@ -63,8 +63,8 @@ jobs:
           set -euo pipefail
 
           xcodebuild \
-            -project TraeFlow.xcodeproj \
-            -scheme TraeFlow \
+            -project CCFlow.xcodeproj \
+            -scheme CCFlow \
             -configuration Release \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGN_IDENTITY=- \
@@ -74,8 +74,8 @@ jobs:
               echo "Retrying with stable compiler settings..."
               rm -rf "$RUNNER_TEMP/DerivedData"
               xcodebuild \
-                -project TraeFlow.xcodeproj \
-                -scheme TraeFlow \
+                -project CCFlow.xcodeproj \
+                -scheme CCFlow \
                 -configuration Release \
                 -derivedDataPath "$RUNNER_TEMP/DerivedData" \
                 CODE_SIGN_IDENTITY=- \
@@ -89,7 +89,7 @@ jobs:
       - name: Verify app bundle
         id: version
         run: |
-          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/TRAE FLOW.app"
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/CC FLOW.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "ERROR: App bundle not found"
             exit 1
@@ -110,7 +110,7 @@ jobs:
 
       - name: Ad-hoc re-sign for distribution
         run: |
-          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/TRAE FLOW.app"
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/CC FLOW.app"
           codesign --force --deep --sign - \
             --preserve-metadata=identifier,entitlements \
             "$APP_PATH"
@@ -120,9 +120,9 @@ jobs:
         id: dmg
         run: |
           set -euo pipefail
-          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/TRAE FLOW.app"
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/CC FLOW.app"
           STAGING="$RUNNER_TEMP/dmg-staging"
-          DMG_PATH="$RUNNER_TEMP/TraeFlow-${{ steps.version.outputs.version }}.dmg"
+          DMG_PATH="$RUNNER_TEMP/CCFlow-${{ steps.version.outputs.version }}.dmg"
 
           rm -rf "$STAGING" "$DMG_PATH"
           mkdir -p "$STAGING"
@@ -130,13 +130,13 @@ jobs:
           ln -s /Applications "$STAGING/Applications"
 
           chmod +x scripts/create-styled-dmg.sh
-          TRAE_FLOW_DMG_BACKGROUND_SOURCE=docs/images/trae-flow-dmg-installer-background.png \
-          TRAE_FLOW_DMG_LOGO_SOURCE=docs/images/trae-flow-icon-transparent.svg \
+          CC_FLOW_DMG_BACKGROUND_SOURCE=docs/images/cc-flow-dmg-installer-background.png \
+          CC_FLOW_DMG_LOGO_SOURCE=docs/images/cc-flow-icon.png \
             scripts/create-styled-dmg.sh \
-              --volname "TRAE FLOW" \
+              --volname "CC FLOW" \
               --source "$STAGING" \
               --output "$DMG_PATH" \
-              --app-name "TRAE FLOW.app"
+              --app-name "CC FLOW.app"
 
           echo "dmg_path=$DMG_PATH" >> "$GITHUB_OUTPUT"
           ls -lh "$DMG_PATH"
@@ -178,7 +178,7 @@ jobs:
             LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
             {
-              echo "## TRAE FLOW $VERSION (Build $BUILD)"
+              echo "## CC FLOW $VERSION (Build $BUILD)"
               echo ""
               if [ -n "$LAST_TAG" ]; then
                 echo "### 变更记录"
@@ -189,7 +189,7 @@ jobs:
               else
                 echo "### 首次发布"
                 echo ""
-                echo "- TRAE FLOW $VERSION 发布"
+                echo "- CC FLOW $VERSION 发布"
               fi
               echo ""
               echo "---"
@@ -200,7 +200,7 @@ jobs:
               echo "**注意：此版本未经过 Apple 公证**，首次打开请右键 → 打开，或运行："
               echo ""
               echo '```bash'
-              echo "xattr -d com.apple.quarantine /Applications/TRAE\\ FLOW.app"
+              echo "xattr -d com.apple.quarantine /Applications/CC\\ FLOW.app"
               echo '```'
               echo ""
               printf '%s\n' "$RELEASE_BLOCK"
@@ -278,7 +278,7 @@ jobs:
               --repo "$repo" \
               --verify-tag \
               --draft \
-              --title "TRAE FLOW $RELEASE_TAG" \
+              --title "CC FLOW $RELEASE_TAG" \
               --notes-file "${{ steps.notes.outputs.file }}"
           }
 
@@ -299,7 +299,7 @@ jobs:
 
           retry gh release edit "$RELEASE_TAG" \
             --repo "$repo" \
-            --title "TRAE FLOW $RELEASE_TAG" \
+            --title "CC FLOW $RELEASE_TAG" \
             --notes-file "${{ steps.notes.outputs.file }}" \
             --draft="$RELEASE_DRAFT" \
             --prerelease="$RELEASE_PRERELEASE"
