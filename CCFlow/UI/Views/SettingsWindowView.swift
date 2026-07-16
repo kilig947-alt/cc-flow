@@ -2256,7 +2256,7 @@ private struct SettingsPanelContentView: View {
                     Button {
                         let pasteboard = NSPasteboard.general
                         pasteboard.clearContents()
-                        pasteboard.setString(Self.generatedPanelPromptTemplate, forType: .string)
+                        pasteboard.setString(GeneratedPanelPrompt.text, forType: .string)
                         generatedPanelPromptCopied = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             generatedPanelPromptCopied = false
@@ -2281,7 +2281,7 @@ private struct SettingsPanelContentView: View {
                 .padding(.top, 10)
 
                 ScrollView {
-                    Text(Self.generatedPanelPromptTemplate)
+                    Text(GeneratedPanelPrompt.text)
                         .font(.system(size: 11, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -2369,54 +2369,6 @@ private struct SettingsPanelContentView: View {
         }
         return ("没有发现新面板", "checkmark.circle", false)
     }
-
-    private static let generatedPanelPromptTemplate = """
-    我想创建一个 CC FLOW 左侧自定义面板。请先询问我希望面板实现什么需求，再根据回答直接生成并保存文件。
-
-    【输出目录】
-    为面板选择简短、安全的英文 ID，并创建目录：
-    ~/Library/Application Support/cc-flow/custom-areas/[面板ID]/
-
-    必须生成 index.html。可以同时生成 cc-flow-panel.json：
-    {
-      "id": "[面板ID]",
-      "name": "[面板显示名称]",
-      "entryPoint": "index.html",
-      "icon": "[SF Symbol 名称或 text:文字]",
-      "allowsNetworkAccess": false
-    }
-
-    只有需求确实需要访问外部 HTTP/HTTPS 接口时，才将 allowsNetworkAccess 设为 true。不要修改 CC FLOW 源码或 custom-areas.json。
-
-    【页面要求】
-    - 使用可由 WKWebView 直接加载的 HTML、CSS、JavaScript，可将资源放在同一面板目录内。
-    - 同时适配浅色和深色外观，布局适合可调整大小的桌面面板。
-    - 不要调用未在下方列出的 Bridge，也不要调用 Mineradio 的内部 API。
-    - Bridge 不存在时必须安全降级，使用特性检测或 try/catch，保证普通浏览器预览不报错。
-
-    【CC FLOW JS Bridge】
-    1. 向 Flow 岛紧凑态推送限时提示：
-    window.webkit.messageHandlers.ccFlowHint.postMessage({
-      text: "任务已完成",
-      duration: 5000
-    });
-
-    清除提示：
-    window.webkit.messageHandlers.ccFlowHint.postMessage({ action: "clear" });
-
-    2. 请求系统指标：
-    window.webkit.messageHandlers.ccFlowMetrics.postMessage({});
-
-    页面通过以下回调接收数据：
-    window.receiveMetrics = function (data) {
-      // data.cpu
-      // data.memoryUsed / data.memoryTotal / data.memoryPercent
-      // data.loadOne / data.loadFive / data.loadFifteen
-      // data.cores
-    };
-
-    完成后请检查 index.html 和可选清单文件确实已写入目标目录，并告诉我返回 CC FLOW。CC FLOW 会自动扫描；若未出现，我可以点击“扫描生成面板”或“选择目录导入”。
-    """
 
     // MARK: - Left Content: Feature List
 

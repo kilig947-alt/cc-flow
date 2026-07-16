@@ -13,6 +13,8 @@ struct CustomAreaWebView: NSViewRepresentable {
     static let hintMessageHandlerName = "ccFlowHint"
     /// JS Bridge 系统指标消息处理器 —— HTML 端通过 `window.webkit.messageHandlers.ccFlowMetrics` 请求指标
     static let metricsMessageHandlerName = "ccFlowMetrics"
+    /// Schema-driven Plugin SDK v1 Promise RPC endpoint.
+    static let pluginRPCMessageHandlerName = "ccFlowRPC"
 
     /// WebView 内容源
     enum ContentSource: Equatable {
@@ -111,11 +113,17 @@ struct CustomAreaWebView: NSViewRepresentable {
         if !source.allowsNetworkAccess {
             configuration.setURLSchemeHandler(LocalFileSchemeHandler(), forURLScheme: "cc-flow-local")
         }
+        configuration.setURLSchemeHandler(PluginSDKSchemeHandler(), forURLScheme: "cc-flow-sdk")
 
         // Spec: 注册 JS Bridge —— 自定义 HTML 提示消息通道
         configuration.userContentController.add(context.coordinator, name: Self.hintMessageHandlerName)
         // Spec: 注册 JS Bridge —— 系统指标查询通道（HTML 可通过此通道获取真实 CPU/内存/负载数据）
         configuration.userContentController.add(context.coordinator, name: Self.metricsMessageHandlerName)
+        configuration.userContentController.addScriptMessageHandler(
+            context.coordinator.pluginBridgeHandler,
+            contentWorld: .page,
+            name: Self.pluginRPCMessageHandlerName
+        )
 
         // Spec: mineradio-bridge-compat-layer —— 注入 Bridge user script + 注册 message handler
         if source.isMineradio {
@@ -147,6 +155,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.webView = webView
         // 同步当前 areaID 与网络访问策略（区域/源切换时 JS Bridge 与导航策略需引用最新值）
         context.coordinator.currentAreaID = source.areaID
+        context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
@@ -188,6 +197,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         // 移除旧 handler（释放旧 Coordinator）
         controller.removeScriptMessageHandler(forName: Self.hintMessageHandlerName)
         controller.removeScriptMessageHandler(forName: Self.metricsMessageHandlerName)
+        controller.removeScriptMessageHandler(forName: Self.pluginRPCMessageHandlerName)
         if source.isMineradio {
             controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.apiMessageHandlerName)
             controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.binaryMessageHandlerName)
@@ -196,6 +206,11 @@ struct CustomAreaWebView: NSViewRepresentable {
         // 添加新 handler
         controller.add(context.coordinator, name: Self.hintMessageHandlerName)
         controller.add(context.coordinator, name: Self.metricsMessageHandlerName)
+        controller.addScriptMessageHandler(
+            context.coordinator.pluginBridgeHandler,
+            contentWorld: .page,
+            name: Self.pluginRPCMessageHandlerName
+        )
         if source.isMineradio {
             controller.add(context.coordinator, name: MineradioBridgeUserScript.apiMessageHandlerName)
             controller.add(context.coordinator, name: MineradioBridgeUserScript.binaryMessageHandlerName)
@@ -207,6 +222,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         // 同步 Coordinator 状态
         context.coordinator.webView = webView
         context.coordinator.currentAreaID = source.areaID
+        context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
@@ -257,6 +273,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         guard let webView = context.coordinator.webView else { return }
         // 同步当前 areaID 与网络访问策略（区域/源切换时 JS Bridge 与导航策略需引用最新值）
         context.coordinator.currentAreaID = source.areaID
+        context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
@@ -348,6 +365,7 @@ struct CustomAreaWebView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+        let pluginBridgeHandler = PluginBridgeMessageHandler()
         weak var webView: WKWebView?
         /// 上次加载的本地区域 ID（UUID）
         var lastAreaID: String?
@@ -429,7 +447,7 @@ struct CustomAreaWebView: NSViewRepresentable {
             let currentURL = webView.url
             // 主框架导航：targetFrame == nil（target="_blank"）或链接点击
             let isMainFrameNavigation = navigationAction.targetFrame == nil
-                || navigationAction.navigationType == .linkActivated
+                || navigationAction.targetFrame?.isMainFrame == true
 
             // file / cc-flow-local scheme → 始终放行（本地资源）
             if scheme == "file" || scheme == "cc-flow-local" {

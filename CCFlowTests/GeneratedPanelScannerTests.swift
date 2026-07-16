@@ -77,6 +77,46 @@ final class GeneratedPanelScannerTests: XCTestCase {
         XCTAssertTrue(candidate.allowsNetworkAccess)
     }
 
+    func testCandidateAcceptsV2PluginManifest() throws {
+        let directory = try makePanelDirectory(name: "plugin")
+        try write(
+            #"{"manifestVersion":2,"id":"com.example.plugin","name":"Plugin","version":"1.0.0","entryPoint":"index.html","sdkVersion":"^1.0","capabilities":["system.metrics.read"]}"#,
+            to: directory.appendingPathComponent("cc-flow-panel.json")
+        )
+
+        XCTAssertNoThrow(try scanner.candidate(for: directory))
+    }
+
+    func testCandidateRejectsUnknownV2Capability() throws {
+        let directory = try makePanelDirectory(name: "unknown-capability")
+        try write(
+            #"{"manifestVersion":2,"id":"com.example.plugin","version":"1.0.0","sdkVersion":"^1.0","capabilities":["shell.execute"]}"#,
+            to: directory.appendingPathComponent("cc-flow-panel.json")
+        )
+
+        XCTAssertThrowsError(try scanner.candidate(for: directory)) { error in
+            guard case .invalidPluginManifest(let message) = error as? GeneratedPanelScanner.ValidationError else {
+                return XCTFail("Expected invalidPluginManifest, got \(error)")
+            }
+            XCTAssertTrue(message.contains("shell.execute"))
+        }
+    }
+
+    func testCandidateRequiresExplicitV2Capabilities() throws {
+        let directory = try makePanelDirectory(name: "missing-capabilities")
+        try write(
+            #"{"manifestVersion":2,"id":"com.example.plugin","version":"1.0.0","sdkVersion":"^1.0"}"#,
+            to: directory.appendingPathComponent("cc-flow-panel.json")
+        )
+
+        XCTAssertThrowsError(try scanner.candidate(for: directory)) { error in
+            guard case .invalidPluginManifest(let message) = error as? GeneratedPanelScanner.ValidationError else {
+                return XCTFail("Expected invalidPluginManifest, got \(error)")
+            }
+            XCTAssertTrue(message.contains("capabilities"))
+        }
+    }
+
     func testCandidateRejectsMissingEntryPoint() throws {
         let directory = temporaryRoot.appendingPathComponent("incomplete", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

@@ -8,10 +8,14 @@ final class GeneratedPanelScanner: ObservableObject {
     static let shared = GeneratedPanelScanner()
 
     struct Manifest: Decodable, Equatable {
+        let manifestVersion: Int?
         let id: String?
         let name: String?
+        let version: String?
         let entryPoint: String?
         let icon: String?
+        let sdkVersion: String?
+        let capabilities: [String]?
         let allowsNetworkAccess: Bool?
     }
 
@@ -42,6 +46,7 @@ final class GeneratedPanelScanner: ObservableObject {
         case missingEntryPoint(String)
         case invalidEntryPoint(String)
         case malformedManifest(String)
+        case invalidPluginManifest(String)
 
         var errorDescription: String? {
             switch self {
@@ -53,6 +58,8 @@ final class GeneratedPanelScanner: ObservableObject {
                 return "入口文件必须位于面板目录内：\(path)"
             case .malformedManifest(let detail):
                 return "cc-flow-panel.json 无法解析：\(detail)"
+            case .invalidPluginManifest(let detail):
+                return "插件清单无效：\(detail)"
             }
         }
     }
@@ -224,6 +231,26 @@ final class GeneratedPanelScanner: ObservableObject {
             }
         } else {
             manifest = nil
+        }
+
+        if manifest?.manifestVersion == 2 {
+            guard let id = manifest?.id, id.range(of: #"^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)+$"#, options: .regularExpression) != nil else {
+                throw ValidationError.invalidPluginManifest("manifestVersion 2 需要稳定的反向域名 id")
+            }
+            guard let version = manifest?.version, !version.isEmpty else {
+                throw ValidationError.invalidPluginManifest("缺少 version")
+            }
+            guard let sdkVersion = manifest?.sdkVersion, sdkVersion.hasPrefix("^1.") || sdkVersion.hasPrefix("1.") else {
+                throw ValidationError.invalidPluginManifest("sdkVersion 必须兼容 1.x")
+            }
+            guard let capabilities = manifest?.capabilities else {
+                throw ValidationError.invalidPluginManifest("缺少 capabilities；无权限插件请显式使用空数组")
+            }
+            let knownCapabilities = Set(PluginSDKCatalog.schema.methods.compactMap(\.capability))
+            let unknown = Set(capabilities).subtracting(knownCapabilities)
+            guard unknown.isEmpty else {
+                throw ValidationError.invalidPluginManifest("未知 capabilities：\(unknown.sorted().joined(separator: "、"))")
+            }
         }
 
         let entryPoint = manifest?.entryPoint?.trimmingCharacters(in: .whitespacesAndNewlines)
