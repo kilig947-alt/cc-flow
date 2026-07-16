@@ -16,6 +16,8 @@ struct SystemMonitorFeatureView: View {
 
     private var compactContent: some View {
         HStack(spacing: 9) {
+            Text("↓\(rate(service.snapshot.networkDownloadBytesPerSecond)) ↑\(rate(service.snapshot.networkUploadBytesPerSecond))")
+                .foregroundStyle(.secondary).monospacedDigit()
             compactMetric(label: "CPU", value: service.snapshot.cpuPercent, color: .green)
             compactMetric(label: "内存", value: service.snapshot.memoryPercent, color: .cyan)
         }
@@ -48,6 +50,10 @@ struct SystemMonitorFeatureView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                HStack { Label("网络", systemImage: "network"); Spacer()
+                    Text("↓ \(rate(service.snapshot.networkDownloadBytesPerSecond))   ↑ \(rate(service.snapshot.networkUploadBytesPerSecond))")
+                        .monospacedDigit() }
+                    .font(.system(size: 11, weight: .semibold))
                 Text("系统负载")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
@@ -126,5 +132,9 @@ struct SystemMonitorFeatureView: View {
     private func duration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds) / 60
         return minutes >= 60 ? "\(minutes / 60)小时\(minutes % 60)分" : "\(minutes)分钟"
+    }
+
+    private func rate(_ value: Double) -> String {
+        "\(ByteCountFormatter.string(fromByteCount: Int64(value), countStyle: .file))/s"
     }
 }

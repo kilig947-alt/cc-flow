@@ -15,4 +15,10 @@ final class SystemMonitorServiceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(capacity.used, 0)
         XCTAssertLessThanOrEqual(capacity.used, capacity.total)
     }
+
+    func testNetworkTotalsCanBeSampledWithoutNegativeCounters() {
+        let totals = SystemMonitorService.networkTotals()
+        XCTAssertGreaterThanOrEqual(totals.received, 0)
+        XCTAssertGreaterThanOrEqual(totals.sent, 0)
+    }
 }

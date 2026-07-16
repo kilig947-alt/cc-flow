@@ -54,6 +54,14 @@ final class ProductivityFeatureTests: XCTestCase {
         XCTAssertTrue(folders.contains(home.appendingPathComponent("Desktop")))
     }
 
+    func testNaturalQueryParsesChinesePathTypeAndTagWithoutSQL() {
+        let parsed = NaturalFileQuery.parse("帮我找 下载里的最近截图 PDF")
+        XCTAssertEqual(parsed.tags, ["截图"])
+        XCTAssertEqual(parsed.extensions, ["pdf"])
+        XCTAssertEqual(parsed.pathHints, ["/downloads/"])
+        XCTAssertTrue(parsed.terms.isEmpty)
+    }
+
     func testFileActionRequiresFreshPlanAvoidsOverwriteAndCanUndo() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

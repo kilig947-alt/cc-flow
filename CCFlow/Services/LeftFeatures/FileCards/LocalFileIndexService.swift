@@ -39,6 +39,7 @@ final class LocalFileIndexService: ObservableObject {
     private var enrichmentTask: Task<Void, Never>?
     private var consumers = 0
     private var scanGeneration = 0
+    private var monitorTimer: AnyCancellable?
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
@@ -56,21 +57,24 @@ final class LocalFileIndexService: ObservableObject {
         return Array(Set(defaults + saved)).sorted { $0.path < $1.path }
     }
 
-    func start() { consumers += 1 }
+    func start() {
+        consumers += 1
+        guard monitorTimer == nil else { return }
+        monitorTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scan() }
+        scan()
+    }
     func stop() {
         consumers = max(0, consumers - 1)
         guard consumers == 0 else { return }
+        scanGeneration += 1
+        monitorTimer?.cancel(); monitorTimer = nil
         scanTask?.cancel(); scanTask = nil; enrichmentTask?.cancel(); enrichmentTask = nil; isScanning = false
     }
 
     var results: [LocalFileCard] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !needle.isEmpty else { return cards }
-        return cards.filter {
-            $0.name.lowercased().contains(needle) || $0.url.path.lowercased().contains(needle) ||
-            $0.kind.lowercased().contains(needle) || $0.tags.contains { $0.lowercased().contains(needle) } ||
-            $0.summary.lowercased().contains(needle) || $0.ocrText.lowercased().contains(needle)
-        }
+        let parsed = NaturalFileQuery.parse(query)
+        guard !parsed.isEmpty else { return cards }
+        return cards.filter { parsed.matches($0) }
     }
 
     func scan() {
@@ -79,6 +83,7 @@ final class LocalFileIndexService: ObservableObject {
         scanGeneration += 1
         let generation = scanGeneration
         let roots = folders
+        let cachedCards = Dictionary(uniqueKeysWithValues: cards.map { ($0.id, $0) })
         scanTask?.cancel()
         scanTask = Task.detached(priority: .utility) { [weak self] in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey, .contentTypeKey]
@@ -97,12 +102,16 @@ final class LocalFileIndexService: ObservableObject {
                     if ["crdownload", "download", "part"].contains(url.pathExtension.lowercased()) { continue }
                     let kind = values.contentType?.localizedDescription ?? url.pathExtension.uppercased()
                     let tags = Self.tags(for: url)
-                    let ocrText = output.count < 40 ? Self.recognizeText(at: url) : ""
+                    let identifier = url.standardizedFileURL.path
+                    let modified = values.contentModificationDate ?? .distantPast
+                    let size = Int64(values.fileSize ?? 0)
+                    let cached = cachedCards[identifier].flatMap { $0.modifiedAt == modified && $0.size == size ? $0 : nil }
+                    let ocrText = cached?.ocrText ?? (output.count < 40 ? Self.recognizeText(at: url) : "")
                     output.append(LocalFileCard(
-                        id: url.standardizedFileURL.path, url: url, name: name, kind: kind,
-                        size: Int64(values.fileSize ?? 0), modifiedAt: values.contentModificationDate ?? .distantPast,
-                        tags: tags, summary: "\(kind) · \(ByteCountFormatter.string(fromByteCount: Int64(values.fileSize ?? 0), countStyle: .file))",
-                        ocrText: String(ocrText.prefix(8_000)), suggestion: Self.suggestion(for: url, tags: tags)
+                        id: identifier, url: url, name: name, kind: kind, size: size, modifiedAt: modified,
+                        tags: cached?.tags ?? tags,
+                        summary: cached?.summary ?? "\(kind) · \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))",
+                        ocrText: String(ocrText.prefix(8_000)), suggestion: cached?.suggestion ?? Self.suggestion(for: url, tags: tags)
                     ))
                 }
             }
@@ -110,7 +119,7 @@ final class LocalFileIndexService: ObservableObject {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
-                guard self.scanGeneration == generation else { return }
+                guard self.scanGeneration == generation, self.consumers > 0 else { return }
                 self.cards = output; self.persistCards(); self.isScanning = false
                 self.enrichmentTask = Task { await self.enrichRecentCardsWithAI() }
             }
@@ -164,6 +173,7 @@ final class LocalFileIndexService: ObservableObject {
             let request = AIProviderRequest(task: .fileCard, filename: card.name, path: nil,
                 fileType: card.url.pathExtension, ocrText: String(card.ocrText.prefix(4_000)), query: nil, title: nil, snippet: nil)
             let result = await AIProviderService.shared.perform(request)
+            guard !Task.isCancelled, consumers > 0 else { return }
             guard cards.indices.contains(index), cards[index].id == card.id else { continue }
             cards[index].summary = result.response.summary
             cards[index].tags = Array(Set(cards[index].tags + result.response.tags)).sorted()
@@ -215,6 +225,43 @@ final class LocalFileIndexService: ObservableObject {
             try? VNImageRequestHandler(cgImage: image).perform([request])
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+struct NaturalFileQuery: Equatable {
+    var terms: [String] = []
+    var tags: [String] = []
+    var extensions: [String] = []
+    var pathHints: [String] = []
+    var isEmpty: Bool { terms.isEmpty && tags.isEmpty && extensions.isEmpty && pathHints.isEmpty }
+
+    nonisolated static func parse(_ input: String) -> NaturalFileQuery {
+        var normalized = input.lowercased()
+        ["帮我找", "查找", "搜索", "最近的", "最近", "所有", "文件"].forEach { normalized = normalized.replacingOccurrences(of: $0, with: " ") }
+        normalized = normalized.replacingOccurrences(of: "里的", with: " ").replacingOccurrences(of: "中的", with: " ")
+        var result = NaturalFileQuery()
+        for token in normalized.split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "，" }).map(String.init) {
+            if token.hasPrefix("tag:") { result.tags.append(String(token.dropFirst(4))); continue }
+            if token.hasPrefix("path:") { result.pathHints.append(String(token.dropFirst(5))); continue }
+            if token.hasPrefix("type:") { result.extensions.append(String(token.dropFirst(5)).trimmingCharacters(in: CharacterSet(charactersIn: "."))); continue }
+            if ["截图", "图片", "文档"].contains(token) { result.tags.append(token); continue }
+            if ["pdf", "png", "jpg", "jpeg", "heic", "md", "txt", "doc", "docx"].contains(token) { result.extensions.append(token); continue }
+            if token == "下载" || token == "downloads" { result.pathHints.append("/downloads/"); continue }
+            if token == "桌面" || token == "desktop" { result.pathHints.append("/desktop/"); continue }
+            if token.count > 1 { result.terms.append(token) }
+        }
+        return result
+    }
+
+    nonisolated func matches(_ card: LocalFileCard) -> Bool {
+        let name = card.name.lowercased(), path = card.url.path.lowercased()
+        let summary = card.summary.lowercased(), ocr = card.ocrText.lowercased()
+        let loweredTags = card.tags.map { $0.lowercased() }
+        let searchable = [name, path, summary, ocr] + loweredTags
+        return terms.allSatisfy { term in searchable.contains { $0.contains(term) } }
+            && tags.allSatisfy { tag in loweredTags.contains { $0.contains(tag) } }
+            && extensions.allSatisfy { card.url.pathExtension.lowercased() == $0 }
+            && pathHints.allSatisfy { path.contains($0) }
     }
 }
 
