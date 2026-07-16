@@ -855,6 +855,8 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
     @ObservedObject private var generatedPanelScanner = GeneratedPanelScanner.shared
+    @ObservedObject private var aiProviderSettings = AIProviderSettings.shared
+    @ObservedObject private var productivityPermissionCenter = ProductivityPermissionCenter.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
     @ObservedObject private var mineradioCoordinator = MineradioBridgeCoordinator.shared
     @State private var selectedCategory: SettingsCategory? = .general
@@ -908,6 +910,10 @@ private struct SettingsPanelContentView: View {
     @State private var autoFilledName: String?
     @State private var autoFilledIconImage: String?
     @State private var isFetchingMetadata = false
+    @State private var githubPATDraft = ""
+    @State private var openAIKeyDraft = ""
+    @State private var browserPairingTokenDraft = ""
+    @State private var productivitySecretMessage: String?
     @State private var generatedPanelPromptCopied = false
     @State private var showingGeneratedPanelDirectoryImporter = false
     @State private var generatedPanelActionMessage: String?
@@ -2079,8 +2085,123 @@ private struct SettingsPanelContentView: View {
     private var leftContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             flowIslandDisplayCard
+            productivityCredentialsCard
+            productivityPermissionsCard
             featureListCard
             generatedPanelDesignCard
+        }
+    }
+
+    private var productivityPermissionsCard: some View {
+        SettingsSectionCard(title: "权限与数据来源") {
+            VStack(spacing: 8) {
+                ForEach(productivityPermissionCenter.items) { item in
+                    HStack {
+                        Image(systemName: item.isReady ? "checkmark.circle.fill" : "exclamationmark.circle")
+                            .foregroundStyle(item.isReady ? .green : .yellow)
+                        Text(item.name)
+                        Spacer()
+                        Text(item.status).foregroundStyle(.secondary)
+                    }
+                    .font(.system(size: 12))
+                }
+                HStack {
+                    Spacer()
+                    Button("刷新状态") { productivityPermissionCenter.refresh() }
+                }
+            }
+        }
+    }
+
+    private var productivityCredentialsCard: some View {
+        SettingsSectionCard(title: "生产力连接") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("GitHub 优先使用本机 gh 登录；Personal Access Token 仅作为备用并保存到 macOS 钥匙串。")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                HStack {
+                    SecureField("GitHub Personal Access Token", text: $githubPATDraft)
+                        .textFieldStyle(.roundedBorder)
+                    Button("保存") {
+                        do {
+                            try ProductivitySecretsStore.shared.set(githubPATDraft, for: .githubPAT)
+                            githubPATDraft = ""
+                            productivitySecretMessage = "已保存到钥匙串"
+                            GitHubService.shared.refresh()
+                        } catch {
+                            productivitySecretMessage = error.localizedDescription
+                        }
+                    }
+                    .disabled(githubPATDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("删除", role: .destructive) {
+                        do {
+                            try ProductivitySecretsStore.shared.delete(.githubPAT)
+                            productivitySecretMessage = "备用 Token 已删除"
+                        } catch {
+                            productivitySecretMessage = error.localizedDescription
+                        }
+                    }
+                }
+                Divider()
+                Picker("AI Provider", selection: $aiProviderSettings.selection) {
+                    ForEach(AIProviderSelection.allCases) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
+                }
+                if aiProviderSettings.selection == .openAICompatible {
+                    TextField("API Base URL", text: $aiProviderSettings.baseURL)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("模型", text: $aiProviderSettings.model)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        SecureField("API Key", text: $openAIKeyDraft)
+                            .textFieldStyle(.roundedBorder)
+                        Button("保存") {
+                            do {
+                                try ProductivitySecretsStore.shared.set(openAIKeyDraft, for: .openAIAPIKey)
+                                openAIKeyDraft = ""
+                                productivitySecretMessage = "API Key 已保存到钥匙串"
+                            } catch {
+                                productivitySecretMessage = error.localizedDescription
+                            }
+                        }
+                        .disabled(openAIKeyDraft.isEmpty)
+                        Button("删除", role: .destructive) {
+                            do {
+                                try ProductivitySecretsStore.shared.delete(.openAIAPIKey)
+                                productivitySecretMessage = "API Key 已删除"
+                            } catch {
+                                productivitySecretMessage = error.localizedDescription
+                            }
+                        }
+                    }
+                }
+                Divider()
+                Text("Chrome / Edge / Safari 配对")
+                    .font(.system(size: 12, weight: .semibold))
+                HStack {
+                    TextField("点击显示配对令牌", text: $browserPairingTokenDraft)
+                        .textFieldStyle(.roundedBorder)
+                    Button("显示并复制") {
+                        browserPairingTokenDraft = BrowserBridgeService.shared.pairingToken
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
+                    }
+                    Button("轮换") {
+                        browserPairingTokenDraft = BrowserBridgeService.shared.rotateToken()
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
+                    }
+                }
+                Text("本地端点：127.0.0.1:\(BrowserBridgeService.port) · \(BrowserBridgeService.shared.status)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let productivitySecretMessage {
+                    Text(productivitySecretMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -2403,7 +2524,8 @@ private struct SettingsPanelContentView: View {
 
             // 右侧操作组：按 kind 分发
             switch feature.kind {
-            case .usage:
+            case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+                 .downloadMonitor, .browserResources, .mailAssistant:
                 Button("编辑") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
@@ -2534,7 +2656,8 @@ private struct SettingsPanelContentView: View {
     /// - `.music` / `.shelf`: 弹出内置功能编辑表单
     private func editFeature(_ feature: LeftFeature) {
         switch feature.kind {
-        case .usage:
+        case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+             .downloadMonitor, .browserResources, .mailAssistant:
             editingBuiltinFeature = feature
         case .customArea(let areaID):
             editCustomArea(areaID: areaID)

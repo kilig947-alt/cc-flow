@@ -897,6 +897,22 @@ struct NotchView: View {
         switch feature.kind {
         case .usage:
             UsageCompactView(selectedProvider: compactUsageProvider)
+        case .systemMonitor:
+            SystemMonitorFeatureView(compact: true)
+        case .calendar:
+            CalendarFeatureView(compact: true)
+        case .github:
+            GitHubFeatureView(compact: true)
+        case .fileCards:
+            FileCardsFeatureView(compact: true)
+        case .naturalSearch:
+            NaturalSearchFeatureView(compact: true)
+        case .downloadMonitor:
+            DownloadMonitorFeatureView(compact: true)
+        case .browserResources:
+            BrowserResourcesFeatureView(compact: true)
+        case .mailAssistant:
+            MailAssistantFeatureView(compact: true)
         case .music:
             MusicCompactView()
         case .shelf:

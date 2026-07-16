@@ -50,6 +50,14 @@ func resolveIconKind(_ identifier: String?) -> IconKind {
 /// - mineradio: 内置 Mineradio 矿石电台，关联 pageURL，注入 Bridge 兼容层 + JSC 引擎（Spec: mineradio-bridge-compat-layer）
 enum LeftFeatureKind: Codable, Equatable, Hashable {
     case usage
+    case systemMonitor
+    case calendar
+    case github
+    case fileCards
+    case naturalSearch
+    case downloadMonitor
+    case browserResources
+    case mailAssistant
     case music
     case shelf
     case customArea(areaID: String)
@@ -173,6 +181,14 @@ extension LeftFeature {
     /// 内置功能的稳定 id
     static let musicID = "music"
     static let usageID = "usage"
+    static let systemMonitorID = "system-monitor"
+    static let calendarID = "calendar"
+    static let githubID = "github"
+    static let fileCardsID = "file-cards"
+    static let naturalSearchID = "natural-search"
+    static let downloadMonitorID = "download-monitor"
+    static let browserResourcesID = "browser-resources"
+    static let mailAssistantID = "mail-assistant"
     static let shelfID = "shelf"
     static let newsnowID = "newsnow"
     static let mineradioID = "mineradio"
@@ -185,6 +201,22 @@ extension LeftFeature {
         switch kind {
         case .usage:
             return "chart.bar.xaxis"
+        case .systemMonitor:
+            return "gauge.with.dots.needle.67percent"
+        case .calendar:
+            return "calendar"
+        case .github:
+            return "chevron.left.forwardslash.chevron.right"
+        case .fileCards:
+            return "doc.text.magnifyingglass"
+        case .naturalSearch:
+            return "sparkle.magnifyingglass"
+        case .downloadMonitor:
+            return "arrow.down.circle"
+        case .browserResources:
+            return "safari"
+        case .mailAssistant:
+            return "envelope.badge"
         case .music:
             return "music.note"
         case .shelf:
@@ -213,6 +245,22 @@ extension LeftFeature {
         switch kind {
         case .usage:
             return "用量"
+        case .systemMonitor:
+            return "系统监控"
+        case .calendar:
+            return "日历"
+        case .github:
+            return "GitHub"
+        case .fileCards:
+            return "文件卡片"
+        case .naturalSearch:
+            return "自然搜索"
+        case .downloadMonitor:
+            return "下载监控"
+        case .browserResources:
+            return "浏览器资源"
+        case .mailAssistant:
+            return "邮件助手"
         case .music:
             return "音乐"
         case .shelf:

@@ -106,6 +106,9 @@ struct EditableCustomAreaView: View {
         let defaultName: String
         switch feature.kind {
         case .usage: defaultName = "用量"
+        case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+             .downloadMonitor, .browserResources, .mailAssistant:
+            defaultName = feature.displayName
         case .music: defaultName = "音乐"
         case .shelf: defaultName = "中转站"
         case .newsnow: defaultName = "热点新闻"
@@ -434,6 +437,9 @@ struct EditableCustomAreaView: View {
             let defaultName: String
             switch feature.kind {
             case .usage: defaultName = "用量"
+            case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+                 .downloadMonitor, .browserResources, .mailAssistant:
+                defaultName = feature.displayName
             case .music: defaultName = "音乐"
             case .shelf: defaultName = "中转站"
             case .newsnow: defaultName = "热点新闻"

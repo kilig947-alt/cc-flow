@@ -102,6 +102,7 @@ final class LeftFeatureStore: ObservableObject {
         expandedActiveFeatureID = defaults.string(forKey: Keys.expandedActiveFeatureID)
         migrateFromLegacy()
         ensureBuiltinUsageFeature()
+        ensureProductivityFeatures()
         ensureBuiltinNewsNowFeature()
         ensureBuiltinMineradioFeature()
     }
@@ -275,6 +276,42 @@ final class LeftFeatureStore: ObservableObject {
         return result
     }
 
+    /// Adds newly shipped productivity features without changing existing order or preferences.
+    /// They default to disabled so upgrades never trigger permissions or background work.
+    private func ensureProductivityFeatures() {
+        let migrated = Self.featuresByEnsuringProductivityFeatures(features)
+        guard migrated != features else { return }
+        features = migrated
+        persist()
+    }
+
+    static func featuresByEnsuringProductivityFeatures(_ source: [LeftFeature]) -> [LeftFeature] {
+        let definitions: [(String, LeftFeatureKind, Double, Double)] = [
+            (LeftFeature.systemMonitorID, .systemMonitor, 760, 500),
+            (LeftFeature.calendarID, .calendar, 760, 520),
+            (LeftFeature.githubID, .github, 760, 520),
+            (LeftFeature.fileCardsID, .fileCards, 780, 560),
+            (LeftFeature.naturalSearchID, .naturalSearch, 760, 520),
+            (LeftFeature.downloadMonitorID, .downloadMonitor, 720, 480),
+            (LeftFeature.browserResourcesID, .browserResources, 780, 540),
+            (LeftFeature.mailAssistantID, .mailAssistant, 720, 500)
+        ]
+        var result = source
+        var nextSortOrder = (source.map(\.sortOrder).max() ?? -1) + 1
+        for (id, kind, width, height) in definitions where !result.contains(where: { $0.id == id }) {
+            result.append(LeftFeature(
+                id: id,
+                kind: kind,
+                isEnabled: false,
+                sortOrder: nextSortOrder,
+                expandedWidth: width,
+                expandedHeight: height
+            ))
+            nextSortOrder += 1
+        }
+        return result
+    }
+
     /// 老用户升级幂等追加：若 features 不含 id == mineradioID 的项则追加默认 mineradio 功能。
     /// 已存在则不动（保留用户编辑过的 pageURL / isEnabled / sortOrder）。
     /// Spec: mineradio-bridge-compat-layer
@@ -346,6 +383,17 @@ final class LeftFeatureStore: ObservableObject {
                 }
             case .usage:
                 UsageService.shared.stop()
+            case .systemMonitor:
+                AppUsageTracker.shared.stop()
+            case .browserResources:
+                BrowserBridgeService.shared.stop()
+            case .downloadMonitor:
+                BrowserBridgeService.shared.stop()
+                LocalFileIndexService.shared.stop()
+            case .mailAssistant:
+                MailAssistantService.shared.stop()
+            case .fileCards, .naturalSearch:
+                LocalFileIndexService.shared.stop()
             default:
                 break
             }
@@ -356,6 +404,12 @@ final class LeftFeatureStore: ObservableObject {
         if id == LeftFeature.usageID, isEnabled {
             UsageService.shared.start()
             Task { await UsageService.shared.refresh(reason: .passive) }
+        }
+        if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
+        if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
+        if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
+        if (id == LeftFeature.fileCardsID || id == LeftFeature.naturalSearchID || id == LeftFeature.downloadMonitorID), isEnabled {
+            LocalFileIndexService.shared.start()
         }
     }
 
