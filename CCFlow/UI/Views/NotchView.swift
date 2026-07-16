@@ -893,7 +893,9 @@ struct NotchView: View {
         switch feature.kind {
         case .usage:
             UsageCompactView()
-        case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+        case .systemMonitor:
+            SystemMonitorFeatureView(compact: true)
+        case .calendar, .github, .fileCards, .naturalSearch,
              .downloadMonitor, .browserResources, .mailAssistant:
             ProductivityFeaturePlaceholderView(feature: feature, compact: true)
         case .music:

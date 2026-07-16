@@ -32,7 +32,9 @@ struct LeftFeatureContainerView: View {
         switch feature.kind {
         case .usage:
             UsageExpandedView()
-        case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+        case .systemMonitor:
+            SystemMonitorFeatureView(compact: false)
+        case .calendar, .github, .fileCards, .naturalSearch,
              .downloadMonitor, .browserResources, .mailAssistant:
             ProductivityFeaturePlaceholderView(feature: feature, compact: false)
         case .music:
