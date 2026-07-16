@@ -26,19 +26,33 @@ final class LocalFileIndexService: ObservableObject {
     @Published private(set) var folders: [URL] = []
     @Published private(set) var isScanning = false
     @Published var query = ""
+    @Published var aiEnhancementEnabled: Bool {
+        didSet { UserDefaults.standard.set(aiEnhancementEnabled, forKey: "productivity.fileCards.aiEnabled") }
+    }
 
     private let defaultsKey = "productivity.watchedFolderPaths"
     private let cardsURL = BridgeRuntimePaths.runtimeDirectoryURL
         .appendingPathComponent("productivity", isDirectory: true)
         .appendingPathComponent("file-cards-v1.json")
+    private var scanTask: Task<Void, Never>?
+    private var enrichmentTask: Task<Void, Never>?
+    private var consumers = 0
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let defaults = [home.appendingPathComponent("Downloads"), home.appendingPathComponent("Desktop")]
         let saved = UserDefaults.standard.stringArray(forKey: defaultsKey)?.map(URL.init(fileURLWithPath:)) ?? []
         folders = Array(Set(defaults + saved)).sorted { $0.path < $1.path }
+        aiEnhancementEnabled = UserDefaults.standard.bool(forKey: "productivity.fileCards.aiEnabled")
         if let data = try? Data(contentsOf: cardsURL), let decoded = try? JSONDecoder().decode([LocalFileCard].self, from: data) {
             cards = decoded
         }
+    }
+
+    func start() { consumers += 1 }
+    func stop() {
+        consumers = max(0, consumers - 1)
+        guard consumers == 0 else { return }
+        scanTask?.cancel(); scanTask = nil; enrichmentTask?.cancel(); enrichmentTask = nil; isScanning = false
     }
 
     var results: [LocalFileCard] {
@@ -55,13 +69,19 @@ final class LocalFileIndexService: ObservableObject {
         guard !isScanning else { return }
         isScanning = true
         let roots = folders
-        Task.detached(priority: .utility) {
+        scanTask?.cancel()
+        scanTask = Task.detached(priority: .utility) { [weak self] in
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey, .contentTypeKey]
             var output: [LocalFileCard] = []
             for root in roots {
-                guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: Array(keys),
+                guard !Task.isCancelled else { return }
+                let resolved = WatchedFolderBookmarkStore.resolve(path: root.path) ?? root
+                let accessing = resolved.startAccessingSecurityScopedResource()
+                defer { if accessing { resolved.stopAccessingSecurityScopedResource() } }
+                guard let enumerator = FileManager.default.enumerator(at: resolved, includingPropertiesForKeys: Array(keys),
                     options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
                 while let url = enumerator.nextObject() as? URL, output.count < 500 {
+                    guard !Task.isCancelled else { return }
                     guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true else { continue }
                     let name = url.lastPathComponent
                     if ["crdownload", "download", "part"].contains(url.pathExtension.lowercased()) { continue }
@@ -77,9 +97,11 @@ final class LocalFileIndexService: ObservableObject {
                 }
             }
             output.sort { $0.modifiedAt > $1.modifiedAt }
+            guard !Task.isCancelled else { return }
             await MainActor.run {
+                guard let self else { return }
                 self.cards = output; self.persistCards(); self.isScanning = false
-                Task { await self.enrichRecentCardsWithAI() }
+                self.enrichmentTask = Task { await self.enrichRecentCardsWithAI() }
             }
         }
     }
@@ -88,9 +110,19 @@ final class LocalFileIndexService: ObservableObject {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK else { return }
+        panel.urls.forEach { _ = WatchedFolderBookmarkStore.save(url: $0) }
         folders = Array(Set(folders + panel.urls)).sorted { $0.path < $1.path }
         UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
         scan()
+    }
+
+    func removeFolder(_ url: URL) {
+        WatchedFolderBookmarkStore.remove(path: url.path)
+        folders.removeAll { $0.standardizedFileURL == url.standardizedFileURL }
+        UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
+        let prefix = url.standardizedFileURL.path + "/"
+        cards.removeAll { $0.url.standardizedFileURL.path.hasPrefix(prefix) }
+        persistCards()
     }
 
     func reveal(_ card: LocalFileCard) { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }
@@ -102,10 +134,11 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     private func enrichRecentCardsWithAI() async {
-        guard AIProviderSettings.shared.selection != .local else { return }
+        guard aiEnhancementEnabled, AIProviderSettings.shared.selection != .local else { return }
         for index in cards.indices.prefix(10) {
+            guard !Task.isCancelled else { return }
             let card = cards[index]
-            let request = AIProviderRequest(task: .fileCard, filename: card.name, path: card.url.path,
+            let request = AIProviderRequest(task: .fileCard, filename: card.name, path: nil,
                 fileType: card.url.pathExtension, ocrText: String(card.ocrText.prefix(4_000)), query: nil, title: nil, snippet: nil)
             let result = await AIProviderService.shared.perform(request)
             guard cards.indices.contains(index), cards[index].id == card.id else { continue }
@@ -135,6 +168,7 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     nonisolated static func recognizeText(at url: URL) -> String {
+        guard !Task.isCancelled else { return "" }
         let ext = url.pathExtension.lowercased()
         var images: [CGImage] = []
         if ext == "pdf", let document = PDFDocument(url: url) {
@@ -149,6 +183,7 @@ final class LocalFileIndexService: ObservableObject {
         guard !images.isEmpty else { return "" }
         var lines: [String] = []
         for image in images {
+            guard !Task.isCancelled else { return lines.joined(separator: "\n") }
             let request = VNRecognizeTextRequest { request, _ in
                 let observations = request.results as? [VNRecognizedTextObservation] ?? []
                 lines.append(contentsOf: observations.compactMap { $0.topCandidates(1).first?.string })
@@ -158,4 +193,25 @@ final class LocalFileIndexService: ObservableObject {
         }
         return lines.joined(separator: "\n")
     }
+}
+
+private enum WatchedFolderBookmarkStore {
+    private static let key = "productivity.watchedFolderBookmarks.v1"
+    static func save(url: URL) -> Bool {
+        guard let data = try? url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil) else { return false }
+        var all = load(); all[url.path] = data; persist(all); return true
+    }
+    static func resolve(path: String) -> URL? {
+        guard let data = load()[path] else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: data, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        if stale { _ = save(url: url) }
+        return url
+    }
+    static func remove(path: String) { var all = load(); all.removeValue(forKey: path); persist(all) }
+    private static func load() -> [String: Data] {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return [:] }
+        return (try? PropertyListDecoder().decode([String: Data].self, from: data)) ?? [:]
+    }
+    private static func persist(_ value: [String: Data]) { UserDefaults.standard.set(try? PropertyListEncoder().encode(value), forKey: key) }
 }

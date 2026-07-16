@@ -17,10 +17,14 @@ final class AppUsageTracker: ObservableObject {
     private var activeName: String?
     private var activeSince: Date?
     private var isPaused = false
+    private var systemPaused = false
+    private var idlePaused = false
+    private var idleTimer: AnyCancellable?
     private var observers: [NSObjectProtocol] = []
     private var durations: [String: TimeInterval] = [:]
     private var names: [String: String] = [:]
     private let defaults = UserDefaults.standard
+    private var storageDayKey = ""
     private var started = false
 
     private init() {}
@@ -33,11 +37,12 @@ final class AppUsageTracker: ObservableObject {
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated { self?.activate(app, at: Date()) }
         })
-        observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.pause(at: Date()) } })
-        observers.append(center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.resume(at: Date()) } })
+        observers.append(center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.setSystemPaused(true, at: Date()) } })
+        observers.append(center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.setSystemPaused(false, at: Date()) } })
         let distributed = DistributedNotificationCenter.default()
-        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.pause(at: Date()) } })
-        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.resume(at: Date()) } })
+        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.setSystemPaused(true, at: Date()) } })
+        observers.append(distributed.addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.setSystemPaused(false, at: Date()) } })
+        idleTimer = Timer.publish(every: 30, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.refreshIdleState(at: Date()) }
     }
 
     func stop() {
@@ -45,6 +50,7 @@ final class AppUsageTracker: ObservableObject {
         commit(until: Date()); started = false
         observers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0); DistributedNotificationCenter.default().removeObserver($0) }
         observers.removeAll(); activeSince = nil; activeBundleID = nil
+        idleTimer?.cancel(); idleTimer = nil; systemPaused = false; idlePaused = false; isPaused = false
     }
 
     private func activate(_ app: NSRunningApplication?, at date: Date) {
@@ -54,12 +60,26 @@ final class AppUsageTracker: ObservableObject {
         activeSince = isPaused ? nil : date
     }
 
-    private func pause(at date: Date) { guard !isPaused else { return }; commit(until: date); isPaused = true; activeSince = nil }
-    private func resume(at date: Date) { guard isPaused else { return }; isPaused = false; activate(NSWorkspace.shared.frontmostApplication, at: date) }
+    private func setSystemPaused(_ paused: Bool, at date: Date) { systemPaused = paused; updatePauseState(at: date) }
+    private func refreshIdleState(at date: Date) { idlePaused = SystemUserIdleTimeReader.idleTime() >= 300; updatePauseState(at: date) }
+    private func updatePauseState(at date: Date) {
+        let shouldPause = systemPaused || idlePaused
+        guard shouldPause != isPaused else { return }
+        if shouldPause { commit(until: date); isPaused = true; activeSince = nil }
+        else { isPaused = false; activate(NSWorkspace.shared.frontmostApplication, at: date) }
+    }
 
     private func commit(until date: Date) {
         guard let bundleID = activeBundleID, let since = activeSince, date > since else { return }
-        let seconds = min(date.timeIntervalSince(since), 60 * 60 * 8)
+        let boundary = Calendar.current.startOfDay(for: date)
+        if since < boundary {
+            durations[bundleID, default: 0] += max(0, boundary.timeIntervalSince(since))
+            names[bundleID] = activeName; publish(); persist()
+            durations.removeAll(); names.removeAll(); storageDayKey = Self.dayKey(for: date)
+            activeSince = boundary
+        }
+        let effectiveSince = activeSince ?? since
+        let seconds = min(date.timeIntervalSince(effectiveSince), 60 * 60 * 8)
         durations[bundleID, default: 0] += seconds; names[bundleID] = activeName
         activeSince = date; publish(); persist()
     }
@@ -69,11 +89,12 @@ final class AppUsageTracker: ObservableObject {
             .sorted { $0.seconds > $1.seconds }
     }
 
-    private var dayKey: String { Date().formatted(.iso8601.year().month().day()) }
-    private func persist() { defaults.set(durations, forKey: "productivity.appUsage.\(dayKey)"); defaults.set(names, forKey: "productivity.appUsageNames.\(dayKey)") }
+    nonisolated private static func dayKey(for date: Date) -> String { date.formatted(.iso8601.year().month().day()) }
+    private func persist() { defaults.set(durations, forKey: "productivity.appUsage.\(storageDayKey)"); defaults.set(names, forKey: "productivity.appUsageNames.\(storageDayKey)") }
     private func loadToday() {
-        durations = defaults.dictionary(forKey: "productivity.appUsage.\(dayKey)") as? [String: TimeInterval] ?? [:]
-        names = defaults.dictionary(forKey: "productivity.appUsageNames.\(dayKey)") as? [String: String] ?? [:]
+        storageDayKey = Self.dayKey(for: Date())
+        durations = defaults.dictionary(forKey: "productivity.appUsage.\(storageDayKey)") as? [String: TimeInterval] ?? [:]
+        names = defaults.dictionary(forKey: "productivity.appUsageNames.\(storageDayKey)") as? [String: String] ?? [:]
         publish()
     }
 }

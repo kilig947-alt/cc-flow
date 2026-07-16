@@ -12,13 +12,18 @@ struct ProductivitySecretsStore {
     private let service = "ai.ccflow.app.productivity"
 
     func set(_ value: String, for secret: ProductivitySecret) throws {
-        try delete(secret)
-        let status = SecItemAdd([
+        let query = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
             kSecAttrAccount: secret.rawValue,
-            kSecValueData: Data(value.utf8),
-            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ] as CFDictionary
+        let data = Data(value.utf8)
+        let updateStatus = SecItemUpdate(query, [kSecValueData: data] as CFDictionary)
+        if updateStatus == errSecSuccess { return }
+        guard updateStatus == errSecItemNotFound else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(updateStatus)) }
+        let status = SecItemAdd([
+            kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: secret.rawValue,
+            kSecValueData: data, kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ] as CFDictionary, nil)
         guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     }

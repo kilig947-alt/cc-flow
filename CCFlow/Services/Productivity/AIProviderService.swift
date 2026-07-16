@@ -112,8 +112,7 @@ final class AIProviderService {
 
     nonisolated private static func runCLI(name: String, arguments: [String], request: AIProviderRequest) async throws -> AIProviderResponse {
         guard let executable = executable(named: name) else { throw AIProviderError.executableMissing(name) }
-        return try await withThrowingTaskGroup(of: AIProviderResponse.self) { group in
-            group.addTask {
+        return try await Task.detached(priority: .utility) {
                 let process = Process(); let stdin = Pipe(); let stdout = Pipe(); let stderr = Pipe()
                 process.executableURL = executable; process.arguments = arguments
                 process.standardInput = stdin; process.standardOutput = stdout; process.standardError = stderr
@@ -122,15 +121,15 @@ final class AIProviderService {
                 process.environment = environment
                 try process.run()
                 stdin.fileHandleForWriting.write(Data(try prompt(for: request).utf8)); try? stdin.fileHandleForWriting.close()
-                process.waitUntilExit()
+                let deadline = Date().addingTimeInterval(45)
+                while process.isRunning && Date() < deadline && !Task.isCancelled { Thread.sleep(forTimeInterval: 0.05) }
+                if process.isRunning { process.terminate(); throw AIProviderError.timeout }
+                if Task.isCancelled { throw CancellationError() }
                 guard process.terminationStatus == 0 else { throw AIProviderError.authenticationRequired }
                 let data = stdout.fileHandleForReading.readDataToEndOfFile()
+                guard data.count <= 1_000_000 else { throw AIProviderError.invalidResponse }
                 return try decodeResponse(from: data)
-            }
-            group.addTask { try await Task.sleep(for: .seconds(45)); throw AIProviderError.timeout }
-            guard let result = try await group.next() else { throw AIProviderError.invalidResponse }
-            group.cancelAll(); return result
-        }
+        }.value
     }
 
     nonisolated private static func runOpenAI(request: AIProviderRequest, baseURL: String, model: String) async throws -> AIProviderResponse {

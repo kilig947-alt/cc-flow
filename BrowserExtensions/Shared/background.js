@@ -16,14 +16,15 @@ chrome.action.onClicked.addListener((tab) => {
   }
 });
 
-chrome.downloads.onCreated.addListener((item) => {
-  sendEvent({ type: "download", id: String(item.id), filename: item.filename || "下载", state: item.state || "in_progress",
-    receivedBytes: item.bytesReceived || 0, totalBytes: item.totalBytes || 0 });
-});
-
-chrome.downloads.onChanged.addListener(async (delta) => {
-  const [item] = await chrome.downloads.search({ id: delta.id });
-  if (!item) return;
-  sendEvent({ type: "download", id: String(item.id), filename: item.filename || "下载", state: item.state || "in_progress",
-    receivedBytes: item.bytesReceived || 0, totalBytes: item.totalBytes || 0 });
-});
+if (chrome.downloads) {
+  chrome.downloads.onCreated.addListener((item) => {
+    sendEvent({ type: "download", id: String(item.id), filename: item.filename || "下载", state: item.state || "in_progress",
+      receivedBytes: item.bytesReceived || 0, totalBytes: item.totalBytes || 0 });
+  });
+  chrome.downloads.onChanged.addListener(async (delta) => {
+    const [item] = await chrome.downloads.search({ id: delta.id });
+    if (!item) return;
+    sendEvent({ type: "download", id: String(item.id), filename: item.filename || "下载", state: item.state || "in_progress",
+      receivedBytes: item.bytesReceived || 0, totalBytes: item.totalBytes || 0 });
+  });
+}

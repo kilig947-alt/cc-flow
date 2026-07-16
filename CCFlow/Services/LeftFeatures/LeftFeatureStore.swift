@@ -389,6 +389,8 @@ final class LeftFeatureStore: ObservableObject {
                 BrowserBridgeService.shared.stop()
             case .mailAssistant:
                 MailAssistantService.shared.stop()
+            case .fileCards, .naturalSearch:
+                LocalFileIndexService.shared.stop()
             default:
                 break
             }
@@ -403,6 +405,7 @@ final class LeftFeatureStore: ObservableObject {
         if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
         if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
         if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
+        if (id == LeftFeature.fileCardsID || id == LeftFeature.naturalSearchID), isEnabled { LocalFileIndexService.shared.start() }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

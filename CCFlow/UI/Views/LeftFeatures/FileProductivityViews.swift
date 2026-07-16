@@ -34,6 +34,16 @@ struct FileCardsFeatureView: View {
             }
             Text("只生成卡片与整理建议；不会自动移动、重命名或归档文件。")
                 .font(.caption).foregroundStyle(.secondary)
+            Toggle("允许所选 AI Provider 增强最近 File Card（最多 4000 字 OCR；不发送绝对路径）",
+                   isOn: $service.aiEnhancementEnabled).font(.caption)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack { ForEach(service.folders, id: \.path) { folder in
+                    HStack { Image(systemName: "folder"); Text(folder.lastPathComponent)
+                        Button { service.removeFolder(folder) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain) }
+                        .font(.caption).padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(.white.opacity(0.06), in: Capsule())
+                } }
+            }
             if let actionMessage {
                 HStack { Text(actionMessage).font(.caption).foregroundStyle(.secondary); Spacer()
                     if let lastAuditID { Button("撤销") { undo(lastAuditID) } }
@@ -44,24 +54,26 @@ struct FileCardsFeatureView: View {
     }
 
     private func cardRow(_ card: LocalFileCard) -> some View {
-        Button { service.reveal(card) } label: {
-            HStack(spacing: 10) {
+        HStack(spacing: 10) {
+            Button { service.reveal(card) } label: {
+                HStack(spacing: 10) {
                 Image(systemName: "doc").frame(width: 28)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(card.name).font(.system(size: 11, weight: .semibold)).lineLimit(1)
                     Text(card.ocrText.isEmpty ? card.suggestion : "OCR · \(card.ocrText.replacingOccurrences(of: "\n", with: " "))")
                         .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
-                Spacer()
-                if card.suggestion != "暂无整理建议" {
-                    Button("查看建议") {
-                        do { pendingPlan = try FileActionExecutor.makePlan(for: card) }
-                        catch { actionMessage = error.localizedDescription }
-                    }.buttonStyle(.bordered).controlSize(.small)
                 }
-                Text(ByteCountFormatter.string(fromByteCount: card.size, countStyle: .file)).font(.caption2).foregroundStyle(.secondary)
-            }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
-        }.buttonStyle(.plain)
+            }.buttonStyle(.plain)
+            Spacer()
+            if card.suggestion != "暂无整理建议" {
+                Button("查看建议") {
+                    do { pendingPlan = try FileActionExecutor.makePlan(for: card) }
+                    catch { actionMessage = error.localizedDescription }
+                }.buttonStyle(.bordered).controlSize(.small)
+            }
+            Text(ByteCountFormatter.string(fromByteCount: card.size, countStyle: .file)).font(.caption2).foregroundStyle(.secondary)
+        }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
     }
 
     private func execute(_ plan: FileActionPlan) {

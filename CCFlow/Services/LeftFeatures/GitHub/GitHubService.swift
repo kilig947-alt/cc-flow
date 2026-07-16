@@ -77,16 +77,13 @@ final class GitHubService: ObservableObject {
             let process = Process(); let output = Pipe(); process.executableURL = gh
             process.arguments = ["api", "graphql", "-f", "query=\(query)"]
             process.standardOutput = output; process.standardError = Pipe(); try process.run(); process.waitUntilExit()
-            guard process.terminationStatus == 0 else { throw GitHubError.authenticationRequired }
-            data = output.fileHandleForReading.readDataToEndOfFile()
-        } else {
-            guard let token = ProductivitySecretsStore.shared.value(for: .githubPAT) else { throw GitHubError.authenticationRequired }
-            var request = URLRequest(url: URL(string: "https://api.github.com/graphql")!); request.httpMethod = "POST"
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query])
-            (data, _) = try await URLSession.shared.data(for: request)
-        }
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            if process.terminationStatus == 0 {
+                data = output.fileHandleForReading.readDataToEndOfFile()
+            } else {
+                data = try await fetchDashboardWithPAT(query: query)
+            }
+        } else { data = try await fetchDashboardWithPAT(query: query) }
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], root["errors"] == nil,
               let payload = root["data"] as? [String: Any], let viewer = payload["viewer"] as? [String: Any] else { throw GitHubError.invalidResponse }
         let collection = viewer["contributionsCollection"] as? [String: Any]
         let calendar = collection?["contributionCalendar"] as? [String: Any]
@@ -99,6 +96,16 @@ final class GitHubService: ObservableObject {
             guard let name = item["nameWithOwner"] as? String else { return nil }; return GitHubRepositorySummary(name: name, stars: item["stargazerCount"] as? Int ?? 0)
         }
         return (days, repos)
+    }
+
+    nonisolated private static func fetchDashboardWithPAT(query: String) async throws -> Data {
+        guard let token = ProductivitySecretsStore.shared.value(for: .githubPAT) else { throw GitHubError.authenticationRequired }
+            var request = URLRequest(url: URL(string: "https://api.github.com/graphql")!); request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: ["query": query])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw GitHubError.authenticationRequired }
+        return data
     }
 
     nonisolated private static func executable(named name: String) -> URL? {

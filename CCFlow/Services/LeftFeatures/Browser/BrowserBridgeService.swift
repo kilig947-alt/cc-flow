@@ -66,10 +66,35 @@ final class BrowserBridgeService: ObservableObject {
     func stop() { consumers = max(0, consumers - 1); guard consumers == 0 else { return }; listener?.cancel(); listener = nil; status = "未启动" }
 
     private func accept(_ connection: NWConnection) {
+        guard Self.isLoopback(connection.endpoint) else { connection.cancel(); return }
         connection.start(queue: DispatchQueue(label: "ai.ccflow.browser-client"))
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 128_000) { [weak self] data, _, _, _ in
-            Task { @MainActor in self?.handleHTTP(data ?? Data(), connection: connection) }
+        receiveHTTP(connection, buffer: Data())
+    }
+
+    nonisolated static func isLoopback(_ endpoint: NWEndpoint) -> Bool {
+        guard case .hostPort(let host, _) = endpoint else { return false }
+        let value = String(describing: host).lowercased()
+        return value == "127.0.0.1" || value == "::1" || value == "localhost" || value.hasSuffix(":127.0.0.1")
+    }
+
+    private func receiveHTTP(_ connection: NWConnection, buffer: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 32_000) { [weak self] data, _, isComplete, error in
+            Task { @MainActor in
+                guard let self else { connection.cancel(); return }
+                var next = buffer; next.append(data ?? Data())
+                guard next.count <= 128_000, error == nil else { self.respond(413, connection); return }
+                if self.isCompleteHTTPRequest(next) || isComplete { self.handleHTTP(next, connection: connection) }
+                else { self.receiveHTTP(connection, buffer: next) }
+            }
         }
+    }
+
+    private func isCompleteHTTPRequest(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8), let separator = text.range(of: "\r\n\r\n") else { return false }
+        let headers = String(text[..<separator.lowerBound])
+        let lengthLine = headers.split(separator: "\r\n").first { $0.lowercased().hasPrefix("content-length:") }
+        let expected = lengthLine.flatMap { Int($0.split(separator: ":", maxSplits: 1).last?.trimmingCharacters(in: .whitespaces) ?? "") } ?? 0
+        return text[separator.upperBound...].utf8.count >= expected
     }
 
     private func handleHTTP(_ data: Data, connection: NWConnection) {
@@ -95,7 +120,7 @@ final class BrowserBridgeService: ObservableObject {
 
     private func respond(_ code: Int, _ connection: NWConnection) {
         let body = code == 200 ? "{\"ok\":true}" : "{\"ok\":false}"
-        let response = "HTTP/1.1 \(code) \(code == 200 ? "OK" : "Error")\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
+        let response = "HTTP/1.1 \(code) \(code == 200 ? "OK" : "Error")\r\nContent-Type: application/json\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
         connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
     }
 

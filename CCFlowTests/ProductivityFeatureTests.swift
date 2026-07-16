@@ -1,4 +1,5 @@
 import XCTest
+import Network
 @testable import CC_FLOW
 
 final class ProductivityFeatureTests: XCTestCase {
@@ -29,6 +30,12 @@ final class ProductivityFeatureTests: XCTestCase {
         service.inputURL = "file:///etc/passwd"
         service.saveCurrentInput()
         XCTAssertEqual(service.resources.count, originalCount)
+    }
+
+    func testBrowserBridgeRejectsNonLoopbackPeers() {
+        XCTAssertTrue(BrowserBridgeService.isLoopback(.hostPort(host: "127.0.0.1", port: 43128)))
+        XCTAssertTrue(BrowserBridgeService.isLoopback(.hostPort(host: "::1", port: 43128)))
+        XCTAssertFalse(BrowserBridgeService.isLoopback(.hostPort(host: "192.168.1.8", port: 43128)))
     }
 
     @MainActor
