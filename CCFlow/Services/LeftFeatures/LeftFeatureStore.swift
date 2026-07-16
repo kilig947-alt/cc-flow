@@ -269,8 +269,8 @@ final class LeftFeatureStore: ObservableObject {
             kind: .usage,
             isEnabled: true,
             sortOrder: 0,
-            expandedWidth: 680,
-            expandedHeight: 460
+            expandedWidth: LeftFeature.defaultExpandedWidth,
+            expandedHeight: LeftFeature.defaultExpandedHeight
         ))
         return result
     }
@@ -618,7 +618,7 @@ final class LeftFeatureStore: ObservableObject {
         persist()
     }
 
-    /// 设置功能的自定义展开尺寸；传 nil 清除覆盖，回退全局 `Settings.expandedPanelWidth` / `maxPanelHeight`
+    /// 设置功能的自定义展开尺寸；传 nil 清除覆盖，回退左侧功能统一默认尺寸。
     func setExpandedSize(id: String, width: Double?, height: Double?) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         features[index].expandedWidth = width

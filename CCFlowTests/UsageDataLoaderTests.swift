@@ -3,6 +3,24 @@ import XCTest
 @testable import CC_FLOW
 
 final class UsageDataLoaderTests: XCTestCase {
+    func testLeftFeatureExpandedSizeDefaultsToUsagePanelSize() {
+        let feature = LeftFeature(kind: .newsnow(baseURL: "https://example.com"))
+
+        XCTAssertEqual(feature.resolvedExpandedWidth, 680)
+        XCTAssertEqual(feature.resolvedExpandedHeight, 460)
+    }
+
+    func testLeftFeatureCustomExpandedSizeOverridesDefaults() {
+        let feature = LeftFeature(
+            kind: .music,
+            expandedWidth: 920,
+            expandedHeight: 540
+        )
+
+        XCTAssertEqual(feature.resolvedExpandedWidth, 920)
+        XCTAssertEqual(feature.resolvedExpandedHeight, 540)
+    }
+
     func testLeftFeatureDecodesWithoutGlobalShortcut() throws {
         let feature = LeftFeature(
             id: LeftFeature.usageID,

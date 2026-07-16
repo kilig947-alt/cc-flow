@@ -196,16 +196,25 @@ class NotchViewModel: ObservableObject {
     }
 
     func panelSize(for style: IslandOpenedPresentationStyle) -> CGSize {
-        let maxAllowedHeight = maximumOpenedHeight
-
-        // 读取当前激活功能的 per-feature 展开尺寸覆盖（nil = 跟随全局）
-        let activeFeature = LeftFeatureStore.shared.expandedActiveFeature
-        let featureWidth: Double = activeFeature?.expandedWidth ?? AppSettings.expandedPanelWidth
-        let featureHeight: Double = activeFeature?.expandedHeight ?? AppSettings.maxPanelHeight
-        let resolvedMaxHeight: CGFloat = min(maxAllowedHeight, CGFloat(featureHeight))
-
         // docked 与 detached 使用各自的内容类型与测量高度，互不腐蚀
         let resolvedContentType: NotchContentType = style == .detached ? detachedContentType : contentType
+
+        // 只有 docked 左侧功能展开态使用 680×460 基准尺寸；聊天和 detached 保持原有全局回退。
+        let activeFeature = LeftFeatureStore.shared.expandedActiveFeature
+        let usesLeftFeatureDefaultSize: Bool
+        if style == .docked, case .customExpanded = resolvedContentType {
+            usesLeftFeatureDefaultSize = true
+        } else {
+            usesLeftFeatureDefaultSize = false
+        }
+
+        let featureWidth = usesLeftFeatureDefaultSize
+            ? (activeFeature?.resolvedExpandedWidth ?? LeftFeature.defaultExpandedWidth)
+            : (activeFeature?.expandedWidth ?? AppSettings.expandedPanelWidth)
+        let featureHeight = usesLeftFeatureDefaultSize
+            ? (activeFeature?.resolvedExpandedHeight ?? LeftFeature.defaultExpandedHeight)
+            : (activeFeature?.expandedHeight ?? AppSettings.maxPanelHeight)
+        let resolvedMaxHeight = min(screenRect.height - 120, CGFloat(featureHeight))
 
         // Spec: 左侧展开面板拖拽调整尺寸时的实时覆盖（仅 docked customExpanded 生效）
         if style == .docked, resolvedContentType == .customExpanded, let override = openedSizeOverride {
@@ -279,7 +288,7 @@ class NotchViewModel: ObservableObject {
     }
 
     private var maximumOpenedHeight: CGFloat {
-        // 读取当前激活功能的 per-feature 展开高度覆盖（nil = 跟随全局）
+        // detached hover 等非左侧功能路径保持原有的全局尺寸回退。
         let activeFeature = LeftFeatureStore.shared.expandedActiveFeature
         let featureHeight: Double = activeFeature?.expandedHeight ?? AppSettings.maxPanelHeight
         let maxPanelHeight = CGFloat(featureHeight)

@@ -65,9 +65,9 @@ struct EditableCustomAreaView: View {
             return false
         }
         _expandedPinned = State(initialValue: feature?.expandedPinned ?? false)
-        _useCustomExpandedSize = State(initialValue: feature?.expandedWidth != nil)
-        _expandedWidth = State(initialValue: feature?.expandedWidth ?? AppSettings.shared.expandedPanelWidth)
-        _expandedHeight = State(initialValue: feature?.expandedHeight ?? AppSettings.shared.maxPanelHeight)
+        _useCustomExpandedSize = State(initialValue: feature?.expandedWidth != nil || feature?.expandedHeight != nil)
+        _expandedWidth = State(initialValue: feature?.resolvedExpandedWidth ?? LeftFeature.defaultExpandedWidth)
+        _expandedHeight = State(initialValue: feature?.resolvedExpandedHeight ?? LeftFeature.defaultExpandedHeight)
     }
 
     /// 网站 URL 功能模式初始化
@@ -86,9 +86,9 @@ struct EditableCustomAreaView: View {
             return ""
         }())
         _expandedPinned = State(initialValue: feature.expandedPinned)
-        _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil)
-        _expandedWidth = State(initialValue: feature.expandedWidth ?? AppSettings.shared.expandedPanelWidth)
-        _expandedHeight = State(initialValue: feature.expandedHeight ?? AppSettings.shared.maxPanelHeight)
+        _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
+        _expandedWidth = State(initialValue: feature.resolvedExpandedWidth)
+        _expandedHeight = State(initialValue: feature.resolvedExpandedHeight)
         // Spec: 若已有图标是自动获取的 favicon（img:favicon- 前缀），记为 autoFilledIconImage，
         // 这样 URL 变化时允许覆盖；用户手动设置的图标不会被覆盖。
         if let img = parsed.image, img.hasPrefix("img:favicon-") {
@@ -119,9 +119,9 @@ struct EditableCustomAreaView: View {
         _allowsNetwork = State(initialValue: false)
         _url = State(initialValue: "")
         _expandedPinned = State(initialValue: feature.expandedPinned)
-        _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil)
-        _expandedWidth = State(initialValue: feature.expandedWidth ?? AppSettings.shared.expandedPanelWidth)
-        _expandedHeight = State(initialValue: feature.expandedHeight ?? AppSettings.shared.maxPanelHeight)
+        _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
+        _expandedWidth = State(initialValue: feature.resolvedExpandedWidth)
+        _expandedHeight = State(initialValue: feature.resolvedExpandedHeight)
     }
 
     /// 解析已有图标标识符为 (text, image) 二元组：

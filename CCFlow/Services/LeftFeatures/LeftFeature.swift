@@ -75,9 +75,9 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
     var customIconName: String?
     /// 自定义显示名称；仅 `.webURL` 使用，其他 kind 当前忽略
     var customDisplayName: String?
-    /// 自定义展开宽度（pt）；nil = 跟随全局 `Settings.expandedPanelWidth`
+    /// 自定义展开宽度（pt）；nil = 使用左侧功能默认宽度
     var expandedWidth: Double?
-    /// 自定义展开高度（pt）；nil = 跟随全局 `Settings.maxPanelHeight`
+    /// 自定义展开高度（pt）；nil = 使用左侧功能默认高度
     var expandedHeight: Double?
     /// 展开即固定开关；true = 切换到该功能时面板自动 pin
     var expandedPinned: Bool
@@ -158,6 +158,18 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
 }
 
 extension LeftFeature {
+    /// 左侧功能未启用自定义展开尺寸时，统一使用「用量」面板的基准尺寸。
+    static let defaultExpandedWidth: Double = 680
+    static let defaultExpandedHeight: Double = 460
+
+    var resolvedExpandedWidth: Double {
+        expandedWidth ?? Self.defaultExpandedWidth
+    }
+
+    var resolvedExpandedHeight: Double {
+        expandedHeight ?? Self.defaultExpandedHeight
+    }
+
     /// 内置功能的稳定 id
     static let musicID = "music"
     static let usageID = "usage"

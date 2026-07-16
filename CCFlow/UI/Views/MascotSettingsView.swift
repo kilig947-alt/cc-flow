@@ -9,6 +9,7 @@ struct MascotSettingsView: View {
     @State private var syncResult: String?
     @State private var isSyncing = false
     @State private var designPromptCopied = false
+    @State private var designLaunchFailure: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -194,48 +195,39 @@ struct MascotSettingsView: View {
         return String(format: "%.1f×", speed)
     }
 
-    /// TRAE Work Design 生成宠物入口：按钮打开 TRAE Work CN，提示词可复制到 Design 中使用
+    /// Design 生成宠物入口：复制提示词后打开对应的桌面应用
     private var designPromptSection: some View {
-        MascotSectionCard(title: "用 TRAE Work Design 生成宠物") {
+        MascotSectionCard(title: "用 Design 生成宠物") {
             VStack(alignment: .leading, spacing: 12) {
-                // 说明文字：单行，紧凑
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text(appLocalized: "打开 TRAE Work CN，将提示词粘贴到设计对话中，AI 将自动生成宠物素材到 ~/.cc-flow/pets/")
+                    Text(appLocalized: "选择 Design 应用后会先复制提示词；粘贴到设计对话中，AI 将自动生成宠物素材到 ~/.cc-flow/pets/")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
-
-                    Button {
-                        TraeSessionLauncher.activate(.traeWorkCN)
-                    } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "arrow.up.forward.app.fill")
-                                .font(.system(size: 11))
-                            Text("去 TRAE Work Design 生成")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.accentColor)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { hovering in
-                        if hovering { NSCursor.pointingHand.push() }
-                        else { NSCursor.pointingHand.pop() }
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
+
+                HStack(spacing: 8) {
+                    designLaunchButton(.codex)
+                    designLaunchButton(.claude)
+                    designLaunchButton(.traeWork)
+                }
+                .padding(.horizontal, 16)
+
+                if let designLaunchFailure {
+                    Label(designLaunchFailure, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                }
 
                 MascotCardDivider()
 
@@ -248,9 +240,7 @@ struct MascotSettingsView: View {
                     Spacer()
 
                     Button {
-                        let pasteboard = NSPasteboard.general
-                        pasteboard.clearContents()
-                        pasteboard.setString(designPromptTemplate, forType: .string)
+                        copyDesignPrompt()
                         designPromptCopied = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             designPromptCopied = false
@@ -303,6 +293,48 @@ struct MascotSettingsView: View {
                 .padding(.bottom, 14)
             }
         }
+    }
+
+    private func designLaunchButton(_ destination: MascotDesignDestination) -> some View {
+        Button {
+            copyDesignPrompt()
+            designLaunchFailure = nil
+            MascotDesignAppLauncher.activate(destination) { succeeded in
+                designLaunchFailure = succeeded
+                    ? nil
+                    : "提示词已复制，但未能打开 \(destination.applicationDisplayName)。请确认应用已安装。"
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.up.forward.app.fill")
+                    .font(.system(size: 11))
+                Text(destination.buttonTitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.accentColor)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text(appLocalized: "复制生成宠物提示词并打开应用"))
+        .onHover { hovering in
+            if hovering { NSCursor.pointingHand.push() }
+            else { NSCursor.pointingHand.pop() }
+        }
+    }
+
+    private func copyDesignPrompt() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(designPromptTemplate, forType: .string)
     }
 
     /// 生成宠物的提示词模板
@@ -709,6 +741,100 @@ private struct MascotThemeRow: View {
         }
         .frame(width: previewSize, height: previewSize)
         .clipped()
+    }
+}
+
+private enum MascotDesignDestination {
+    case codex
+    case claude
+    case traeWork
+
+    var buttonTitle: String {
+        switch self {
+        case .codex: return "去 Codex Design 生成"
+        case .claude: return "去 Claude Code Design 生成"
+        case .traeWork: return "去 TRAE Work Design 生成"
+        }
+    }
+
+    var applicationDisplayName: String {
+        switch self {
+        case .codex: return "Codex"
+        case .claude: return "Claude"
+        case .traeWork: return "TRAE Work"
+        }
+    }
+}
+
+@MainActor
+private enum MascotDesignAppLauncher {
+    static func activate(
+        _ destination: MascotDesignDestination,
+        completion: @escaping (Bool) -> Void
+    ) {
+        switch destination {
+        case .codex:
+            activateDesktopApplication(
+                bundleIdentifier: "com.openai.codex",
+                fallbackApplicationName: "Codex",
+                completion: completion
+            )
+        case .claude:
+            activateDesktopApplication(
+                bundleIdentifier: "com.anthropic.claudefordesktop",
+                fallbackApplicationName: "Claude",
+                completion: completion
+            )
+        case .traeWork:
+            completion(TraeSessionLauncher.activate(.traeWorkCN))
+        }
+    }
+
+    private static func activateDesktopApplication(
+        bundleIdentifier: String,
+        fallbackApplicationName: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let workspace = NSWorkspace.shared
+
+        if let runningApplication = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first {
+            completion(runningApplication.activate(options: [.activateAllWindows]))
+            return
+        }
+
+        let applicationURL = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier)
+            ?? fallbackApplicationURLs(named: fallbackApplicationName).first {
+                FileManager.default.fileExists(atPath: $0.path)
+            }
+        guard let applicationURL else {
+            completion(false)
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        workspace.openApplication(at: applicationURL, configuration: configuration) { application, _ in
+            DispatchQueue.main.async {
+                if let application {
+                    _ = application.activate(options: [.activateAllWindows])
+                    completion(true)
+                } else {
+                    completion(false)
+                }
+            }
+        }
+    }
+
+    private static func fallbackApplicationURLs(named applicationName: String) -> [URL] {
+        [
+            URL(fileURLWithPath: "/Applications", isDirectory: true),
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications", isDirectory: true)
+        ].map {
+            $0.appendingPathComponent("\(applicationName).app", isDirectory: true)
+        }
     }
 }
 
