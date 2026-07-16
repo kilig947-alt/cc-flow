@@ -4,21 +4,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="${TRAE_FLOW_BUILD_DIR:-$PROJECT_DIR/build/release}"
+BUILD_DIR="${CC_FLOW_BUILD_DIR:-${TRAE_FLOW_BUILD_DIR:-$PROJECT_DIR/build/release}}"
 EXPORT_PATH="$BUILD_DIR/export"
-RELEASE_DIR="${TRAE_FLOW_RELEASE_DIR:-$PROJECT_DIR/releases/signed}"
+RELEASE_DIR="${CC_FLOW_RELEASE_DIR:-${TRAE_FLOW_RELEASE_DIR:-$PROJECT_DIR/releases/signed}}"
 
 # Website repo for auto-updating appcast
-WEBSITE_DIR="${TRAE_FLOW_WEBSITE:-$PROJECT_DIR/../TraeFlow-website}"
+WEBSITE_DIR="${CC_FLOW_WEBSITE:-${TRAE_FLOW_WEBSITE:-$PROJECT_DIR/../CCFlow-website}}"
 WEBSITE_PUBLIC="$WEBSITE_DIR/public"
 
-APP_PATH="$EXPORT_PATH/TRAE FLOW.app"
-APP_NAME="TraeFlow"
-NOTARY_PROFILE="${TRAE_FLOW_NOTARY_KEYCHAIN_PROFILE:-TraeFlow}"
+APP_PATH="$EXPORT_PATH/CC FLOW.app"
+APP_NAME="CCFlow"
+NOTARY_PROFILE="${CC_FLOW_NOTARY_KEYCHAIN_PROFILE:-${TRAE_FLOW_NOTARY_KEYCHAIN_PROFILE:-CCFlow}}"
 
 infer_github_repo() {
-    if [ -n "${TRAE_FLOW_GITHUB_REPO:-}" ]; then
-        echo "$TRAE_FLOW_GITHUB_REPO"
+    if [ -n "${CC_FLOW_GITHUB_REPO:-${TRAE_FLOW_GITHUB_REPO:-}}" ]; then
+        echo "${CC_FLOW_GITHUB_REPO:-$TRAE_FLOW_GITHUB_REPO}"
         return 0
     fi
 
@@ -38,10 +38,10 @@ GITHUB_REPO="$(infer_github_repo || true)"
 echo "=== Creating Release ==="
 echo ""
 
-export TRAE_FLOW_BUILD_DIR="$BUILD_DIR"
-export TRAE_FLOW_RELEASE_DIR="$RELEASE_DIR"
-export TRAE_FLOW_GENERATE_APPCAST=1
-export TRAE_FLOW_NOTARY_KEYCHAIN_PROFILE="$NOTARY_PROFILE"
+export CC_FLOW_BUILD_DIR="$BUILD_DIR"
+export CC_FLOW_RELEASE_DIR="$RELEASE_DIR"
+export CC_FLOW_GENERATE_APPCAST=1
+export CC_FLOW_NOTARY_KEYCHAIN_PROFILE="$NOTARY_PROFILE"
 
 "$SCRIPT_DIR/package-release.sh"
 
@@ -75,7 +75,7 @@ if ! command -v gh >/dev/null 2>&1; then
     echo "WARNING: gh CLI not found. Install with: brew install gh"
     echo "Skipping GitHub release."
 elif [ -z "$GITHUB_REPO" ]; then
-    echo "WARNING: Could not infer GitHub repository. Set TRAE_FLOW_GITHUB_REPO=owner/repo to enable release upload."
+    echo "WARNING: Could not infer GitHub repository. Set CC_FLOW_GITHUB_REPO=owner/repo to enable release upload."
     echo "Skipping GitHub release."
 else
     if gh release view "v$VERSION" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
@@ -85,15 +85,15 @@ else
         echo "Creating release v$VERSION..."
         gh release create "v$VERSION" "$DMG_PATH" \
             --repo "$GITHUB_REPO" \
-            --title "TRAE FLOW v$VERSION" \
+            --title "CC FLOW v$VERSION" \
             --notes "## Highlights
 
-- Download \`$(basename "$DMG_PATH")\` and install the latest TRAE FLOW release.
+- Download \`$(basename "$DMG_PATH")\` and install the latest CC FLOW release.
 
 ## Notes
 
-- Open the DMG, drag TRAE FLOW to Applications, and launch it normally.
-- After installation, TRAE FLOW will automatically check for updates."
+- Open the DMG, drag CC FLOW to Applications, and launch it normally.
+- After installation, CC FLOW will automatically check for updates."
     fi
 
     GITHUB_DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$(basename "$DMG_PATH")"

@@ -2,7 +2,10 @@ import Foundation
 import IslandShared
 
 actor SocketServer {
-    private static let healthCheckRequest = #"{"type":"trae-flow-health-check"}"#
+    private static let healthCheckRequests: Set<String> = [
+        #"{"type":"cc-flow-health-check"}"#,
+        #"{"type":"trae-flow-health-check"}"#
+    ]
     private static let healthCheckResponse = #"{"ok":true}"#
 
     private let socketPath: String
@@ -100,8 +103,9 @@ actor SocketServer {
 
         do {
             let data = try Self.readAll(from: clientFD)
-            if String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) == Self.healthCheckRequest {
+            if let request = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               Self.healthCheckRequests.contains(request) {
                 try Self.writeHealthCheckResponse(to: clientFD)
                 return
             }

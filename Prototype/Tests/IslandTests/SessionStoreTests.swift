@@ -143,3 +143,26 @@ func sessionStoreMergesMetadataAcrossUpdates() async throws {
     #expect(session.metadata["client_kind"] == "trae")
     #expect(session.metadata["client_name"] == "Trae")
 }
+
+@Test
+func sessionStoreKeepsSameRawSessionIDSeparateAcrossProviders() async throws {
+    let recorder = await MainActor.run { SnapshotRecorder() }
+    let store = SessionStore { snapshot in
+        recorder.snapshot = snapshot
+    }
+
+    for provider in AgentProvider.allCases {
+        await store.ingest(
+            BridgeEnvelope(
+                provider: provider,
+                eventType: "SessionStart",
+                sessionKey: "\(provider.rawValue):same",
+                status: SessionStatus(kind: .thinking)
+            )
+        )
+    }
+
+    let sessions = await MainActor.run { recorder.sessions }
+    #expect(sessions.count == 3)
+    #expect(Set(sessions.map(\.id)) == ["claude:same", "codex:same", "trae:same"])
+}

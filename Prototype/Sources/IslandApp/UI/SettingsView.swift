@@ -7,7 +7,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Island")
                 .font(.system(size: 24, weight: .bold, design: .rounded))
-            Text("A native notch companion for Trae.")
+            Text("A native notch companion for Claude Code, Codex, and TRAE.")
                 .foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Live State")

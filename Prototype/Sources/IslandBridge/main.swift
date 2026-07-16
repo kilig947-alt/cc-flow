@@ -51,11 +51,10 @@ struct IslandBridgeMain {
                     policy: runtimeConfig.debugLogPolicy
                 )
 
-                // Spec: socket 路径统一使用 `/tmp/trae-flow.sock`
-                // Launcher 导出 TRAE_FLOW_SOCKET_PATH；保留 ISLAND_SOCKET_PATH 作为向后兼容回退
-                let socketPath = environment["TRAE_FLOW_SOCKET_PATH"]
+                let socketPath = environment["CC_FLOW_SOCKET_PATH"]
+                    ?? environment["TRAE_FLOW_SOCKET_PATH"]
                     ?? environment["ISLAND_SOCKET_PATH"]
-                    ?? "/tmp/trae-flow.sock"
+                    ?? "/tmp/cc-flow.sock"
                 guard HookPayloadMapper.shouldDeliverEnvelope(envelope) else {
                     try? BridgeDebugLogger.logDeliveryIfNeeded(
                         envelope: envelope,
@@ -110,14 +109,15 @@ struct IslandBridgeMain {
                 try RemoteAgentAttach.run(controlSocketPath: controlSocket)
             case .healthCheck:
                 let environment = ProcessInfo.processInfo.environment
-                let socketPath = environment["TRAE_FLOW_SOCKET_PATH"]
+                let socketPath = environment["CC_FLOW_SOCKET_PATH"]
+                    ?? environment["TRAE_FLOW_SOCKET_PATH"]
                     ?? environment["ISLAND_SOCKET_PATH"]
-                    ?? "/tmp/trae-flow.sock"
+                    ?? "/tmp/cc-flow.sock"
                 try SocketClient.sendHealthCheck(socketPath: socketPath)
                 FileHandle.standardOutput.write(Data("ok\n".utf8))
             }
         } catch {
-            FileHandle.standardError.write(Data("TraeFlowBridge error: \(error.localizedDescription)\n".utf8))
+            FileHandle.standardError.write(Data("CCFlowBridge error: \(error.localizedDescription)\n".utf8))
             Foundation.exit(1)
         }
     }
@@ -452,7 +452,7 @@ private enum BridgeDebugLogger {
             || normalizedEvent.contains("permission")
             || normalizedEvent.contains("question")
             || normalizedEvent.contains("tool") {
-            return "trae-hooks"
+            return envelope.provider.rawValue + "-hooks"
         }
 
         return nil
@@ -460,7 +460,7 @@ private enum BridgeDebugLogger {
 
     private static func debugLocation(for target: String, environment: [String: String]) -> DebugLogLocation {
         let rootDirectory = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".trae-flow-debug", isDirectory: true)
+            .appendingPathComponent("Library/Logs/cc-flow", isDirectory: true)
         return DebugLogLocation(
             rootDirectory: rootDirectory,
             targetDirectory: rootDirectory.appendingPathComponent(target, isDirectory: true)
@@ -496,6 +496,7 @@ private enum BridgeDebugLogger {
         environment.reduce(into: [:]) { partial, pair in
             if interestingEnvironmentKeys.contains(pair.key)
                 || pair.key.hasPrefix("ISLAND_")
+                || pair.key.hasPrefix("CC_FLOW_")
                 || pair.key.hasPrefix("TRAE_FLOW_") {
                 partial[pair.key] = pair.value
             }
@@ -608,7 +609,7 @@ private enum BridgeRuntimeMode: String {
 }
 
 private enum SocketClient {
-    private static let healthCheckRequest = #"{"type":"trae-flow-health-check"}"#
+    private static let healthCheckRequest = #"{"type":"cc-flow-health-check"}"#
     private static let healthCheckResponse = #"{"ok":true}"#
 
     static func send(envelope: BridgeEnvelope, socketPath: String) throws -> BridgeResponse {
@@ -704,7 +705,7 @@ private enum SocketClient {
 private final class RemoteAgentService: @unchecked Sendable {
     private let hookSocketPath: String
     private let controlSocketPath: String
-    private let queue = DispatchQueue(label: "ai.traeflow.app.remote-agent", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "ai.ccflow.app.remote-agent", qos: .userInitiated)
 
     private var hookServerSocket: Int32 = -1
     private var controlServerSocket: Int32 = -1

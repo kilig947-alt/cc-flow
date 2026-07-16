@@ -95,9 +95,9 @@ final class MascotThemeScanner: ObservableObject {
         let codexResult = Self.scanDirectory(at: codexPetsDir, source: .codex)
         for theme in codexResult.themes { merged[theme.id] = theme }
 
-        // 3. 用户自装（$HOME/.traeflow/pets/）
+        // 3. 用户自装（$HOME/.cc-flow/pets/）
         let userPetsDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".traeflow", isDirectory: true)
+            .appendingPathComponent(".cc-flow", isDirectory: true)
             .appendingPathComponent("pets", isDirectory: true)
         let userResult = Self.scanDirectory(at: userPetsDir, source: .user)
         for theme in userResult.themes { merged[theme.id] = theme }

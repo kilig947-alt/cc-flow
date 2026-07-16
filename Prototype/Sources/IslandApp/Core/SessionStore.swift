@@ -74,6 +74,10 @@ actor SessionStore {
     }
 
     private func defaultTitle(for provider: AgentProvider) -> String {
-        return "Trae Session"
+        switch provider {
+        case .claude: return "Claude Code Session"
+        case .codex: return "Codex Session"
+        case .trae: return "TRAE Session"
+        }
     }
 }

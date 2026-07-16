@@ -1,5 +1,5 @@
 import Foundation
-import XCTest
+import Testing
 
 /// Spec: extend-left-features-url-icons-jump —— Task 1.4
 /// 验证 `LeftFeature` / `CustomArea` 的 Codable 向后兼容性：
@@ -9,9 +9,9 @@ import XCTest
 ///
 /// Prototype 包不含 `LeftFeature` / `CustomArea` 类型，因此用本地 `TestLeftFeature` /
 /// `TestCustomArea` 镜像真实 `Codable` 行为（`decodeIfPresent` 模式），验证逻辑等价性。
-final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
+@Suite struct LeftFeatureAndCustomAreaCodabilityTests {
 
-    // MARK: - 镜像类型（与 TraeFlow/LeftFeature.swift 的 Codable 逻辑等价）
+    // MARK: - 镜像类型（与 CCFlow/LeftFeature.swift 的 Codable 逻辑等价）
 
     /// 镜像 `LeftFeatureKind`，含 `.webURL(url:)` / `.newsnow(baseURL:)` 新 case
     enum TestLeftFeatureKind: Codable, Equatable, Hashable {
@@ -78,7 +78,7 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         }
     }
 
-    // MARK: - 镜像类型（与 TraeFlow/CustomArea.swift 的 Codable 逻辑等价）
+    // MARK: - 镜像类型（与 CCFlow/CustomArea.swift 的 Codable 逻辑等价）
 
     /// 镜像 `TraeVariant`（仅 4 个 case + rawValue，足够测试 Codable 行为）
     enum TestTraeVariant: String, Codable, Equatable, Hashable {
@@ -182,6 +182,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - LeftFeature 老数据兼容性
 
+
+    @Test
     func test_LeftFeature_老JSON缺新字段_解码不崩溃且回退nil() throws {
         // 老 left-features.json 仅含 id/kind/isEnabled/sortOrder/createdAt，无 customIconName / customDisplayName
         let oldJSON = """
@@ -202,6 +204,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         XCTAssertNil(feature.customDisplayName, "老数据缺 customDisplayName 应回退 nil")
     }
 
+
+    @Test
     func test_LeftFeature_新字段填充后正常解码() throws {
         let json = """
         {
@@ -222,6 +226,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - webURL kind 编解码往返
 
+
+    @Test
     func test_webURLKind_编解码往返相等() throws {
         let original = TestLeftFeature(
             id: "web-1",
@@ -238,6 +244,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         XCTAssertEqual(decoded.customDisplayName, "TRAE Flow 官网")
     }
 
+
+    @Test
     func test_webURLKind_数组编解码往返() throws {
         let originals = [
             TestLeftFeature(id: "music", kind: .music, sortOrder: 0),
@@ -254,6 +262,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - CustomArea 老数据兼容性
 
+
+    @Test
     func test_CustomArea_老JSON缺新字段_解码不崩溃且iconName为nil_allowsNetworkAccess为false() throws {
         // 老 custom-areas.json 不含 iconName / allowsNetworkAccess
         let oldJSON = """
@@ -279,6 +289,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         XCTAssertFalse(area.allowsNetworkAccess, "老数据缺 allowsNetworkAccess 应回退 false")
     }
 
+
+    @Test
     func test_CustomArea_老JSON完全缺失defaultVariant_回退traeWorkCN() throws {
         // 极端情况：defaultVariant 字段也缺失（理论上老数据总有该字段，但 decodeIfPresent 应安全兜底）
         let oldJSON = """
@@ -301,6 +313,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - CustomArea 新字段编解码
 
+
+    @Test
     func test_CustomArea_新字段填充后正常解码() throws {
         let json = """
         {
@@ -324,6 +338,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         XCTAssertTrue(area.allowsNetworkAccess)
     }
 
+
+    @Test
     func test_CustomArea_编解码往返相等() throws {
         let original = TestCustomArea(
             id: "area-4",
@@ -347,6 +363,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - 数组级向后兼容（模拟真实持久化文件）
 
+
+    @Test
     func test_CustomArea数组_老JSON混入新字段_全量解码成功() throws {
         // 模拟升级期间 custom-areas.json：第 1 条老数据缺新字段，第 2 条新数据含新字段
         let json = """
@@ -391,6 +409,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
 
     // MARK: - NewsNow Codable 往返（Spec: add-newsnow-built-in-feature Task 1.5）
 
+
+    @Test
     func test_newsnow_kind_codable往返() {
         let feature = TestLeftFeature(
             id: "newsnow",
@@ -407,6 +427,8 @@ final class LeftFeatureAndCustomAreaCodabilityTests: XCTestCase {
         }
     }
 
+
+    @Test
     func test_newsnow_kind_自定义baseURL往返() {
         let feature = TestLeftFeature(
             id: "newsnow",

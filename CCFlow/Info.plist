@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>CC FLOW</string>
+    <key>CFBundleDisplayName</key>
+    <string>CC FLOW</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>LSUIElement</key>
+    <false/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>CC FLOW uses Apple Events to return you to the terminal or supported coding client that owns a session.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright 2026 CC FLOW Contributors. All rights reserved.</string>
+    <key>PINGTelemetryDailyEventLimit</key>
+    <string>$(CC_FLOW_TELEMETRY_DAILY_EVENT_LIMIT)</string>
+    <key>PINGTelemetrySLSHost</key>
+    <string>$(CC_FLOW_TELEMETRY_SLS_HOST)</string>
+    <key>PINGTelemetrySLSLogstore</key>
+    <string>$(CC_FLOW_TELEMETRY_SLS_LOGSTORE)</string>
+    <key>PINGTelemetrySLSProject</key>
+    <string>$(CC_FLOW_TELEMETRY_SLS_PROJECT)</string>
+    <key>PINGTelemetrySLSSource</key>
+    <string>$(CC_FLOW_TELEMETRY_SLS_SOURCE)</string>
+    <key>PINGTelemetrySLSTopic</key>
+    <string>$(CC_FLOW_TELEMETRY_SLS_TOPIC)</string>
+
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>$(SPARKLE_APPCAST_URL)</string>
+    <key>SUPublicEDKey</key>
+    <string>$(SPARKLE_PUBLIC_ED_KEY)</string>
+    <key>SUScheduledCheckInterval</key>
+    <real>86400</real>
+    <key>SUShowReleaseNotes</key>
+    <false/>
+</dict>
+</plist>

@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 
 /// Spec: refactor-left-island-boringnotch-features —— Task 18.3
 /// 验证 LeftFeatureStore 与 CustomAreaStore 的 add/remove 联动算法。
-final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
+@Suite struct LeftFeatureStoreCustomAreaLifecycleTests {
 
     struct TestFeature: Equatable {
         let id: String
@@ -39,6 +39,8 @@ final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
         if let e = expandedActiveFeatureID, removedIDs.contains(e) { expandedActiveFeatureID = nil }
     }
 
+
+    @Test
     func test_appendCustomArea_追加到末尾sortOrder递增() {
         var features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -55,6 +57,8 @@ final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
         XCTAssertEqual(features[3].sortOrder, 3)
     }
 
+
+    @Test
     func test_removeCustomArea_移除对应feature() {
         var features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -69,6 +73,8 @@ final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
         XCTAssertEqual(features[0].id, "music")
     }
 
+
+    @Test
     func test_removeCustomArea_选择指向被删功能_置nil() {
         var features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -83,6 +89,8 @@ final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
         XCTAssertNil(expandedID)
     }
 
+
+    @Test
     func test_removeCustomArea_选择未指向被删功能_保持不变() {
         var features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -97,6 +105,8 @@ final class LeftFeatureStoreCustomAreaLifecycleTests: XCTestCase {
         XCTAssertEqual(expandedID, "music")
     }
 
+
+    @Test
     func test_removeCustomArea_不存在的areaID_无操作() {
         var features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),

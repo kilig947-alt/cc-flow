@@ -1,8 +1,9 @@
-import XCTest
+import Foundation
+import Testing
 
 /// Spec: refactor-left-island-boringnotch-features —— Task 18.2
 /// 验证 LeftFeatureStore 排序与选择回退逻辑的算法等价实现。
-final class LeftFeatureStoreOrderingTests: XCTestCase {
+@Suite struct LeftFeatureStoreOrderingTests {
 
     struct TestFeature: Equatable {
         let id: String
@@ -49,6 +50,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
 
     // MARK: - enabledFeatures
 
+
+    @Test
     func test_enabledFeatures_过滤禁用项并按sortOrder升序() {
         let features = [
             TestFeature(id: "a", kind: "music", isEnabled: true, sortOrder: 0),
@@ -61,6 +64,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
 
     // MARK: - compactFeature 自动规则
 
+
+    @Test
     func test_compactFeature_显式选择优先() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -70,6 +75,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "shelf")
     }
 
+
+    @Test
     func test_compactFeature_自动模式_音乐播放中() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -79,6 +86,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "music")
     }
 
+
+    @Test
     func test_compactFeature_自动模式_音乐未播放_回退首项() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -88,6 +97,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "music")  // music 仍是首项
     }
 
+
+    @Test
     func test_compactFeature_自动模式_音乐禁用_回退首项() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: false, sortOrder: 0),
@@ -97,6 +108,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "shelf")
     }
 
+
+    @Test
     func test_compactFeature_显式选择指向已禁用功能_回退自动规则() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: false, sortOrder: 0),
@@ -106,6 +119,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "shelf")  // music 禁用，回退到首项 shelf
     }
 
+
+    @Test
     func test_compactFeature_无已启用功能_返回nil() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: false, sortOrder: 0),
@@ -117,6 +132,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
 
     // MARK: - expandedActiveFeature 回退
 
+
+    @Test
     func test_expandedActiveFeature_显式选择优先() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -126,6 +143,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "shelf")
     }
 
+
+    @Test
     func test_expandedActiveFeature_显式选择指向已禁用_回退首项() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: false, sortOrder: 0),
@@ -135,6 +154,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "shelf")
     }
 
+
+    @Test
     func test_expandedActiveFeature_显式选择指向已删除_回退首项() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -144,6 +165,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(result?.id, "music")
     }
 
+
+    @Test
     func test_expandedActiveFeature_nil_回退首项() {
         let features = [
             TestFeature(id: "music", kind: "music", isEnabled: true, sortOrder: 0),
@@ -155,6 +178,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
 
     // MARK: - moveFeature 排序
 
+
+    @Test
     func test_moveFeature_移动单项_重写sortOrder() {
         var features = [
             TestFeature(id: "a", kind: "", isEnabled: true, sortOrder: 0),
@@ -169,6 +194,8 @@ final class LeftFeatureStoreOrderingTests: XCTestCase {
         XCTAssertEqual(features.map(\.sortOrder), [0, 1, 2])
     }
 
+
+    @Test
     func test_moveFeature_移动多项_重写sortOrder() {
         var features = [
             TestFeature(id: "a", kind: "", isEnabled: true, sortOrder: 0),

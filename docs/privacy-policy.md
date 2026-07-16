@@ -2,23 +2,23 @@
 
 Last updated: July 1, 2026
 
-TRAE FLOW is a macOS utility for monitoring AI coding sessions from the macOS
+CC FLOW is a macOS utility for monitoring AI coding sessions from the macOS
 menu bar. This policy explains what information the app handles and how it is
 used.
 
 ## Data Collection
 
-TRAE FLOW does not sell personal information and does not use advertising
+CC FLOW does not sell personal information and does not use advertising
 tracking.
 
-The app is designed to process session information locally on your Mac. TRAE
+The app is designed to process session information locally on your Mac. CC
 FLOW does not send your coding session content to the developer.
 
-TRAE FLOW may offer optional anonymous usage telemetry. The first-run
-onboarding includes a preselected consent checkbox for helping improve TRAE
+CC FLOW may offer optional anonymous usage telemetry. The first-run
+onboarding includes a preselected consent checkbox for helping improve CC
 FLOW, and returning users may see a one-time Settings prompt. Telemetry is not
 uploaded until consent is confirmed, and it can be disabled in Settings at any
-time. When enabled, TRAE FLOW may send a small allowlist of product usage
+time. When enabled, CC FLOW may send a small allowlist of product usage
 events, such as app launches, Hook installation results, client type categories,
 and coarse session lifecycle buckets, to help improve the app.
 
@@ -29,15 +29,15 @@ or API keys.
 
 ## Data Processed Locally
 
-To provide its core features, TRAE FLOW may process information on your Mac
+To provide its core features, CC FLOW may process information on your Mac
 such as:
 
 - AI coding session status, events, prompts, responses, approvals, questions,
   errors, and completion notifications.
 - Project, terminal, tmux, IDE, SSH, and session identifiers used to show the
   right session and jump back to the right workspace.
-- Configuration files for supported local tools, including TRAE, TRAE CN,
-  TRAE WORK, and TRAE WORK CN.
+- Configuration files for supported local tools, including Claude Code, Codex,
+  TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN.
 - User-configured custom areas (local HTML directories or remote URLs loaded in
   the Flow Island left panel), music playback status from system media, and
   temporary file shelf data managed through AirDrop.
@@ -50,7 +50,7 @@ terminal or IDE windows.
 
 ## Permissions
 
-TRAE FLOW may request macOS permissions needed for its features, including:
+CC FLOW may request macOS permissions needed for its features, including:
 
 - File access to user-selected folders or tool configuration locations.
 - Apple Events or Accessibility access for window focus and terminal jump-back
@@ -62,19 +62,19 @@ You can manage these permissions in macOS System Settings.
 
 ## Diagnostics
 
-TRAE FLOW may let you export diagnostics for troubleshooting. Diagnostic
+CC FLOW may let you export diagnostics for troubleshooting. Diagnostic
 exports are user-initiated, saved to a location you choose, and are intended to
 redact secrets where possible. Review diagnostic files before sharing them in a
 GitHub issue or support request.
 
 ## Third-Party Services
 
-TRAE FLOW can work with third-party developer tools and services that you
+CC FLOW can work with third-party developer tools and services that you
 install or configure separately. Those tools, remote hosts, Apple services,
 GitHub, and any AI providers you use have their own privacy practices. This
-policy only covers TRAE FLOW itself.
+policy only covers CC FLOW itself.
 
-If optional anonymous telemetry is enabled, TRAE FLOW may use Alibaba Cloud
+If optional anonymous telemetry is enabled, CC FLOW may use Alibaba Cloud
 Simple Log Service to store product usage events. See
 `docs/telemetry.md` for the current event and field allowlist.
 
