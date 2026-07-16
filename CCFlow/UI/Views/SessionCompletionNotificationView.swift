@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private struct SessionCompletionContentHeightPreferenceKey: PreferenceKey {
@@ -5,6 +6,15 @@ private struct SessionCompletionContentHeightPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
+    }
+}
+
+enum CompletionQuickReplyDeliveryRoute: Equatable {
+    case direct
+    case copyAndActivate
+
+    static func resolve(for session: SessionState) -> Self {
+        session.supportsTmuxCLIMessaging ? .direct : .copyAndActivate
     }
 }
 
@@ -43,6 +53,10 @@ struct SessionCompletionNotification: Equatable, Identifiable {
             case .compacted:
                 return false
             }
+        }
+
+        var supportsQuickReplies: Bool {
+            self == .completed
         }
     }
 
@@ -210,20 +224,25 @@ struct SessionCompletionNotificationView: View {
     static let bubbleAssistantLineLimit = 9
 
     let notification: SessionCompletionNotification
+    let sessionMonitor: SessionMonitor
     let presentationStyle: SessionCompletionNotificationPresentationStyle
     let onHoverChanged: (Bool) -> Void
     let onDismiss: () -> Void
 
     @ObservedObject private var settings = AppSettings.shared
     @State private var measuredAssistantContentHeight: CGFloat = 0
+    @State private var quickReplyInFlight: String?
+    @State private var quickReplyFeedback: String?
 
     init(
         notification: SessionCompletionNotification,
+        sessionMonitor: SessionMonitor,
         presentationStyle: SessionCompletionNotificationPresentationStyle = .panel,
         onHoverChanged: @escaping (Bool) -> Void,
         onDismiss: @escaping () -> Void
     ) {
         self.notification = notification
+        self.sessionMonitor = sessionMonitor
         self.presentationStyle = presentationStyle
         self.onHoverChanged = onHoverChanged
         self.onDismiss = onDismiss
@@ -413,9 +432,108 @@ struct SessionCompletionNotificationView: View {
         }
     }
 
+    private var availableQuickReplies: [String] {
+        guard notification.kind.supportsQuickReplies,
+              settings.completionQuickRepliesEnabled else { return [] }
+        return settings.completionQuickReplies
+    }
+
+    private var quickReplyActions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(Array(availableQuickReplies.prefix(3)), id: \.self) { reply in
+                    quickReplyButton(reply)
+                }
+
+                if availableQuickReplies.count > 3 {
+                    Menu("更多") {
+                        ForEach(Array(availableQuickReplies.dropFirst(3)), id: \.self) { reply in
+                            Button(reply) { sendQuickReply(reply) }
+                                .accessibilityLabel("快速回复 \(reply)")
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .disabled(quickReplyInFlight != nil)
+                    .accessibilityLabel("更多快速回复")
+                }
+            }
+
+            if let quickReplyFeedback {
+                Text(quickReplyFeedback)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.68))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func quickReplyButton(_ reply: String) -> some View {
+        Button {
+            sendQuickReply(reply)
+        } label: {
+            HStack(spacing: 5) {
+                if quickReplyInFlight == reply {
+                    ProgressView().controlSize(.mini)
+                }
+                Text(reply).lineLimit(1)
+            }
+            .frame(minHeight: 24)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .disabled(quickReplyInFlight != nil)
+        .accessibilityLabel("快速回复 \(reply)")
+    }
+
+    private func sendQuickReply(_ reply: String) {
+        guard quickReplyInFlight == nil else { return }
+        quickReplyInFlight = reply
+        quickReplyFeedback = nil
+
+        Task {
+            guard let liveSession = await SessionStore.shared.session(for: session.sessionId) else {
+                await MainActor.run {
+                    quickReplyFeedback = "原会话已不可用。"
+                    quickReplyInFlight = nil
+                }
+                return
+            }
+
+            if CompletionQuickReplyDeliveryRoute.resolve(for: liveSession) == .direct {
+                do {
+                    try await sessionMonitor.sendSessionMessage(sessionId: liveSession.sessionId, text: reply)
+                    await MainActor.run { onDismiss() }
+                } catch {
+                    await MainActor.run {
+                        quickReplyFeedback = "发送失败：\(error.localizedDescription)"
+                        quickReplyInFlight = nil
+                    }
+                }
+                return
+            }
+
+            await MainActor.run {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(reply, forType: .string)
+            }
+            let activated = await SessionLauncher.shared.activate(liveSession)
+            await MainActor.run {
+                quickReplyFeedback = activated
+                    ? "已复制“\(reply)”，请粘贴发送。"
+                    : "已复制“\(reply)”，但无法打开原客户端。"
+                quickReplyInFlight = nil
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             contentCard
+                .onTapGesture { onDismiss() }
+
+            if !availableQuickReplies.isEmpty {
+                quickReplyActions
+            }
         }
         .padding(.horizontal, outerHorizontalPadding)
         .padding(.top, outerTopPadding)
@@ -435,9 +553,6 @@ struct SessionCompletionNotificationView: View {
         }
         .onDisappear {
             onHoverChanged(false)
-        }
-        .onTapGesture {
-            onDismiss()
         }
     }
 }

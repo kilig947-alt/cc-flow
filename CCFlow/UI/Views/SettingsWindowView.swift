@@ -1815,6 +1815,10 @@ private struct SettingsPanelContentView: View {
                     .labelsHidden()
                     .settingsMenuPicker(width: 120)
                 }
+
+                SettingsLineDivider()
+
+                CompletionQuickRepliesSettingsView(settings: settings)
             }
 
             let hookProfiles = viewModel.visibleHookProfiles
@@ -3092,6 +3096,146 @@ private struct SettingsPanelContentView: View {
             updateManager.checkForUpdates()
         case .checking, .found, .downloading, .extracting, .readyToInstall, .installing:
             break
+        }
+    }
+}
+
+private struct CompletionQuickRepliesSettingsView: View {
+    @ObservedObject var settings: AppSettingsStore
+    @State private var newReply = ""
+    @State private var validationMessage: String?
+    @State private var replyDrafts: [Int: String] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsToggleLine(
+                title: "快速回复",
+                subtitle: "任务完成后显示快捷回复；tmux 会话直接发送，其他会话复制后跳回客户端。",
+                isOn: $settings.completionQuickRepliesEnabled
+            )
+
+            if settings.completionQuickRepliesEnabled {
+                ForEach(Array(settings.completionQuickReplies.enumerated()), id: \.offset) { index, reply in
+                    HStack(spacing: 8) {
+                        TextField(
+                            "快速回复",
+                            text: Binding(
+                                get: { replyDrafts[index] ?? reply },
+                                set: {
+                                    replyDrafts[index] = $0
+                                    persistValidDraft(at: index)
+                                }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { commitReply(at: index) }
+
+                        Spacer(minLength: 8)
+
+                        Button { moveReply(at: index, offset: -1) } label: {
+                            Image(systemName: "chevron.up")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(index == 0)
+                        .accessibilityLabel("上移快速回复 \(reply)")
+
+                        Button { moveReply(at: index, offset: 1) } label: {
+                            Image(systemName: "chevron.down")
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(index == settings.completionQuickReplies.count - 1)
+                        .accessibilityLabel("下移快速回复 \(reply)")
+
+                        Button(role: .destructive) {
+                            settings.completionQuickReplies.remove(at: index)
+                            replyDrafts.removeAll()
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("删除快速回复 \(reply)")
+                    }
+                    .padding(.horizontal, 18)
+                }
+
+                HStack(spacing: 8) {
+                    TextField("新增快速回复", text: $newReply)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(addReply)
+
+                    Button("新增", action: addReply)
+                        .buttonStyle(.bordered)
+                }
+                .padding(.horizontal, 18)
+
+                if let validationMessage {
+                    Text(validationMessage)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(TerminalColors.amber)
+                        .padding(.horizontal, 18)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func addReply() {
+        let value = newReply.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            validationMessage = "快速回复不能为空。"
+            return
+        }
+        guard !settings.completionQuickReplies.contains(value) else {
+            validationMessage = "该快速回复已存在。"
+            return
+        }
+        settings.completionQuickReplies.append(value)
+        newReply = ""
+        validationMessage = nil
+    }
+
+    private func moveReply(at index: Int, offset: Int) {
+        persistAllValidDrafts()
+        let destination = index + offset
+        guard settings.completionQuickReplies.indices.contains(index),
+              settings.completionQuickReplies.indices.contains(destination) else { return }
+        settings.completionQuickReplies.swapAt(index, destination)
+        replyDrafts.removeAll()
+    }
+
+    private func commitReply(at index: Int) {
+        guard settings.completionQuickReplies.indices.contains(index) else { return }
+        let value = (replyDrafts[index] ?? settings.completionQuickReplies[index])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            validationMessage = "快速回复不能为空。"
+            return
+        }
+        guard !settings.completionQuickReplies.enumerated().contains(where: {
+            $0.offset != index && $0.element == value
+        }) else {
+            validationMessage = "该快速回复已存在。"
+            return
+        }
+        settings.completionQuickReplies[index] = value
+        replyDrafts[index] = nil
+        validationMessage = nil
+    }
+
+    private func persistValidDraft(at index: Int) {
+        guard settings.completionQuickReplies.indices.contains(index),
+              let draft = replyDrafts[index] else { return }
+        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty,
+              !settings.completionQuickReplies.enumerated().contains(where: {
+                  $0.offset != index && $0.element == value
+              }) else { return }
+        settings.completionQuickReplies[index] = value
+    }
+
+    private func persistAllValidDrafts() {
+        for index in replyDrafts.keys.sorted() {
+            persistValidDraft(at: index)
         }
     }
 }

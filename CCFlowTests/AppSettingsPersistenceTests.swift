@@ -185,6 +185,46 @@ final class AppSettingsPersistenceTests: XCTestCase {
         XCTAssertEqual(defaults.object(forKey: "automaticUpdateChecksEnabled") as? Bool, false)
     }
 
+    func testCompletionQuickRepliesUseDefaultsWhenUnset() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        XCTAssertTrue(store.completionQuickRepliesEnabled)
+        XCTAssertEqual(store.completionQuickReplies, ["OK", "继续", "允许"])
+    }
+
+    func testCompletionQuickRepliesPersistOrderAndDisabledState() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        store.completionQuickRepliesEnabled = false
+        store.completionQuickReplies = ["继续处理", "OK"]
+
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertFalse(reloadedStore.completionQuickRepliesEnabled)
+        XCTAssertEqual(reloadedStore.completionQuickReplies, ["继续处理", "OK"])
+    }
+
+    func testCompletionQuickRepliesPreservePersistedEmptyList() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        store.completionQuickReplies = []
+
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(reloadedStore.completionQuickReplies, [])
+    }
+
+    func testCompletionQuickRepliesTrimAndRemoveInvalidDuplicates() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        store.completionQuickReplies = ["  OK  ", "", "OK", "  继续 "]
+
+        XCTAssertEqual(store.completionQuickReplies, ["OK", "继续"])
+        XCTAssertEqual(defaults.stringArray(forKey: "completionQuickReplies"), ["OK", "继续"])
+    }
+
     func testHookDebugLogSettingsPersistAndWriteRuntimeConfig() {
         let defaults = makeDefaults()
         var snapshots: [BridgeRuntimeConfigSnapshot] = []

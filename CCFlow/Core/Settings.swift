@@ -418,6 +418,8 @@ final class AppSettingsStore: ObservableObject {
         static let hookDebugLogRetentionDays = "hookDebugLogRetentionDays"
         static let hookDebugLogMaxDirectoryMegabytes = "hookDebugLogMaxDirectoryMegabytes"
         static let toolApprovalMode = "toolApprovalMode"
+        static let completionQuickRepliesEnabled = "completionQuickRepliesEnabled"
+        static let completionQuickReplies = "completionQuickReplies"
     }
 
     // MARK: - Published Settings
@@ -1020,6 +1022,34 @@ final class AppSettingsStore: ObservableObject {
         didSet {
             guard !isBootstrapping else { return }
             defaults.set(toolApprovalMode.rawValue, forKey: Keys.toolApprovalMode)
+        }
+    }
+
+    @Published var completionQuickRepliesEnabled: Bool {
+        didSet {
+            guard !isBootstrapping else { return }
+            defaults.set(completionQuickRepliesEnabled, forKey: Keys.completionQuickRepliesEnabled)
+        }
+    }
+
+    @Published var completionQuickReplies: [String] {
+        didSet {
+            let normalized = Self.normalizedCompletionQuickReplies(completionQuickReplies)
+            if normalized != completionQuickReplies {
+                completionQuickReplies = normalized
+                return
+            }
+            guard !isBootstrapping else { return }
+            defaults.set(completionQuickReplies, forKey: Keys.completionQuickReplies)
+        }
+    }
+
+    nonisolated static func normalizedCompletionQuickReplies(_ replies: [String]) -> [String] {
+        var seen: Set<String> = []
+        return replies.compactMap { rawValue in
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, seen.insert(value).inserted else { return nil }
+            return value
         }
     }
 
@@ -1688,6 +1718,15 @@ final class AppSettingsStore: ObservableObject {
         _toolApprovalMode = Published(initialValue: ToolApprovalMode(
             rawValue: defaults.string(forKey: Keys.toolApprovalMode) ?? ""
         ) ?? .prompt)
+        _completionQuickRepliesEnabled = Published(initialValue: Self.boolValue(
+            from: defaults,
+            key: Keys.completionQuickRepliesEnabled,
+            exists: persistedKeys.contains(Keys.completionQuickRepliesEnabled),
+            default: true
+        ))
+        _completionQuickReplies = Published(initialValue: persistedKeys.contains(Keys.completionQuickReplies)
+            ? Self.normalizedCompletionQuickReplies(defaults.stringArray(forKey: Keys.completionQuickReplies) ?? [])
+            : ["OK", "继续", "允许"])
 
         if defaults.string(forKey: Keys.soundThemeMode) == nil {
             defaults.set(resolvedSoundThemeMode.rawValue, forKey: Keys.soundThemeMode)

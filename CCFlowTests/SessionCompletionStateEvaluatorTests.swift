@@ -3,6 +3,21 @@ import XCTest
 @testable import CC_FLOW
 
 final class SessionCompletionStateEvaluatorTests: XCTestCase {
+    func testOnlyCompletedNotificationsSupportQuickReplies() {
+        XCTAssertTrue(SessionCompletionNotification.Kind.completed.supportsQuickReplies)
+        XCTAssertFalse(SessionCompletionNotification.Kind.ended.supportsQuickReplies)
+        XCTAssertFalse(SessionCompletionNotification.Kind.compacted.supportsQuickReplies)
+    }
+
+    func testQuickReplyDeliveryRouteUsesTmuxEvidence() {
+        var directSession = SessionState(sessionId: "tmux", cwd: "/tmp", provider: .claude)
+        directSession.isInTmux = true
+        let fallbackSession = SessionState(sessionId: "plain", cwd: "/tmp", provider: .codex)
+
+        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: directSession), .direct)
+        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: fallbackSession), .copyAndActivate)
+    }
+
     func testCompletedAssistantReplyRejectsToolOnlyTail() {
         let session = SessionState(
             sessionId: "tool-tail",
