@@ -305,10 +305,16 @@ struct CustomAreaWebView: NSViewRepresentable {
     private func loadArea(into webView: WKWebView, context: Context) {
         switch source {
         case .localArea(let area):
-            let url = area.loadableFileURL
-            webView.loadFileURL(url, allowingReadAccessTo: area.directoryURL)
+            let directoryURL = context.coordinator.beginSecurityScopedAccess(for: area)
+            let entryPointURL = directoryURL
+                .appendingPathComponent(area.entryPointRelativePath)
+                .standardizedFileURL
+            let url = area.autoDetectEntryPoint
+                ? area.loadableFileURL
+                : entryPointURL
+            webView.loadFileURL(url, allowingReadAccessTo: directoryURL)
             context.coordinator.lastAreaID = area.id
-            context.coordinator.lastEntryPointURL = area.entryPointURL
+            context.coordinator.lastEntryPointURL = entryPointURL
             context.coordinator.lastRemoteURLString = nil
         case .remoteURL(let url):
             webView.load(URLRequest(url: url))
@@ -332,6 +338,7 @@ struct CustomAreaWebView: NSViewRepresentable {
     /// WKWebView 的 JS 执行，导致 mineradio.art 播完一首歌后无法自动播放下一首
     ///（自动切歌逻辑依赖 JS timer/event 回调，JS 挂起后需重新展开页面才恢复）。
     static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
+        coordinator.endSecurityScopedAccess()
         guard coordinator.keepsAlive,
               let urlString = coordinator.cachedURLString,
               let url = URL(string: urlString) else { return }
@@ -368,6 +375,30 @@ struct CustomAreaWebView: NSViewRepresentable {
         /// Spec: 缓存键 URL（absoluteString）—— `dismantleNSView` 据此查找缓存实例。
         /// 仅 `.remoteURL` / `.mineradio` 源有值，`.localArea` 为 nil。
         var cachedURLString: String?
+        private var securityScopedURL: URL?
+        private var securityScopedAccessStarted = false
+
+        deinit {
+            endSecurityScopedAccess()
+        }
+
+        func beginSecurityScopedAccess(for area: CustomArea) -> URL {
+            endSecurityScopedAccess()
+            guard let resolvedURL = SecurityScopedBookmarkStore.resolveURL(for: area.directoryPath) else {
+                return area.directoryURL
+            }
+            securityScopedURL = resolvedURL
+            securityScopedAccessStarted = resolvedURL.startAccessingSecurityScopedResource()
+            return resolvedURL
+        }
+
+        func endSecurityScopedAccess() {
+            if securityScopedAccessStarted {
+                securityScopedURL?.stopAccessingSecurityScopedResource()
+            }
+            securityScopedURL = nil
+            securityScopedAccessStarted = false
+        }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             // 源标识在 loadArea 中同步，无需在此推导

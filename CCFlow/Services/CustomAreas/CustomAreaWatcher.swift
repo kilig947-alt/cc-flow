@@ -14,6 +14,7 @@ final class CustomAreaWatcher {
 
     private var fileSources: [String: DispatchSourceFileSystemObject] = [:]
     private var directorySources: [String: DispatchSourceFileSystemObject] = [:]
+    private var securityScopedURLs: [String: URL] = [:]
     private let queue = DispatchQueue(label: "ai.ccflow.app.custom-area-watcher", qos: .utility)
 
     /// 当某个区域的入口 HTML 文件变化时触发（参数：areaID）
@@ -27,8 +28,16 @@ final class CustomAreaWatcher {
     /// - 监听入口 HTML 文件本身的修改（DispatchSource.makeFileSystemObjectSource）
     /// - 监听目录中文件创建/删除（DispatchSource.makeFileSystemObjectSource on directory）
     func observe(area: CustomArea) {
-        observeEntryFile(area: area)
-        observeDirectory(area: area)
+        cancel(areaID: area.id)
+        var accessibleArea = area
+        if let resolvedURL = SecurityScopedBookmarkStore.resolveURL(for: area.directoryPath) {
+            if resolvedURL.startAccessingSecurityScopedResource() {
+                securityScopedURLs[area.id] = resolvedURL
+            }
+            accessibleArea.directoryPath = resolvedURL.path
+        }
+        observeEntryFile(area: accessibleArea)
+        observeDirectory(area: accessibleArea)
     }
 
     /// 重新观察所有区域（store 变化时调用）
@@ -44,6 +53,8 @@ final class CustomAreaWatcher {
         fileSources[areaID] = nil
         directorySources[areaID]?.cancel()
         directorySources[areaID] = nil
+        securityScopedURLs[areaID]?.stopAccessingSecurityScopedResource()
+        securityScopedURLs[areaID] = nil
     }
 
     func cancelAll() {
@@ -51,6 +62,10 @@ final class CustomAreaWatcher {
         for source in directorySources.values { source.cancel() }
         fileSources.removeAll()
         directorySources.removeAll()
+        for url in securityScopedURLs.values {
+            url.stopAccessingSecurityScopedResource()
+        }
+        securityScopedURLs.removeAll()
     }
 
     // MARK: - Private
