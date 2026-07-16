@@ -59,6 +59,20 @@ struct CalendarFeatureView: View {
                     }
                 }
             }
+            Divider()
+            HStack {
+                Label("提醒事项", systemImage: "checklist")
+                    .font(.system(size: 12, weight: .semibold))
+                Spacer()
+                if service.reminderAuthorization != .fullAccess && service.reminderAuthorization != .authorized {
+                    Button("授权提醒事项") { service.requestReminderAccess() }
+                }
+            }
+            ForEach(service.reminders.prefix(5)) { reminder in
+                HStack { Image(systemName: "circle"); Text(reminder.title).lineLimit(1); Spacer()
+                    if let due = reminder.dueDate { Text(due, style: .date).font(.caption2).foregroundStyle(.secondary) }
+                }.font(.system(size: 10))
+            }
         }.padding(16)
     }
 

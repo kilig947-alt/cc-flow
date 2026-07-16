@@ -387,6 +387,8 @@ final class LeftFeatureStore: ObservableObject {
                 AppUsageTracker.shared.stop()
             case .downloadMonitor, .browserResources:
                 BrowserBridgeService.shared.stop()
+            case .mailAssistant:
+                MailAssistantService.shared.stop()
             default:
                 break
             }
@@ -400,6 +402,7 @@ final class LeftFeatureStore: ObservableObject {
         }
         if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
         if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
+        if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

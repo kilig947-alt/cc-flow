@@ -56,4 +56,15 @@ final class ProductivityFeatureTests: XCTestCase {
         try await FileActionExecutor.shared.undo(audit.id)
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
     }
+
+    func testFileCardPersistenceRetainsOnlySearchableMetadata() throws {
+        let card = LocalFileCard(id: "/tmp/a.png", url: URL(fileURLWithPath: "/tmp/a.png"), name: "a.png",
+            kind: "PNG", size: 12, modifiedAt: Date(timeIntervalSince1970: 10), tags: ["图片"],
+            summary: "截图摘要", ocrText: "识别文字", suggestion: "整理建议")
+        let data = try JSONEncoder().encode(card)
+        let decoded = try JSONDecoder().decode(LocalFileCard.self, from: data)
+        XCTAssertEqual(decoded, card)
+        let json = String(decoding: data, as: UTF8.self)
+        XCTAssertFalse(json.contains("fileContents"))
+    }
 }

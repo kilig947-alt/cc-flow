@@ -6,17 +6,17 @@ import PDFKit
 import UniformTypeIdentifiers
 import Vision
 
-struct LocalFileCard: Identifiable, Equatable {
+struct LocalFileCard: Codable, Identifiable, Equatable {
     let id: String
     let url: URL
     let name: String
     let kind: String
     let size: Int64
     let modifiedAt: Date
-    let tags: [String]
-    let summary: String
+    var tags: [String]
+    var summary: String
     let ocrText: String
-    let suggestion: String
+    var suggestion: String
 }
 
 @MainActor
@@ -28,11 +28,17 @@ final class LocalFileIndexService: ObservableObject {
     @Published var query = ""
 
     private let defaultsKey = "productivity.watchedFolderPaths"
+    private let cardsURL = BridgeRuntimePaths.runtimeDirectoryURL
+        .appendingPathComponent("productivity", isDirectory: true)
+        .appendingPathComponent("file-cards-v1.json")
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let defaults = [home.appendingPathComponent("Downloads"), home.appendingPathComponent("Desktop")]
         let saved = UserDefaults.standard.stringArray(forKey: defaultsKey)?.map(URL.init(fileURLWithPath:)) ?? []
         folders = Array(Set(defaults + saved)).sorted { $0.path < $1.path }
+        if let data = try? Data(contentsOf: cardsURL), let decoded = try? JSONDecoder().decode([LocalFileCard].self, from: data) {
+            cards = decoded
+        }
     }
 
     var results: [LocalFileCard] {
@@ -71,7 +77,10 @@ final class LocalFileIndexService: ObservableObject {
                 }
             }
             output.sort { $0.modifiedAt > $1.modifiedAt }
-            await MainActor.run { self.cards = output; self.isScanning = false }
+            await MainActor.run {
+                self.cards = output; self.persistCards(); self.isScanning = false
+                Task { await self.enrichRecentCardsWithAI() }
+            }
         }
     }
 
@@ -85,6 +94,29 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     func reveal(_ card: LocalFileCard) { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }
+
+    private func persistCards() {
+        guard let data = try? JSONEncoder().encode(cards) else { return }
+        try? FileManager.default.createDirectory(at: cardsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: cardsURL, options: .atomic)
+    }
+
+    private func enrichRecentCardsWithAI() async {
+        guard AIProviderSettings.shared.selection != .local else { return }
+        for index in cards.indices.prefix(10) {
+            let card = cards[index]
+            let request = AIProviderRequest(task: .fileCard, filename: card.name, path: card.url.path,
+                fileType: card.url.pathExtension, ocrText: String(card.ocrText.prefix(4_000)), query: nil, title: nil, snippet: nil)
+            let result = await AIProviderService.shared.perform(request)
+            guard cards.indices.contains(index), cards[index].id == card.id else { continue }
+            cards[index].summary = result.response.summary
+            cards[index].tags = Array(Set(cards[index].tags + result.response.tags)).sorted()
+            if let suggestion = result.response.suggestion, !suggestion.isEmpty {
+                cards[index].suggestion = "\(suggestion)（仅建议，确认后才会执行）"
+            }
+            persistCards()
+        }
+    }
 
     nonisolated private static func tags(for url: URL) -> [String] {
         var result = [url.pathExtension.lowercased()].filter { !$0.isEmpty }

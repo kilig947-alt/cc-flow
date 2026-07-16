@@ -11,11 +11,20 @@ struct CalendarAgendaItem: Identifiable, Equatable {
     let calendarName: String
 }
 
+struct ReminderAgendaItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let dueDate: Date?
+    let priority: Int
+}
+
 @MainActor
 final class CalendarService: ObservableObject {
     static let shared = CalendarService()
     @Published private(set) var events: [CalendarAgendaItem] = []
     @Published private(set) var authorization = EKEventStore.authorizationStatus(for: .event)
+    @Published private(set) var reminderAuthorization = EKEventStore.authorizationStatus(for: .reminder)
+    @Published private(set) var reminders: [ReminderAgendaItem] = []
     @Published private(set) var errorMessage: String?
     private let store = EKEventStore()
 
@@ -27,6 +36,16 @@ final class CalendarService: ObservableObject {
                 if #available(macOS 14, *) { _ = try await store.requestFullAccessToEvents() }
                 authorization = EKEventStore.authorizationStatus(for: .event)
                 refresh()
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    func requestReminderAccess() {
+        Task {
+            do {
+                if #available(macOS 14, *) { _ = try await store.requestFullAccessToReminders() }
+                reminderAuthorization = EKEventStore.authorizationStatus(for: .reminder)
+                refreshReminders()
             } catch { errorMessage = error.localizedDescription }
         }
     }
@@ -45,6 +64,19 @@ final class CalendarService: ObservableObject {
             }
             .sorted { $0.start < $1.start }
         errorMessage = nil
+        refreshReminders()
+    }
+
+    private func refreshReminders() {
+        reminderAuthorization = EKEventStore.authorizationStatus(for: .reminder)
+        guard reminderAuthorization == .fullAccess || reminderAuthorization == .authorized else { return }
+        store.fetchReminders(matching: store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)) { [weak self] values in
+            Task { @MainActor in
+                self?.reminders = (values ?? []).map {
+                    ReminderAgendaItem(id: $0.calendarItemIdentifier, title: $0.title, dueDate: $0.dueDateComponents?.date, priority: $0.priority)
+                }.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+            }
+        }
     }
 
     var nextEvent: CalendarAgendaItem? { events.first { $0.end >= Date() } }

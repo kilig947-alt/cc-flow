@@ -94,6 +94,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             (feature.id == LeftFeature.downloadMonitorID || feature.id == LeftFeature.browserResourcesID) {
             BrowserBridgeService.shared.start()
         }
+        if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.mailAssistantID && $0.isEnabled }) {
+            MailAssistantService.shared.start()
+        }
 
         // Spec: 延迟启动 MediaRemote Now Playing 轮询 —— 避免应用启动时
         // `MRMediaRemoteRegisterForNowPlayingNotifications` 的 arm64↔arm64e PAC 崩溃。

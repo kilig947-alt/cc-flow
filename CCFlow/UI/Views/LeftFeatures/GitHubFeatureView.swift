@@ -42,12 +42,36 @@ struct GitHubFeatureView: View {
                     stat("关注者", profile.followers, .purple)
                     stat("正在关注", profile.following, .yellow)
                 }
+                if !service.contributions.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("贡献记录 · \(service.contributions.reduce(0) { $0 + $1.count }) 次").font(.caption).foregroundStyle(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            LazyHGrid(rows: Array(repeating: GridItem(.fixed(8), spacing: 3), count: 7), spacing: 3) {
+                                ForEach(service.contributions) { day in
+                                    RoundedRectangle(cornerRadius: 2).fill(contributionColor(day.count)).frame(width: 8, height: 8)
+                                        .accessibilityLabel("\(day.date)，\(day.count) 次贡献")
+                                }
+                            }
+                        }.frame(height: 74)
+                    }.padding(10).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+                }
+                ForEach(service.repositories.prefix(4)) { repository in
+                    HStack { Image(systemName: "folder"); Text(repository.name).lineLimit(1); Spacer(); Label("\(repository.stars)", systemImage: "star") }
+                        .font(.system(size: 10)).padding(.horizontal, 8)
+                }
                 Spacer()
             } else {
                 ContentUnavailableView("GitHub 未连接", systemImage: "person.crop.circle.badge.exclamationmark",
                                        description: Text(service.status))
             }
         }.padding(16)
+    }
+
+    private func contributionColor(_ count: Int) -> Color {
+        if count == 0 { return .white.opacity(0.08) }
+        if count < 3 { return .green.opacity(0.35) }
+        if count < 6 { return .green.opacity(0.65) }
+        return .green
     }
 
     private func stat(_ title: String, _ value: Int, _ color: Color) -> some View {

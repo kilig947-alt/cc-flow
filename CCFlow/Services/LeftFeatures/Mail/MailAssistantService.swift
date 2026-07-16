@@ -16,19 +16,36 @@ final class MailAssistantService: ObservableObject {
     @Published private(set) var signals: [MailSignal] = []
     @Published private(set) var status = "点击刷新以读取 Mail 最近邮件"
     @Published private(set) var isLoading = false
+    private var timer: AnyCancellable?
+    private var consumers = 0
     private init() {}
+
+    func start() {
+        consumers += 1
+        guard UserDefaults.standard.bool(forKey: "productivity.mail.explicitAccessRequested"), timer == nil else { return }
+        timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.refresh() }
+        refresh()
+    }
+
+    func stop() { consumers = max(0, consumers - 1); guard consumers == 0 else { return }; timer?.cancel(); timer = nil }
 
     func refresh() {
         guard !isLoading else { return }
+        UserDefaults.standard.set(true, forKey: "productivity.mail.explicitAccessRequested")
         isLoading = true; status = "正在读取…"
         Task.detached(priority: .utility) {
             let script = """
             tell application "Mail"
-              set recentMessages to messages 1 thru (min of {30, count of messages of inbox}) of inbox
               set output to ""
-              repeat with m in recentMessages
-                set output to output & (message id of m as text) & tab & (sender of m as text) & tab & (subject of m as text) & tab & (date received of m as text) & linefeed
-              end repeat
+              set messageCount to count of messages of inbox
+              if messageCount > 0 then
+                set limitCount to 30
+                if messageCount < limitCount then set limitCount to messageCount
+                set recentMessages to messages 1 thru limitCount of inbox
+                repeat with m in recentMessages
+                  set output to output & (message id of m as text) & tab & (sender of m as text) & tab & (subject of m as text) & tab & (date received of m as text) & linefeed
+                end repeat
+              end if
               return output
             end tell
             """
@@ -46,9 +63,14 @@ final class MailAssistantService: ObservableObject {
                     self.signals = signals
                     self.status = process.terminationStatus == 0 ? "已读取 \(signals.count) 封最近邮件" : (errorText.isEmpty ? "无法读取 Mail" : errorText)
                     self.isLoading = false
+                    if self.timer == nil && self.consumers > 0 { self.startAfterExplicitRequest() }
                 }
             } catch { await MainActor.run { self.status = error.localizedDescription; self.isLoading = false } }
         }
+    }
+
+    private func startAfterExplicitRequest() {
+        timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.refresh() }
     }
 
     nonisolated private static func parseLine(_ line: Substring) -> MailSignal? {

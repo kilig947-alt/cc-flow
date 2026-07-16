@@ -855,6 +855,7 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
     @ObservedObject private var aiProviderSettings = AIProviderSettings.shared
+    @ObservedObject private var productivityPermissionCenter = ProductivityPermissionCenter.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
     @ObservedObject private var mineradioCoordinator = MineradioBridgeCoordinator.shared
     @State private var selectedCategory: SettingsCategory? = .general
@@ -2077,7 +2078,22 @@ private struct SettingsPanelContentView: View {
         VStack(alignment: .leading, spacing: 18) {
             flowIslandDisplayCard
             productivityCredentialsCard
+            productivityPermissionsCard
             featureListCard
+        }
+    }
+
+    private var productivityPermissionsCard: some View {
+        SettingsSectionCard(title: "权限与数据来源") {
+            VStack(spacing: 8) {
+                ForEach(productivityPermissionCenter.items) { item in
+                    HStack { Image(systemName: item.isReady ? "checkmark.circle.fill" : "exclamationmark.circle")
+                            .foregroundStyle(item.isReady ? .green : .yellow)
+                        Text(item.name); Spacer(); Text(item.status).foregroundStyle(.secondary) }
+                        .font(.system(size: 12))
+                }
+                HStack { Spacer(); Button("刷新状态") { productivityPermissionCenter.refresh() } }
+            }
         }
     }
 
