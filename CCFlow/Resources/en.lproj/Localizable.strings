@@ -642,3 +642,32 @@
 "下载后解压到" = "Download and extract to";
 " 文件夹即可安装。" = " folder to install.";
 "第三方下载站点" = "Third-party download sites";
+
+// Native Usage left feature
+"用量" = "Usage";
+"账号用量" = "Account usage";
+"更新于 %@" = "Updated %@";
+"刷新账号用量" = "Refresh account usage";
+"更新中" = "Refreshing";
+"当前会话" = "Current session";
+"剩余 %d%%" = "%d%% remaining";
+"今日 %@" = "Today %@";
+"今日明细：输入 %@ · 输出 %@ · 缓存读取 %@ · 缓存写入 %@" = "Today: input %@ · output %@ · cache read %@ · cache write %@";
+"数据可能已过期" = "Data may be stale";
+"未检测到限额" = "Limits not detected";
+"启动 Claude Code 并完成一次请求后可读取账户限额。" = "Start Claude Code and complete one request to read account limits.";
+"尚未在本地 Codex 会话中检测到限额；Token 统计仍可用。" = "No limits were detected in local Codex sessions; token totals remain available.";
+"正在读取 Claude Code 和 Codex 用量…" = "Reading Claude Code and Codex usage…";
+"暂无用量数据" = "No usage data";
+"重试" = "Retry";
+"设置全局快捷键" = "Set global shortcut";
+"设置全局快捷键，快速在 Flow 岛打开此功能。" = "Set a global shortcut to open this feature in Flow Island.";
+"5 小时" = "5 hours";
+"主要限额" = "Primary limit";
+"次要限额" = "Secondary limit";
+"未找到 Codex CLI" = "Codex CLI was not found";
+"Codex 账户接口响应超时" = "The Codex account service timed out";
+"无法启动 Codex CLI" = "Unable to start Codex CLI";
+"无法解析 Codex 账户限额" = "Unable to parse Codex account limits";
+"本次刷新未取得账户限额，显示上次成功数据" = "This refresh could not retrieve account limits; showing the last successful data.";
+"与另一个已配置快捷键冲突" = "Conflicts with another configured shortcut";

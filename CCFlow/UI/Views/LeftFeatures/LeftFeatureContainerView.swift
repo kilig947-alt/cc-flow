@@ -30,6 +30,8 @@ struct LeftFeatureContainerView: View {
     @ViewBuilder
     private func mainContent(for feature: LeftFeature) -> some View {
         switch feature.kind {
+        case .usage:
+            UsageExpandedView()
         case .music:
             MusicExpandedView()
         case .shelf:

@@ -843,6 +843,7 @@ private enum SettingsPanelMetrics {
 }
 
 private struct SettingsPanelContentView: View {
+    @ObservedObject private var shortcutManager = GlobalShortcutManager.shared
     let presentation: SettingsPanelPresentation
     var onClose: (() -> Void)? = nil
     var onMinimize: (() -> Void)? = nil
@@ -881,6 +882,7 @@ private struct SettingsPanelContentView: View {
     @State private var newsNowBaseURLDraft: String = ""
     // Spec: mineradio-bridge-compat-layer —— Mineradio URL 编辑表单
     @State private var editingMineradioFeature: LeftFeature?
+    @State private var editingShortcutFeature: LeftFeature?
     @State private var mineradioPageURLDraft: String = ""
     // Spec: mineradio-bridge-compat-layer —— Mineradio 平台登录 sheet
     @State private var presentingMineradioLogin: MusicPlatform?
@@ -1082,6 +1084,14 @@ private struct SettingsPanelContentView: View {
                 leftFeatureStore.setCustomIconName(id: updated.id, name: updated.customIconName)
                 leftFeatureStore.setCustomDisplayName(id: updated.id, name: updated.customDisplayName)
                 editingBuiltinFeature = nil
+            }
+        }
+        .sheet(item: $editingShortcutFeature) { feature in
+            FeatureShortcutEditor(feature: feature) { shortcut in
+                leftFeatureStore.setGlobalShortcut(id: feature.id, shortcut: shortcut)
+                editingShortcutFeature = nil
+            } onCancel: {
+                editingShortcutFeature = nil
             }
         }
         .sheet(item: $editingNewsNowFeature) { feature in
@@ -2171,6 +2181,10 @@ private struct SettingsPanelContentView: View {
 
             // 右侧操作组：按 kind 分发
             switch feature.kind {
+            case .usage:
+                Button("编辑") { editingBuiltinFeature = feature }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 12))
             case .customArea(let areaID):
                 if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                     // 去 TRAE CN 修改（以该目录为工作区打开 IDE）
@@ -2271,6 +2285,16 @@ private struct SettingsPanelContentView: View {
                     .font(.system(size: 12))
             }
 
+            Button {
+                editingShortcutFeature = feature
+            } label: {
+                Image(systemName: "keyboard")
+                    .foregroundColor(shortcutManager.registrationError(forFeatureID: feature.id) == nil ? nil : .red)
+            }
+            .buttonStyle(.borderless)
+            .help(shortcutManager.registrationError(forFeatureID: feature.id) ?? "设置全局快捷键")
+            .accessibilityLabel(Text(appLocalized: "设置全局快捷键"))
+
             // 启用开关（所有功能都有）
             Toggle("", isOn: Binding(
                 get: { feature.isEnabled },
@@ -2288,6 +2312,8 @@ private struct SettingsPanelContentView: View {
     /// - `.music` / `.shelf`: 弹出内置功能编辑表单
     private func editFeature(_ feature: LeftFeature) {
         switch feature.kind {
+        case .usage:
+            editingBuiltinFeature = feature
         case .customArea(let areaID):
             editCustomArea(areaID: areaID)
         case .webURL:
@@ -4280,7 +4306,137 @@ private struct ShortcutSettingsLine: View {
     }
 }
 
+private struct FeatureShortcutEditor: View {
+    let feature: LeftFeature
+    let onSave: (GlobalShortcut?) -> Void
+    let onCancel: () -> Void
+
+    @State private var shortcut: GlobalShortcut?
+    @State private var isRecording = false
+    @State private var errorText: String?
+    @State private var eventMonitor: Any?
+
+    init(
+        feature: LeftFeature,
+        onSave: @escaping (GlobalShortcut?) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.feature = feature
+        self.onSave = onSave
+        self.onCancel = onCancel
+        _shortcut = State(initialValue: feature.globalShortcut)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(feature.displayName)
+                .font(.system(size: 16, weight: .bold))
+            Text(appLocalized: "设置全局快捷键，快速在 Flow 岛打开此功能。")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 10) {
+                if let shortcut {
+                    ShortcutVisualLabel(shortcut: shortcut)
+                } else {
+                    Text(appLocalized: "未设置")
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                if shortcut != nil {
+                    Button("清除") {
+                        shortcut = nil
+                        errorText = nil
+                    }
+                }
+                Button("重置") {
+                    shortcut = nil
+                    errorText = nil
+                }
+                Button(isRecording ? "按下新快捷键" : "点击录制") {
+                    isRecording ? stopRecording() : startRecording()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .frame(minHeight: 44)
+
+            Text(errorText ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(errorText == nil ? .secondary : .red)
+                .accessibilityLabel(Text(errorText ?? ""))
+
+            HStack {
+                Spacer()
+                Button("取消") { stopRecording(); onCancel() }
+                Button("保存") {
+                    if let shortcut,
+                       let owner = LeftFeatureStore.shared.conflictingShortcutOwner(
+                           for: shortcut,
+                           excludingFeatureID: feature.id
+                       ) {
+                        errorText = "该快捷键已被『\(owner)』使用"
+                        NSSound.beep()
+                    } else {
+                        onSave(shortcut)
+                    }
+                }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(errorText != nil)
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+        .onDisappear { stopRecording() }
+    }
+
+    private func startRecording() {
+        errorText = nil
+        isRecording = true
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handle(event)
+            return nil
+        }
+    }
+
+    private func stopRecording() {
+        isRecording = false
+        if let eventMonitor {
+            NSEvent.removeMonitor(eventMonitor)
+            self.eventMonitor = nil
+        }
+    }
+
+    private func handle(_ event: NSEvent) {
+        if event.keyCode == UInt16(kVK_Escape) {
+            stopRecording()
+            return
+        }
+        if event.keyCode == UInt16(kVK_Delete) || event.keyCode == UInt16(kVK_ForwardDelete) {
+            shortcut = nil
+            errorText = nil
+            stopRecording()
+            return
+        }
+        guard let recorded = GlobalShortcut(keyCode: event.keyCode, modifierFlags: event.modifierFlags) else {
+            errorText = "需要同时按下至少一个修饰键"
+            return
+        }
+        if let owner = LeftFeatureStore.shared.conflictingShortcutOwner(
+            for: recorded,
+            excludingFeatureID: feature.id
+        ) {
+            errorText = "该快捷键已被『\(owner)』使用"
+            NSSound.beep()
+            return
+        }
+        shortcut = recorded
+        errorText = nil
+        stopRecording()
+    }
+}
+
 private struct ShortcutRecorderControl: View {
+    @ObservedObject private var shortcutManager = GlobalShortcutManager.shared
     let action: GlobalShortcutAction
     @Binding var shortcut: GlobalShortcut?
     let defaultShortcut: GlobalShortcut?
@@ -4348,9 +4504,7 @@ private struct ShortcutRecorderControl: View {
 
                 if defaultShortcut != nil {
                     Button {
-                        shortcut = defaultShortcut
-                        helperTextKey = nil
-                        stopRecording()
+                        applyShortcut(defaultShortcut)
                     } label: {
                         Image(systemName: "arrow.counterclockwise")
                     }
@@ -4360,9 +4514,13 @@ private struct ShortcutRecorderControl: View {
                 }
             }
 
-            Text(appLocalized: helperTextKey ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
+            Text(appLocalized: helperTextKey
+                ?? shortcutManager.registrationError(for: action)
+                ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(isRecording ? TerminalColors.green.opacity(0.90) : .white.opacity(0.42))
+                .foregroundColor(helperTextKey == nil && shortcutManager.registrationError(for: action) == nil
+                    ? (isRecording ? TerminalColors.green.opacity(0.90) : .white.opacity(0.42))
+                    : .red)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .onDisappear {
@@ -4450,7 +4608,20 @@ private struct ShortcutRecorderControl: View {
             return
         }
 
-        shortcut = recordedShortcut
+        applyShortcut(recordedShortcut)
+    }
+
+    private func applyShortcut(_ candidate: GlobalShortcut?) {
+        if let candidate,
+           let owner = LeftFeatureStore.shared.conflictingShortcutOwner(
+               for: candidate,
+               excludingAction: action
+           ) {
+            helperTextKey = "该快捷键已被『\(owner)』使用"
+            NSSound.beep()
+            return
+        }
+        shortcut = candidate
         helperTextKey = nil
         stopRecording()
     }

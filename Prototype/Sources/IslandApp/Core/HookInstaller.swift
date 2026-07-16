@@ -221,9 +221,21 @@ struct HookInstaller {
         try writeExecutable(
             """
             #!/bin/bash
+            umask 077
             input=$(cat)
+            _usage_dir="${HOME}/Library/Application Support/cc-flow"
+            mkdir -p "$_usage_dir" || exit 0
+            chmod 700 "$_usage_dir" 2>/dev/null
             _rl=$(echo "$input" | jq -c '.rate_limits // empty' 2>/dev/null)
-            [ -n "$_rl" ] && echo "$_rl" > /tmp/cc-flow-rate-limits.json
+            if [ -n "$_rl" ]; then
+              _rl_tmp=$(mktemp "$_usage_dir/claude-rate-limits.XXXXXX") || exit 0
+              printf '%s\n' "$_rl" > "$_rl_tmp" && mv "$_rl_tmp" "$_usage_dir/claude-rate-limits.json"
+            fi
+            _usage=$(echo "$input" | jq -c '{captured_at: now, session_id, rate_limits, context_window, cost}' 2>/dev/null)
+            if [ -n "$_usage" ]; then
+              _usage_tmp=$(mktemp "$_usage_dir/claude-usage.XXXXXX") || exit 0
+              printf '%s\n' "$_usage" > "$_usage_tmp" && mv "$_usage_tmp" "$_usage_dir/claude-usage.json"
+            fi
             echo "$input" | jq -r 'if .model.display_name then "[\\(.model.display_name)] \\(.context_window.used_percentage // 0)% context" else empty end' 2>/dev/null
             """,
             to: scriptURL

@@ -101,6 +101,7 @@ final class LeftFeatureStore: ObservableObject {
         compactFeatureID = defaults.string(forKey: Keys.compactFeatureID)
         expandedActiveFeatureID = defaults.string(forKey: Keys.expandedActiveFeatureID)
         migrateFromLegacy()
+        ensureBuiltinUsageFeature()
         ensureBuiltinNewsNowFeature()
         ensureBuiltinMineradioFeature()
     }
@@ -248,6 +249,32 @@ final class LeftFeatureStore: ObservableObject {
         fetchBuiltinFaviconIfNeeded(LeftFeature.newsnowID)
     }
 
+    /// 首次升级时把原生用量功能插入第一位；之后尊重用户排序和启用状态。
+    private func ensureBuiltinUsageFeature() {
+        let migrated = Self.featuresByEnsuringUsageFeature(features)
+        guard migrated != features else { return }
+        features = migrated
+        persist()
+    }
+
+    static func featuresByEnsuringUsageFeature(_ source: [LeftFeature]) -> [LeftFeature] {
+        guard !source.contains(where: { $0.id == LeftFeature.usageID }) else { return source }
+        var result = source.sorted { $0.sortOrder < $1.sortOrder }.enumerated().map { index, feature in
+            var updated = feature
+            updated.sortOrder = index + 1
+            return updated
+        }
+        result.append(LeftFeature(
+            id: LeftFeature.usageID,
+            kind: .usage,
+            isEnabled: true,
+            sortOrder: 0,
+            expandedWidth: 680,
+            expandedHeight: 460
+        ))
+        return result
+    }
+
     /// 老用户升级幂等追加：若 features 不含 id == mineradioID 的项则追加默认 mineradio 功能。
     /// 已存在则不动（保留用户编辑过的 pageURL / isEnabled / sortOrder）。
     /// Spec: mineradio-bridge-compat-layer
@@ -317,12 +344,19 @@ final class LeftFeatureStore: ObservableObject {
                 if let url = URL(string: pageURL) {
                     CustomAreaWebViewCache.shared.evict(for: url)
                 }
+            case .usage:
+                UsageService.shared.stop()
             default:
                 break
             }
         }
         features[index].isEnabled = isEnabled
         persist()
+        NotificationCenter.default.post(name: .ccFlowLeftFeaturesChanged, object: nil)
+        if id == LeftFeature.usageID, isEnabled {
+            UsageService.shared.start()
+            Task { await UsageService.shared.refresh(reason: .passive) }
+        }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`
@@ -380,6 +414,10 @@ final class LeftFeatureStore: ObservableObject {
     /// 设置展开态当前激活功能；nil 表示回退到第一个已启用功能
     func setExpandedActiveFeature(id: String?) {
         expandedActiveFeatureID = id
+        if id == LeftFeature.usageID {
+            UsageService.shared.start()
+            Task { await UsageService.shared.refresh(reason: .becameActive) }
+        }
     }
 
     /// 为自定义 HTML 区域追加对应功能（由 CustomAreaStore.addArea 联动调用）。
@@ -594,4 +632,52 @@ final class LeftFeatureStore: ObservableObject {
         features[index].expandedPinned = pinned
         persist()
     }
+
+    @discardableResult
+    func setGlobalShortcut(id: String, shortcut: GlobalShortcut?) -> Bool {
+        guard let index = features.firstIndex(where: { $0.id == id }) else { return false }
+        if let shortcut,
+           conflictingShortcutOwner(for: shortcut, excludingFeatureID: id) != nil {
+            return false
+        }
+        features[index].globalShortcut = shortcut
+        persist()
+        NotificationCenter.default.post(name: .ccFlowLeftFeaturesChanged, object: nil)
+        return true
+    }
+
+    func conflictingShortcutOwner(
+        for shortcut: GlobalShortcut,
+        excludingFeatureID: String? = nil,
+        excludingAction: GlobalShortcutAction? = nil
+    ) -> String? {
+        Self.conflictingShortcutOwner(
+            for: shortcut,
+            fixedShortcuts: GlobalShortcutAction.allCases.map { ($0, AppSettings.shortcut(for: $0)) },
+            features: features,
+            excludingFeatureID: excludingFeatureID,
+            excludingAction: excludingAction
+        )
+    }
+
+    static func conflictingShortcutOwner(
+        for shortcut: GlobalShortcut,
+        fixedShortcuts: [(GlobalShortcutAction, GlobalShortcut?)],
+        features: [LeftFeature],
+        excludingFeatureID: String? = nil,
+        excludingAction: GlobalShortcutAction? = nil
+    ) -> String? {
+        if let action = fixedShortcuts.first(where: {
+            $0.0 != excludingAction && $0.1 == shortcut
+        })?.0 {
+            return action.title
+        }
+        return features.first(where: {
+            $0.id != excludingFeatureID && $0.globalShortcut == shortcut
+        })?.displayName
+    }
+}
+
+extension Notification.Name {
+    static let ccFlowLeftFeaturesChanged = Notification.Name("ccFlowLeftFeaturesChanged")
 }

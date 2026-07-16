@@ -508,6 +508,15 @@ struct NotchView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenSessionListShortcut)) { _ in
                 handleOpenSessionListShortcut()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenLeftFeatureShortcut)) { note in
+                guard let featureID = note.userInfo?["featureID"] as? String,
+                      LeftFeatureStore.shared.enabledFeatures.contains(where: { $0.id == featureID }) else { return }
+                LeftFeatureStore.shared.setExpandedActiveFeature(id: featureID)
+                viewModel.presentCustomExpanded(reason: .click)
+                if featureID == LeftFeature.usageID {
+                    Task { await UsageService.shared.refresh(reason: .shortcut) }
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowPresentNotchDetachmentHint)) { _ in
                 presentDetachmentHintIfNeeded(force: true)
             }
@@ -882,6 +891,8 @@ struct NotchView: View {
     @ViewBuilder
     private func compactFeatureView(for feature: LeftFeature) -> some View {
         switch feature.kind {
+        case .usage:
+            UsageCompactView()
         case .music:
             MusicCompactView()
         case .shelf:

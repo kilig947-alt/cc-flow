@@ -84,6 +84,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 时写入的 LeftFeature（如 TRAE Flow 演示默认不启用）不会被 migrateFromLegacy 覆盖。
         _ = LeftFeatureStore.shared
         CustomAreaStore.shared.bootstrapBuiltInAreasIfNeeded()
+        if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.usageID && $0.isEnabled }) {
+            UsageService.shared.start()
+        }
 
         // Spec: 延迟启动 MediaRemote Now Playing 轮询 —— 避免应用启动时
         // `MRMediaRemoteRegisterForNowPlayingNotifications` 的 arm64↔arm64e PAC 崩溃。
@@ -135,6 +138,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         screenObserver = nil
+        UsageService.shared.stop()
         UserIdleAutoProtection.shared.stop()
         startupSessionMonitor.stopMonitoring()
         Task {

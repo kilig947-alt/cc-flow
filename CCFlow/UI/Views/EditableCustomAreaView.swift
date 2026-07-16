@@ -105,6 +105,7 @@ struct EditableCustomAreaView: View {
         // 内置功能无 customDisplayName 时回退到默认名，避免 name 为空导致保存按钮 disabled
         let defaultName: String
         switch feature.kind {
+        case .usage: defaultName = "用量"
         case .music: defaultName = "音乐"
         case .shelf: defaultName = "中转站"
         case .newsnow: defaultName = "热点新闻"
@@ -432,6 +433,7 @@ struct EditableCustomAreaView: View {
             // name 与默认名相同则置 nil（回退默认名），避免持久化冗余
             let defaultName: String
             switch feature.kind {
+            case .usage: defaultName = "用量"
             case .music: defaultName = "音乐"
             case .shelf: defaultName = "中转站"
             case .newsnow: defaultName = "热点新闻"
