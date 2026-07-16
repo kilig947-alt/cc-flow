@@ -263,6 +263,8 @@ xcodebuild -project CCFlow.xcodeproj -scheme CCFlow \
 
 ## Acknowledgements
 
+CC FLOW continues the work of [ccsonicc333/trae-flow](https://github.com/ccsonicc333/trae-flow.git). We thank its maintainers and contributors for the foundation of this project.
+
 CC FLOW builds on Dynamic Island session-monitoring ideas from [ping-island](https://github.com/erha19/ping-island), [vibe-notch](https://github.com/farouqaldori/vibe-notch), [boring.notch](https://github.com/TheBoredTeam/boring.notch), and [claude-island](https://github.com/farouqaldori/claude-island).
 
 ## License

@@ -310,6 +310,8 @@ xcodebuild -project CCFlow.xcodeproj -scheme CCFlow -configuration Debug CODE_SI
 
 ## 致谢
 
+CC FLOW 基于 [ccsonicc333/trae-flow](https://github.com/ccsonicc333/trae-flow.git) 继续开发，感谢原维护者及贡献者奠定的项目基础。
+
 CC FLOW 延续了 [ping-island](https://github.com/erha19/ping-island)、[vibe-notch](https://github.com/farouqaldori/vibe-notch)、[boring.notch](https://github.com/TheBoredTeam/boring.notch) 和 [claude-island](https://github.com/farouqaldori/claude-island) 等项目的灵动岛会话监视理念。
 
 ## 许可证
