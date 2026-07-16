@@ -98,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             MailAssistantService.shared.start()
         }
         for feature in LeftFeatureStore.shared.features where feature.isEnabled &&
-            (feature.id == LeftFeature.fileCardsID || feature.id == LeftFeature.naturalSearchID) {
+            (feature.id == LeftFeature.fileCardsID || feature.id == LeftFeature.naturalSearchID || feature.id == LeftFeature.downloadMonitorID) {
             LocalFileIndexService.shared.start()
         }
 

@@ -7,7 +7,7 @@ enum ProductivitySecret: String {
     case browserPairingToken = "browser-pairing-token"
 }
 
-struct ProductivitySecretsStore {
+nonisolated struct ProductivitySecretsStore: Sendable {
     static let shared = ProductivitySecretsStore()
     private let service = "ai.ccflow.app.productivity"
 

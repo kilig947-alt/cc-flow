@@ -31,21 +31,29 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     private let defaultsKey = "productivity.watchedFolderPaths"
+    private let removedDefaultsKey = "productivity.removedDefaultFolderPaths"
     private let cardsURL = BridgeRuntimePaths.runtimeDirectoryURL
         .appendingPathComponent("productivity", isDirectory: true)
         .appendingPathComponent("file-cards-v1.json")
     private var scanTask: Task<Void, Never>?
     private var enrichmentTask: Task<Void, Never>?
     private var consumers = 0
+    private var scanGeneration = 0
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let defaults = [home.appendingPathComponent("Downloads"), home.appendingPathComponent("Desktop")]
+        let removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
         let saved = UserDefaults.standard.stringArray(forKey: defaultsKey)?.map(URL.init(fileURLWithPath:)) ?? []
-        folders = Array(Set(defaults + saved)).sorted { $0.path < $1.path }
+        folders = Self.initialFolders(home: home, removedDefaultPaths: removedDefaults, saved: saved)
         aiEnhancementEnabled = UserDefaults.standard.bool(forKey: "productivity.fileCards.aiEnabled")
         if let data = try? Data(contentsOf: cardsURL), let decoded = try? JSONDecoder().decode([LocalFileCard].self, from: data) {
             cards = decoded
         }
+    }
+
+    nonisolated static func initialFolders(home: URL, removedDefaultPaths: Set<String>, saved: [URL]) -> [URL] {
+        let defaults = [home.appendingPathComponent("Downloads"), home.appendingPathComponent("Desktop")]
+            .filter { !removedDefaultPaths.contains($0.path) }
+        return Array(Set(defaults + saved)).sorted { $0.path < $1.path }
     }
 
     func start() { consumers += 1 }
@@ -68,6 +76,8 @@ final class LocalFileIndexService: ObservableObject {
     func scan() {
         guard !isScanning else { return }
         isScanning = true
+        scanGeneration += 1
+        let generation = scanGeneration
         let roots = folders
         scanTask?.cancel()
         scanTask = Task.detached(priority: .utility) { [weak self] in
@@ -100,6 +110,7 @@ final class LocalFileIndexService: ObservableObject {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self else { return }
+                guard self.scanGeneration == generation else { return }
                 self.cards = output; self.persistCards(); self.isScanning = false
                 self.enrichmentTask = Task { await self.enrichRecentCardsWithAI() }
             }
@@ -111,18 +122,30 @@ final class LocalFileIndexService: ObservableObject {
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = true
         guard panel.runModal() == .OK else { return }
         panel.urls.forEach { _ = WatchedFolderBookmarkStore.save(url: $0) }
+        var removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
+        panel.urls.forEach { removedDefaults.remove($0.path) }
+        UserDefaults.standard.set(Array(removedDefaults), forKey: removedDefaultsKey)
         folders = Array(Set(folders + panel.urls)).sorted { $0.path < $1.path }
         UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
         scan()
     }
 
     func removeFolder(_ url: URL) {
+        scanGeneration += 1; scanTask?.cancel(); scanTask = nil
+        enrichmentTask?.cancel(); enrichmentTask = nil; isScanning = false
         WatchedFolderBookmarkStore.remove(path: url.path)
         folders.removeAll { $0.standardizedFileURL == url.standardizedFileURL }
         UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
         let prefix = url.standardizedFileURL.path + "/"
         cards.removeAll { $0.url.standardizedFileURL.path.hasPrefix(prefix) }
         persistCards()
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let defaultPaths = Set([home.appendingPathComponent("Downloads").path, home.appendingPathComponent("Desktop").path])
+        if defaultPaths.contains(url.path) {
+            var removed = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
+            removed.insert(url.path); UserDefaults.standard.set(Array(removed), forKey: removedDefaultsKey)
+        }
+        if consumers > 0, !folders.isEmpty { scan() }
     }
 
     func reveal(_ card: LocalFileCard) { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }

@@ -385,8 +385,11 @@ final class LeftFeatureStore: ObservableObject {
                 UsageService.shared.stop()
             case .systemMonitor:
                 AppUsageTracker.shared.stop()
-            case .downloadMonitor, .browserResources:
+            case .browserResources:
                 BrowserBridgeService.shared.stop()
+            case .downloadMonitor:
+                BrowserBridgeService.shared.stop()
+                LocalFileIndexService.shared.stop()
             case .mailAssistant:
                 MailAssistantService.shared.stop()
             case .fileCards, .naturalSearch:
@@ -405,7 +408,9 @@ final class LeftFeatureStore: ObservableObject {
         if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
         if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
         if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
-        if (id == LeftFeature.fileCardsID || id == LeftFeature.naturalSearchID), isEnabled { LocalFileIndexService.shared.start() }
+        if (id == LeftFeature.fileCardsID || id == LeftFeature.naturalSearchID || id == LeftFeature.downloadMonitorID), isEnabled {
+            LocalFileIndexService.shared.start()
+        }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

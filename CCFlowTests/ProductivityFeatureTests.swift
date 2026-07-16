@@ -46,6 +46,14 @@ final class ProductivityFeatureTests: XCTestCase {
         service.query = ""
     }
 
+    func testRemovedDefaultFolderDoesNotReturnOnNextInitialization() {
+        let home = URL(fileURLWithPath: "/Users/test")
+        let folders = LocalFileIndexService.initialFolders(home: home,
+            removedDefaultPaths: [home.appendingPathComponent("Downloads").path], saved: [])
+        XCTAssertFalse(folders.contains(home.appendingPathComponent("Downloads")))
+        XCTAssertTrue(folders.contains(home.appendingPathComponent("Desktop")))
+    }
+
     func testFileActionRequiresFreshPlanAvoidsOverwriteAndCanUndo() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
