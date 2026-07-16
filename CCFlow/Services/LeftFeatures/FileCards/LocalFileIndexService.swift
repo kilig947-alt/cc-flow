@@ -40,6 +40,7 @@ final class LocalFileIndexService: ObservableObject {
     private var consumers = 0
     private var scanGeneration = 0
     private var monitorTimer: AnyCancellable?
+    private var energyCancellable: AnyCancellable?
     private init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
@@ -59,8 +60,8 @@ final class LocalFileIndexService: ObservableObject {
 
     func start() {
         consumers += 1
-        guard monitorTimer == nil else { return }
-        monitorTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scan() }
+        guard energyCancellable == nil else { return }
+        energyCancellable = EnergyGovernor.shared.$mode.removeDuplicates().sink { [weak self] mode in self?.scheduleMonitor(for: mode) }
         scan()
     }
     func stop() {
@@ -68,7 +69,21 @@ final class LocalFileIndexService: ObservableObject {
         guard consumers == 0 else { return }
         scanGeneration += 1
         monitorTimer?.cancel(); monitorTimer = nil
+        energyCancellable?.cancel(); energyCancellable = nil
         scanTask?.cancel(); scanTask = nil; enrichmentTask?.cancel(); enrichmentTask = nil; isScanning = false
+    }
+
+    private func scheduleMonitor(for mode: EnergyMode) {
+        monitorTimer?.cancel(); monitorTimer = nil
+        let interval: TimeInterval?
+        switch mode {
+        case .active: interval = 60
+        case .idleVisible, .wakeGrace: interval = 5 * 60
+        case .quietBackground: interval = 15 * 60
+        case .systemSuspended: interval = nil
+        }
+        guard let interval else { scanTask?.cancel(); enrichmentTask?.cancel(); return }
+        monitorTimer = Timer.publish(every: interval, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scan() }
     }
 
     var results: [LocalFileCard] {

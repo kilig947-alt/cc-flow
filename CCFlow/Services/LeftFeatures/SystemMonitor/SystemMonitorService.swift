@@ -22,6 +22,11 @@ struct SystemMonitorSnapshot: Equatable {
     }
 }
 
+struct NetworkInterfaceCounter: Equatable {
+    let received: UInt32
+    let sent: UInt32
+}
+
 @MainActor
 final class SystemMonitorService: ObservableObject {
     static let shared = SystemMonitorService()
@@ -29,7 +34,7 @@ final class SystemMonitorService: ObservableObject {
     @Published private(set) var snapshot = SystemMonitorSnapshot()
     private var timer: AnyCancellable?
     private var consumers = 0
-    private var previousNetwork: (received: UInt64, sent: UInt64, date: Date)?
+    private var previousNetwork: (counters: [String: NetworkInterfaceCounter], date: Date)?
 
     private init() {}
 
@@ -53,14 +58,17 @@ final class SystemMonitorService: ObservableObject {
         let metrics = SystemMetricsProvider.shared.sample()
         let disk = Self.diskCapacity()
         let now = Date()
-        let network = Self.networkTotals()
+        let network = Self.networkCounters()
         var downloadRate = 0.0, uploadRate = 0.0
         if let previousNetwork {
             let elapsed = max(now.timeIntervalSince(previousNetwork.date), 0.001)
-            if network.received >= previousNetwork.received { downloadRate = Double(network.received - previousNetwork.received) / elapsed }
-            if network.sent >= previousNetwork.sent { uploadRate = Double(network.sent - previousNetwork.sent) / elapsed }
+            for (name, current) in network {
+                guard let previous = previousNetwork.counters[name] else { continue }
+                downloadRate += Double(Self.wrappedDelta(current.received, previous.received)) / elapsed
+                uploadRate += Double(Self.wrappedDelta(current.sent, previous.sent)) / elapsed
+            }
         }
-        previousNetwork = (network.received, network.sent, now)
+        previousNetwork = (network, now)
         snapshot = SystemMonitorSnapshot(
             cpuPercent: metrics.cpu,
             memoryPercent: metrics.memoryPercent,
@@ -94,20 +102,32 @@ final class SystemMonitorService: ObservableObject {
     }
 
     nonisolated static func networkTotals() -> (received: UInt64, sent: UInt64) {
+        networkCounters().values.reduce(into: (received: UInt64(0), sent: UInt64(0))) {
+            $0.received += UInt64($1.received); $0.sent += UInt64($1.sent)
+        }
+    }
+
+    nonisolated static func wrappedDelta(_ current: UInt32, _ previous: UInt32) -> UInt64 {
+        if current >= previous { return UInt64(current - previous) }
+        return UInt64(UInt32.max - previous) + UInt64(current) + 1
+    }
+
+    nonisolated static func networkCounters() -> [String: NetworkInterfaceCounter] {
         var pointer: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&pointer) == 0, let first = pointer else { return (0, 0) }
+        guard getifaddrs(&pointer) == 0, let first = pointer else { return [:] }
         defer { freeifaddrs(pointer) }
-        var received: UInt64 = 0, sent: UInt64 = 0
+        var result: [String: NetworkInterfaceCounter] = [:]
         var current: UnsafeMutablePointer<ifaddrs>? = first
         while let interface = current {
             let value = interface.pointee
             if value.ifa_addr?.pointee.sa_family == UInt8(AF_LINK),
                value.ifa_flags & UInt32(IFF_LOOPBACK) == 0,
                let data = value.ifa_data?.assumingMemoryBound(to: if_data.self).pointee {
-                received += UInt64(data.ifi_ibytes); sent += UInt64(data.ifi_obytes)
+                let name = String(cString: value.ifa_name)
+                result[name] = NetworkInterfaceCounter(received: data.ifi_ibytes, sent: data.ifi_obytes)
             }
             current = value.ifa_next
         }
-        return (received, sent)
+        return result
     }
 }

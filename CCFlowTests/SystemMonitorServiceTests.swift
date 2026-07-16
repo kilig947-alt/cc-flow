@@ -21,4 +21,9 @@ final class SystemMonitorServiceTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(totals.received, 0)
         XCTAssertGreaterThanOrEqual(totals.sent, 0)
     }
+
+    func testNetworkCounterDeltaHandlesFourGiBWrap() {
+        XCTAssertEqual(SystemMonitorService.wrappedDelta(25, UInt32.max - 10), 36)
+        XCTAssertEqual(SystemMonitorService.wrappedDelta(120, 100), 20)
+    }
 }
