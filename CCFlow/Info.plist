@@ -15,7 +15,11 @@
     <key>LSUIElement</key>
     <false/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>CC FLOW uses Apple Events to return you to the terminal or supported coding client that owns a session.</string>
+    <string>CC FLOW uses Apple Events to return you to the app that owns a session and, when you enable Mail Assistant, read selected Mail metadata and verification codes.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>CC FLOW displays events from calendars you choose in the Calendar left feature.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>CC FLOW displays reminders you choose in the Calendar left feature.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2026 CC FLOW Contributors. All rights reserved.</string>
     <key>PINGTelemetryDailyEventLimit</key>

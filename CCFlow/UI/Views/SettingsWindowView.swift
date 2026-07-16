@@ -2181,7 +2181,8 @@ private struct SettingsPanelContentView: View {
 
             // 右侧操作组：按 kind 分发
             switch feature.kind {
-            case .usage:
+            case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+                 .downloadMonitor, .browserResources, .mailAssistant:
                 Button("编辑") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
@@ -2312,7 +2313,8 @@ private struct SettingsPanelContentView: View {
     /// - `.music` / `.shelf`: 弹出内置功能编辑表单
     private func editFeature(_ feature: LeftFeature) {
         switch feature.kind {
-        case .usage:
+        case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+             .downloadMonitor, .browserResources, .mailAssistant:
             editingBuiltinFeature = feature
         case .customArea(let areaID):
             editCustomArea(areaID: areaID)

@@ -83,6 +83,41 @@ final class UsageDataLoaderTests: XCTestCase {
         XCTAssertEqual(LeftFeatureStore.featuresByEnsuringUsageFeature(migrated), migrated)
     }
 
+    @MainActor
+    func testProductivityFeatureMigrationAppendsDisabledFeaturesAndIsIdempotent() {
+        let source = [
+            LeftFeature(id: LeftFeature.musicID, kind: .music, isEnabled: true, sortOrder: 4),
+            LeftFeature(id: LeftFeature.systemMonitorID, kind: .systemMonitor, isEnabled: true, sortOrder: 9)
+        ]
+
+        let migrated = LeftFeatureStore.featuresByEnsuringProductivityFeatures(source)
+        let productivityIDs = Set([
+            LeftFeature.systemMonitorID, LeftFeature.calendarID, LeftFeature.githubID,
+            LeftFeature.fileCardsID, LeftFeature.naturalSearchID, LeftFeature.downloadMonitorID,
+            LeftFeature.browserResourcesID, LeftFeature.mailAssistantID
+        ])
+
+        XCTAssertEqual(Set(migrated.filter { productivityIDs.contains($0.id) }.map(\.id)), productivityIDs)
+        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.systemMonitorID })?.isEnabled, true)
+        XCTAssertTrue(migrated.filter { $0.id != LeftFeature.systemMonitorID && productivityIDs.contains($0.id) }.allSatisfy { !$0.isEnabled })
+        XCTAssertEqual(migrated.prefix(source.count).map(\.id), source.map(\.id))
+        XCTAssertEqual(LeftFeatureStore.featuresByEnsuringProductivityFeatures(migrated), migrated)
+    }
+
+    func testProductivityKindsRoundTrip() throws {
+        let kinds: [LeftFeatureKind] = [
+            .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
+            .downloadMonitor, .browserResources, .mailAssistant
+        ]
+
+        for kind in kinds {
+            let feature = LeftFeature(kind: kind, isEnabled: false)
+            let decoded = try JSONDecoder().decode(LeftFeature.self, from: JSONEncoder().encode(feature))
+            XCTAssertEqual(decoded.kind, kind)
+        }
+    }
+
+
     func testLoaderDeduplicatesClaudeMessagesAndUsesCodexCumulativeDeltas() throws {
         UsageDataLoader.resetFileCacheForTesting()
         let root = FileManager.default.temporaryDirectory

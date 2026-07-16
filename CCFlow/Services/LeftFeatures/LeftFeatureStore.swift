@@ -102,6 +102,7 @@ final class LeftFeatureStore: ObservableObject {
         expandedActiveFeatureID = defaults.string(forKey: Keys.expandedActiveFeatureID)
         migrateFromLegacy()
         ensureBuiltinUsageFeature()
+        ensureProductivityFeatures()
         ensureBuiltinNewsNowFeature()
         ensureBuiltinMineradioFeature()
     }
@@ -272,6 +273,42 @@ final class LeftFeatureStore: ObservableObject {
             expandedWidth: 680,
             expandedHeight: 460
         ))
+        return result
+    }
+
+    /// Adds newly shipped productivity features without changing existing order or preferences.
+    /// They default to disabled so upgrades never trigger permissions or background work.
+    private func ensureProductivityFeatures() {
+        let migrated = Self.featuresByEnsuringProductivityFeatures(features)
+        guard migrated != features else { return }
+        features = migrated
+        persist()
+    }
+
+    static func featuresByEnsuringProductivityFeatures(_ source: [LeftFeature]) -> [LeftFeature] {
+        let definitions: [(String, LeftFeatureKind, Double, Double)] = [
+            (LeftFeature.systemMonitorID, .systemMonitor, 760, 500),
+            (LeftFeature.calendarID, .calendar, 760, 520),
+            (LeftFeature.githubID, .github, 760, 520),
+            (LeftFeature.fileCardsID, .fileCards, 780, 560),
+            (LeftFeature.naturalSearchID, .naturalSearch, 760, 520),
+            (LeftFeature.downloadMonitorID, .downloadMonitor, 720, 480),
+            (LeftFeature.browserResourcesID, .browserResources, 780, 540),
+            (LeftFeature.mailAssistantID, .mailAssistant, 720, 500)
+        ]
+        var result = source
+        var nextSortOrder = (source.map(\.sortOrder).max() ?? -1) + 1
+        for (id, kind, width, height) in definitions where !result.contains(where: { $0.id == id }) {
+            result.append(LeftFeature(
+                id: id,
+                kind: kind,
+                isEnabled: false,
+                sortOrder: nextSortOrder,
+                expandedWidth: width,
+                expandedHeight: height
+            ))
+            nextSortOrder += 1
+        }
         return result
     }
 
