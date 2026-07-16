@@ -1,7 +1,7 @@
 import SwiftUI
 import WebKit
 
-/// Spec: Flow 岛左半区 —— 紧凑态由 `NotchView.headerRow` 分发到功能视图，
+/// Spec: flow Island左半区 —— 紧凑态由 `NotchView.headerRow` 分发到功能视图，
 /// 展开态由本视图根据活跃会话优先级渲染：有活跃会话时显示会话详情，
 /// 无活跃会话时显示 `LeftFeatureContainerView`（功能切换栏 + 主内容区）。
 ///

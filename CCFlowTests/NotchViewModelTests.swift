@@ -688,14 +688,14 @@ final class NotchViewModelTests: XCTestCase {
         await MainActor.run {
             let viewModel = makeViewModel()
 
-            // 模拟 docked Flow 岛正在查看会话列表
+            // 模拟 docked flow Island正在查看会话列表
             viewModel.notchOpen(reason: .click)
             viewModel.contentType = .instances
 
             viewModel.beginDetachedPresentation(contentType: .instances)
 
             XCTAssertEqual(viewModel.presentationMode, .detached)
-            // 宠物分离到桌面后 Flow 岛依然展示（仅隐藏宠物），不应隐藏 docked 窗口
+            // 宠物分离到桌面后 flow Island依然展示（仅隐藏宠物），不应隐藏 docked 窗口
             XCTAssertFalse(viewModel.shouldHideWindowPresentation)
             XCTAssertFalse(viewModel.shouldHideClosedPresentation)
             XCTAssertFalse(viewModel.shouldSuppressAutomaticPresentation)

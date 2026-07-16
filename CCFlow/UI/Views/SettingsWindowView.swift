@@ -39,7 +39,7 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
         case .mascot: return "客户端宠物与动作"
         case .sound: return "通知与提示音"
         case .integration: return "Hooks 与 权限设置"
-        case .leftContent: return "Flow岛与展开区域"
+        case .leftContent: return "Flow Island与展开区域"
         case .about: return "版本与更新"
         }
     }
@@ -857,6 +857,7 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var generatedPanelScanner = GeneratedPanelScanner.shared
     @ObservedObject private var aiProviderSettings = AIProviderSettings.shared
     @ObservedObject private var productivityPermissionCenter = ProductivityPermissionCenter.shared
+    @ObservedObject private var githubService = GitHubService.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
     @ObservedObject private var mineradioCoordinator = MineradioBridgeCoordinator.shared
     @State private var selectedCategory: SettingsCategory? = .general
@@ -917,6 +918,8 @@ private struct SettingsPanelContentView: View {
     @State private var generatedPanelPromptCopied = false
     @State private var showingGeneratedPanelDirectoryImporter = false
     @State private var generatedPanelActionMessage: String?
+    @State private var generatedPanelLaunchFailure: String?
+    @State private var generatedPanelLaunchToken = UUID()
 
     var body: some View {
         ZStack {
@@ -1107,11 +1110,11 @@ private struct SettingsPanelContentView: View {
         .sheet(item: $editingNewsNowFeature) { feature in
             // NewsNow 实例 URL 编辑表单
             VStack(alignment: .leading, spacing: 16) {
-                Text("编辑 NewsNow 实例 URL")
+                Text("编辑 AI HOT 地址")
                     .font(.system(size: 14, weight: .semibold))
-                TextField("https://newsnow.busiyi.world", text: $newsNowBaseURLDraft)
+                TextField("https://aihot.virxact.com/", text: $newsNowBaseURLDraft)
                     .textFieldStyle(.roundedBorder)
-                Text("指向 NewsNow 部署。默认使用公开实例。")
+                Text("AI 行业动态聚合页面。默认使用 AI HOT 公开地址。")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 HStack {
@@ -1605,7 +1608,7 @@ private struct SettingsPanelContentView: View {
 
                 SettingsToggleLine(
                     title: "登录时打开",
-                    subtitle: "启动 macoS 后自动显示 Flow岛",
+                    subtitle: "启动 macoS 后自动显示 Flow Island",
                     isOn: Binding(
                         get: { viewModel.launchAtLogin },
                         set: { viewModel.setLaunchAtLogin($0) }
@@ -1613,22 +1616,22 @@ private struct SettingsPanelContentView: View {
                 )
                 SettingsLineDivider()
 
-                SettingsInfoLine(title: "显示器", subtitle: "选择 Flow岛 所在显示器") {
+                SettingsInfoLine(title: "显示器", subtitle: "选择 Flow Island 所在显示器") {
                     screenPicker
                 }
             }
 
             SettingsSectionCard(title: "行为") {
                 SettingsToggleLine(
-                    title: "鼠标移入展开 Flow岛",
-                    subtitle: "关闭后需要点击 Flow岛 才会展开",
+                    title: "鼠标移入展开 Flow Island",
+                    subtitle: "关闭后需要点击 Flow Island 才会展开",
                     isOn: $settings.openOnHover
                 )
 
                 if settings.openOnHover {
                     SettingsSliderLine(
                         title: "悬浮展开延迟",
-                        subtitle: "鼠标悬停多久后自动展开 Flow 岛",
+                        subtitle: "鼠标悬停多久后自动展开 flow Island",
                         value: Binding<Double>(
                             get: { Double(settings.hoverOpenDelayMs) },
                             set: { settings.hoverOpenDelayMs = Int($0) }
@@ -1648,7 +1651,7 @@ private struct SettingsPanelContentView: View {
                 SettingsLineDivider()
 
                 SettingsToggleLine(
-                    title: "固定显示 Flow岛展开区域",
+                    title: "固定显示 Flow Island展开区域",
                     subtitle: "启动时默认展开，并保持展开不自动缩小",
                     isOn: $settings.keepIslandOpen
                 )
@@ -1674,7 +1677,7 @@ private struct SettingsPanelContentView: View {
             SettingsSectionCard(title: "显示器") {
                 SettingsInfoLine(
                     title: "当前显示器",
-                    subtitle: "切换后会重新挂载 Flow岛 窗口位置"
+                    subtitle: "切换后会重新挂载 Flow Island 窗口位置"
                 ) {
                     screenPicker
                 }
@@ -1688,25 +1691,35 @@ private struct SettingsPanelContentView: View {
                 }
             }
 
-            SettingsSectionCard(title: "Flow岛设置") {
+            SettingsSectionCard(title: "Flow Island设置") {
                 SettingsSliderLine(
-                    title: "Flow岛高度",
-                    subtitle: "调整紧凑态Flow岛的高度，可承载歌词、彩色文本等富内容",
+                    title: "Flow Island高度",
+                    subtitle: "调整紧凑态Flow Island的高度，可承载歌词、彩色文本等富内容",
                     value: Binding<Double>(
                         get: { Double(settings.compactLeftHeight) },
                         set: { settings.compactLeftHeight = CGFloat($0) }
                     ),
-                    range: 30...80,
+                    range: 24...80,
                     step: 1,
                     format: { "\($0.formatted(.number.precision(.fractionLength(0)))) pt" }
                 )
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "Flow岛宽度",
-                    subtitle: "调整紧凑态Flow岛的宽度；较窄时会降级为单图标显示",
+                    title: "Flow Island宽度",
+                    subtitle: "调整紧凑态Flow Island的宽度；较窄时会降级为单图标显示",
                     value: $settings.notchModuleWidth,
                     range: AppSettings.notchModuleWidthRange,
+                    step: 10,
+                    format: { "\($0.formatted(.number.precision(.fractionLength(0)))) pt" }
+                )
+                SettingsLineDivider()
+
+                SettingsSliderLine(
+                    title: "展开默认宽度",
+                    subtitle: "统一调整活跃会话、通知和未自定义尺寸的左侧功能宽度",
+                    value: $settings.expandedPanelWidth,
+                    range: AppSettings.expandedPanelWidthRange,
                     step: 10,
                     format: { "\($0.formatted(.number.precision(.fractionLength(0)))) pt" }
                 )
@@ -2020,8 +2033,8 @@ private struct SettingsPanelContentView: View {
             }
 
             SettingsSectionCard(title: "链接") {
-                SettingsActionLine(title: "GitHub", subtitle: "打开 Issues 页面反馈问题") {
-                    if let url = URL(string: "https://github.com/ccsonicc333/trae-flow/issues") {
+                SettingsActionLine(title: "GitHub", subtitle: "访问项目主页与反馈问题") {
+                    if let url = URL(string: "https://github.com/kilig947-alt/cc-flow") {
                         NSWorkspace.shared.open(url)
                     }
                 } accessory: {
@@ -2079,16 +2092,20 @@ private struct SettingsPanelContentView: View {
     }
 
     /// 左侧内容设置：
-    /// 1. Flow岛显示卡片 —— 选择 Flow岛 紧凑态展示的功能
+    /// 1. Flow Island显示卡片 —— 选择 Flow Island 紧凑态展示的功能
     /// 2. 功能列表卡片 —— 管理所有左侧功能（启用/禁用、拖拽排序、编辑/删除自定义 HTML），
     ///    并直接提供「添加自定义区域」入口
     private var leftContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             flowIslandDisplayCard
-            productivityCredentialsCard
-            productivityPermissionsCard
             featureListCard
             generatedPanelDesignCard
+            productivityCredentialsCard
+            productivityPermissionsCard
+        }
+        .onAppear {
+            productivityPermissionCenter.refresh()
+            githubService.refresh()
         }
     }
 
@@ -2110,6 +2127,8 @@ private struct SettingsPanelContentView: View {
                     Button("刷新状态") { productivityPermissionCenter.refresh() }
                 }
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
         }
     }
 
@@ -2119,6 +2138,9 @@ private struct SettingsPanelContentView: View {
                 Text("GitHub 优先使用本机 gh 登录；Personal Access Token 仅作为备用并保存到 macOS 钥匙串。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                Label(githubService.status, systemImage: githubService.profile == nil ? "exclamationmark.circle" : "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(githubService.profile == nil ? Color.secondary : Color.green)
                 HStack {
                     SecureField("GitHub Personal Access Token", text: $githubPATDraft)
                         .textFieldStyle(.roundedBorder)
@@ -2193,6 +2215,7 @@ private struct SettingsPanelContentView: View {
                         NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
                     }
                 }
+                BrowserExtensionConnectionButtons()
                 Text("本地端点：127.0.0.1:\(BrowserBridgeService.port) · \(BrowserBridgeService.shared.status)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -2202,61 +2225,60 @@ private struct SettingsPanelContentView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
         }
     }
 
     // MARK: - Left Content: TRAE Work Design Generator
 
     private var generatedPanelDesignCard: some View {
-        SettingsSectionCard(title: "用 TRAE Work Design 生成面板") {
+        SettingsSectionCard(title: "用 Design 生成功能") {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text("打开 TRAE Work CN，将提示词粘贴到 Design 对话中；生成完成后，面板会自动加入上方功能列表。")
+                    Text("选择 Design 应用后会先复制提示词；粘贴到设计对话中，生成完成后面板会自动加入上方功能列表。")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Spacer(minLength: 12)
-
-                    Button {
-                        if !TraeSessionLauncher.activate(.traeWorkCN) {
-                            generatedPanelActionMessage = "无法打开 TRAE Work CN，请确认应用已安装"
-                        }
-                    } label: {
-                        Label("去 TRAE Work Design 生成", systemImage: "arrow.up.forward.app.fill")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(Color.accentColor)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("打开 TRAE Work CN")
+                    Spacer()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
+
+                HStack(spacing: 8) {
+                    generatedPanelDesignLaunchButton(.codex)
+                    generatedPanelDesignLaunchButton(.claude)
+                    generatedPanelDesignLaunchButton(.traeWork)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+                if let generatedPanelLaunchFailure {
+                    Label(generatedPanelLaunchFailure, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
 
                 Divider()
                     .opacity(0.35)
                     .padding(.top, 12)
 
                 HStack(spacing: 8) {
-                    Text("生成面板提示词")
+                    Text("生成功能提示词")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Button {
-                        let pasteboard = NSPasteboard.general
-                        pasteboard.clearContents()
-                        pasteboard.setString(GeneratedPanelPrompt.text, forType: .string)
+                        copyGeneratedPanelPrompt()
                         generatedPanelPromptCopied = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             generatedPanelPromptCopied = false
@@ -2298,39 +2320,7 @@ private struct SettingsPanelContentView: View {
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-
-                HStack(spacing: 8) {
-                    Button {
-                        generatedPanelActionMessage = nil
-                        generatedPanelScanner.scanNow()
-                    } label: {
-                        Label(
-                            generatedPanelScanner.isScanning ? "正在扫描…" : "扫描生成面板",
-                            systemImage: "arrow.clockwise"
-                        )
-                    }
-                    .disabled(generatedPanelScanner.isScanning)
-
-                    Button {
-                        showingGeneratedPanelDirectoryImporter = true
-                    } label: {
-                        Label("选择目录导入", systemImage: "folder.badge.plus")
-                    }
-
-                    Spacer()
-
-                    if let status = generatedPanelStatusText {
-                        Label(status.text, systemImage: status.symbol)
-                            .font(.system(size: 10))
-                            .foregroundStyle(status.isError ? Color.red : Color.secondary)
-                            .lineLimit(2)
-                            .accessibilityLabel(status.text)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.bottom, 14)
             }
         }
         .fileImporter(
@@ -2357,6 +2347,9 @@ private struct SettingsPanelContentView: View {
     }
 
     private var generatedPanelStatusText: (text: String, symbol: String, isError: Bool)? {
+        if generatedPanelScanner.isScanning {
+            return nil
+        }
         if let generatedPanelActionMessage {
             return (generatedPanelActionMessage, "exclamationmark.triangle.fill", true)
         }
@@ -2378,6 +2371,7 @@ private struct SettingsPanelContentView: View {
     private var featureListCard: some View {
         SettingsSectionCard(
             title: "功能列表",
+            titleLeadingAccessory: { generatedPanelRecoveryControls },
             titleAccessory: { addCustomAreaTitleButton }
         ) {
             List {
@@ -2393,7 +2387,7 @@ private struct SettingsPanelContentView: View {
             }
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
-            .frame(minHeight: 330)
+            .frame(height: featureListHeight)
         }
         .confirmationDialog(
             "确认删除该自定义功能？",
@@ -2433,6 +2427,108 @@ private struct SettingsPanelContentView: View {
         } message: { _ in
             Text("删除后该 URL 功能将从列表移除。")
         }
+    }
+
+    private var featureListHeight: CGFloat {
+        let rowHeight: CGFloat = 44
+        let verticalListInsets: CGFloat = 16
+        let minimumHeight: CGFloat = 56
+        let maximumHeight: CGFloat = 330
+        let contentHeight = CGFloat(leftFeatureStore.features.count) * rowHeight + verticalListInsets
+        return min(max(contentHeight, minimumHeight), maximumHeight)
+    }
+
+    private var generatedPanelRecoveryControls: some View {
+        ViewThatFits(in: .horizontal) {
+            generatedPanelRecoveryControlRow(usesCompactButtons: false)
+            generatedPanelRecoveryControlRow(usesCompactButtons: true)
+        }
+    }
+
+    private func generatedPanelRecoveryControlRow(usesCompactButtons: Bool) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                generatedPanelActionMessage = nil
+                generatedPanelScanner.scanNow()
+            } label: {
+                if usesCompactButtons {
+                    Image(systemName: "arrow.clockwise")
+                } else {
+                    Label(
+                        generatedPanelScanner.isScanning ? "正在扫描…" : "扫描生成功能",
+                        systemImage: "arrow.clockwise"
+                    )
+                }
+            }
+            .disabled(generatedPanelScanner.isScanning)
+            .help(generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能")
+            .accessibilityLabel(generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能")
+
+            Button {
+                showingGeneratedPanelDirectoryImporter = true
+            } label: {
+                if usesCompactButtons {
+                    Image(systemName: "folder.badge.plus")
+                } else {
+                    Label("选择目录导入", systemImage: "folder.badge.plus")
+                }
+            }
+            .help("选择目录导入")
+            .accessibilityLabel("选择目录导入")
+
+            if let status = generatedPanelStatusText {
+                Label(status.text, systemImage: status.symbol)
+                    .font(.system(size: 10))
+                    .foregroundStyle(status.isError ? Color.red : Color.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: usesCompactButtons ? 120 : 160, alignment: .leading)
+                    .help(status.text)
+                    .accessibilityLabel(status.text)
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private func generatedPanelDesignLaunchButton(_ destination: PanelDesignDestination) -> some View {
+        Button {
+            copyGeneratedPanelPrompt()
+            generatedPanelLaunchFailure = nil
+            let launchToken = UUID()
+            generatedPanelLaunchToken = launchToken
+            PanelDesignAppLauncher.activate(destination) { succeeded in
+                guard generatedPanelLaunchToken == launchToken else { return }
+                generatedPanelLaunchFailure = succeeded
+                    ? nil
+                    : "提示词已复制，但未能打开 \(destination.applicationDisplayName)。请确认应用已安装。"
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.up.forward.app.fill")
+                    .font(.system(size: 11))
+                Text(destination.buttonTitle)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.accentColor)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("复制生成功能提示词并打开应用")
+    }
+
+    private func copyGeneratedPanelPrompt() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(GeneratedPanelPrompt.text, forType: .string)
     }
 
     /// 功能列表标题右侧的「添加自定义功能」按钮。
@@ -2994,6 +3090,8 @@ private struct SettingsPanelContentView: View {
                 .settingsMenuPicker(width: 168)
             }
 
+            SettingsLineDivider()
+
             // Spec: 选择非「自动」功能时显示「显示提示」开关
             if leftFeatureStore.compactFeatureID != nil {
                 SettingsInfoLine(
@@ -3004,6 +3102,8 @@ private struct SettingsPanelContentView: View {
                         .labelsHidden()
                         .settingsCompactSwitch()
                 }
+
+                SettingsLineDivider()
             }
 
             // Spec: 远程 URL 功能收起后保活开关
@@ -3446,13 +3546,109 @@ private struct WindowControlButton: View {
     }
 }
 
+private enum PanelDesignDestination {
+    case codex
+    case claude
+    case traeWork
+
+    var buttonTitle: String {
+        switch self {
+        case .codex: return "去 Codex Design 生成"
+        case .claude: return "去 Claude Code Design 生成"
+        case .traeWork: return "去 TRAE Work Design 生成"
+        }
+    }
+
+    var applicationDisplayName: String {
+        switch self {
+        case .codex: return "Codex"
+        case .claude: return "Claude"
+        case .traeWork: return "TRAE Work"
+        }
+    }
+}
+
+@MainActor
+private enum PanelDesignAppLauncher {
+    static func activate(
+        _ destination: PanelDesignDestination,
+        completion: @escaping (Bool) -> Void
+    ) {
+        switch destination {
+        case .codex:
+            activateDesktopApplication(
+                bundleIdentifier: "com.openai.codex",
+                fallbackApplicationName: "Codex",
+                completion: completion
+            )
+        case .claude:
+            activateDesktopApplication(
+                bundleIdentifier: "com.anthropic.claudefordesktop",
+                fallbackApplicationName: "Claude",
+                completion: completion
+            )
+        case .traeWork:
+            completion(TraeSessionLauncher.activate(.traeWorkCN))
+        }
+    }
+
+    private static func activateDesktopApplication(
+        bundleIdentifier: String,
+        fallbackApplicationName: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let workspace = NSWorkspace.shared
+
+        if let runningApplication = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first {
+            completion(runningApplication.activate(options: [.activateAllWindows]))
+            return
+        }
+
+        let applicationURL = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier)
+            ?? fallbackApplicationURLs(named: fallbackApplicationName).first {
+                FileManager.default.fileExists(atPath: $0.path)
+            }
+        guard let applicationURL else {
+            completion(false)
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        workspace.openApplication(at: applicationURL, configuration: configuration) { application, _ in
+            DispatchQueue.main.async {
+                if let application {
+                    _ = application.activate(options: [.activateAllWindows])
+                    completion(true)
+                } else {
+                    completion(false)
+                }
+            }
+        }
+    }
+
+    private static func fallbackApplicationURLs(named applicationName: String) -> [URL] {
+        [
+            URL(fileURLWithPath: "/Applications", isDirectory: true),
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications", isDirectory: true)
+        ].map {
+            $0.appendingPathComponent("\(applicationName).app", isDirectory: true)
+        }
+    }
+}
+
 private struct SettingsSectionCard<Content: View>: View {
     let title: String
+    private let titleLeadingAccessory: AnyView?
     private let titleAccessory: AnyView?
     private let content: Content
 
     init(title: String, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.titleLeadingAccessory = nil
         self.titleAccessory = nil
         self.content = content()
     }
@@ -3463,6 +3659,19 @@ private struct SettingsSectionCard<Content: View>: View {
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
+        self.titleLeadingAccessory = nil
+        self.titleAccessory = AnyView(titleAccessory())
+        self.content = content()
+    }
+
+    init<LeadingAccessory: View, Accessory: View>(
+        title: String,
+        @ViewBuilder titleLeadingAccessory: () -> LeadingAccessory,
+        @ViewBuilder titleAccessory: () -> Accessory,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.titleLeadingAccessory = AnyView(titleLeadingAccessory())
         self.titleAccessory = AnyView(titleAccessory())
         self.content = content()
     }
@@ -3473,6 +3682,10 @@ private struct SettingsSectionCard<Content: View>: View {
                 Text(appLocalized: title)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
+
+                if let titleLeadingAccessory {
+                    titleLeadingAccessory
+                }
 
                 Spacer(minLength: 12)
 
@@ -4768,7 +4981,7 @@ private struct FeatureShortcutEditor: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(feature.displayName)
                 .font(.system(size: 16, weight: .bold))
-            Text(appLocalized: "设置全局快捷键，快速在 Flow 岛打开此功能。")
+            Text(appLocalized: "设置全局快捷键，快速在 flow Island打开此功能。")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
 

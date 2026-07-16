@@ -54,7 +54,7 @@ extension MascotStatus {
 // MARK: - Closed Notch Aggregate Status
 
 extension MascotStatus {
-    /// Flow 岛关闭态右侧聚合宠物状态，按 Codex 状态规范显示。
+    /// flow Island关闭态右侧聚合宠物状态，按 Codex 状态规范显示。
     ///
     /// 优先级（从高到低）：
     /// 1. 最近有任务错误 → `.failed`

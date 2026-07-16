@@ -97,7 +97,8 @@ struct SessionListView: View {
                         onArchive: { archiveSession(group.session) },
                         onApprove: { approveSession(group.session) },
                         onApproveForSession: { approveSessionForScope(group.session) },
-                        onReject: { rejectSession(group.session) }
+                        onReject: { rejectSession(group.session) },
+                        onQuickReply: { reply in sendQuickReply(reply, to: group.session) }
                     )
                     .id(group.session.stableId)
 
@@ -213,6 +214,31 @@ struct SessionListView: View {
         selectSession(session)
         Task {
             _ = await SessionLauncher.shared.activateClientApplication(session)
+        }
+    }
+
+    private func sendQuickReply(_ reply: String, to session: SessionState) {
+        selectSession(session)
+        Task {
+            let targetSession = await interactionTargetSession(for: session)
+            if CompletionQuickReplyDeliveryRoute.resolve(for: targetSession) == .direct {
+                do {
+                    try await sessionMonitor.sendSessionMessage(
+                        sessionId: targetSession.sessionId,
+                        text: reply
+                    )
+                    return
+                } catch {
+                    // Preserve the reply and open the original client when the
+                    // captured tmux pane is no longer reachable.
+                }
+            }
+
+            await MainActor.run {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(reply, forType: .string)
+            }
+            _ = await SessionLauncher.shared.activate(targetSession)
         }
     }
 
@@ -588,6 +614,7 @@ struct InstanceRow: View {
     let onApprove: () -> Void
     let onApproveForSession: () -> Void
     let onReject: () -> Void
+    let onQuickReply: (String) -> Void
 
     @State private var isHovered = false
     @ObservedObject private var settings = AppSettings.shared
@@ -659,6 +686,12 @@ struct InstanceRow: View {
 
     private var needsInAppResponse: Bool {
         session.needsQuestionResponse || isWaitingForApproval
+    }
+
+    private var availableQuickReplies: [String] {
+        guard settings.completionQuickRepliesEnabled,
+              session.isCompletionQuickReplyEligible else { return [] }
+        return settings.completionQuickReplies
     }
 
     private var projectTitleFontSize: CGFloat {
@@ -1267,6 +1300,24 @@ struct InstanceRow: View {
             )
         } else {
             HStack(spacing: 6) {
+                ForEach(Array(availableQuickReplies.prefix(3)), id: \.self) { reply in
+                    Button(reply) { onQuickReply(reply) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.mini)
+                        .accessibilityLabel("快速回复 \(reply)")
+                }
+
+                if availableQuickReplies.count > 3 {
+                    Menu("更多") {
+                        ForEach(Array(availableQuickReplies.dropFirst(3)), id: \.self) { reply in
+                            Button(reply) { onQuickReply(reply) }
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .controlSize(.mini)
+                    .accessibilityLabel("更多快速回复")
+                }
+
                 IconButton(icon: "bubble.left") {
                     onChat()
                 }

@@ -27,10 +27,18 @@ final class BrowserResourceService: ObservableObject {
         inputURL = ""; persist()
     }
 
-    func add(url: URL, title: String?, browser: String) {
+    func add(url: URL, title: String?, browser: String, notify: Bool = false) {
+        let isNew = !resources.contains { $0.url == url }
         resources.removeAll { $0.url == url }
         resources.insert(BrowserResource(id: UUID(), url: url, title: title?.isEmpty == false ? title! : (url.host ?? url.absoluteString), browser: browser, savedAt: Date()), at: 0)
         persist()
+        if notify && isNew {
+            ProductivityProactiveEventCenter.shared.publish(
+                targetFeatureID: LeftFeature.browserResourcesID,
+                kind: .browserResourceSaved,
+                summary: "已保存网页：\(title?.isEmpty == false ? title! : (url.host ?? url.absoluteString))"
+            )
+        }
     }
 
     func remove(_ resource: BrowserResource) { resources.removeAll { $0.id == resource.id }; persist() }

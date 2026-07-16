@@ -9,11 +9,14 @@ struct FileCardsFeatureView: View {
     var body: some View {
         Group {
             if compact {
-                Label("\(service.cards.count) 张 File Card", systemImage: "doc.text.magnifyingglass")
+                Label(service.query.isEmpty ? "\(service.results.count) 个文件" : "找到 \(service.results.count) 项", systemImage: "doc.text.magnifyingglass")
                     .font(.system(size: 10, weight: .semibold))
             } else { fileList }
         }
-        .onAppear { if service.cards.isEmpty { service.scan() } }
+        .onAppear {
+            if service.cards.isEmpty { service.scan() }
+            if !compact { service.requestDefaultFolderAuthorizationIfNeeded() }
+        }
         .confirmationDialog("确认执行整理建议？", isPresented: Binding(get: { pendingPlan != nil }, set: { if !$0 { pendingPlan = nil } }),
                             titleVisibility: .visible, presenting: pendingPlan) { plan in
             Button("确认移动", role: .destructive) { execute(plan) }
@@ -26,7 +29,7 @@ struct FileCardsFeatureView: View {
     private var fileList: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("File Card", systemImage: "doc.text.magnifyingglass").font(.headline)
+                Label("File Watch", systemImage: "doc.text.magnifyingglass").font(.headline)
                 Spacer()
                 if service.isScanning { ProgressView().controlSize(.small) }
                 Button { service.addFolder() } label: { Label("添加文件夹", systemImage: "folder.badge.plus") }
@@ -34,22 +37,40 @@ struct FileCardsFeatureView: View {
             }
             Text("只生成卡片与整理建议；不会自动移动、重命名或归档文件。")
                 .font(.caption).foregroundStyle(.secondary)
+            TextField("搜索文件名、路径、File Card、OCR 或标签", text: $service.query)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("搜索 File Watch")
+            Text("只搜索下方已授权目录的 File Card 元数据，不索引文件正文。")
+                .font(.caption2).foregroundStyle(.secondary)
             Toggle("允许所选 AI Provider 增强最近 File Card（最多 4000 字 OCR；不发送绝对路径）",
                    isOn: $service.aiEnhancementEnabled).font(.caption)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack { ForEach(service.folders, id: \.path) { folder in
-                    HStack { Image(systemName: "folder"); Text(folder.lastPathComponent)
-                        Button { service.removeFolder(folder) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain) }
-                        .font(.caption).padding(.horizontal, 8).padding(.vertical, 5)
-                        .background(.white.opacity(0.06), in: Capsule())
-                } }
+                HStack {
+                    ForEach(service.folders, id: \.path) { folder in
+                        HStack { Image(systemName: "folder.fill").foregroundStyle(.green); Text(folder.lastPathComponent)
+                            Button { service.removeFolder(folder) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain) }
+                            .font(.caption).padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(.white.opacity(0.06), in: Capsule())
+                    }
+                    ForEach(service.pendingDefaultFolders, id: \.path) { folder in
+                        Button { service.authorizeDefaultFolder(folder) } label: {
+                            HStack { Image(systemName: "folder.badge.questionmark"); Text(folder.lastPathComponent); Text("待授权").foregroundStyle(.orange) }
+                                .font(.caption).padding(.horizontal, 8).padding(.vertical, 5)
+                                .background(.orange.opacity(0.10), in: Capsule())
+                        }.buttonStyle(.plain).accessibilityHint("收起 Flow Island 并打开文件夹授权窗口")
+                    }
+                    if service.hasRemovedDefaultFolders {
+                        Button("恢复默认目录") { service.restoreDefaultFolders() }
+                            .buttonStyle(.bordered).controlSize(.small)
+                    }
+                }
             }
             if let actionMessage {
                 HStack { Text(actionMessage).font(.caption).foregroundStyle(.secondary); Spacer()
                     if let lastAuditID { Button("撤销") { undo(lastAuditID) } }
                 }
             }
-            ScrollView { LazyVStack(spacing: 7) { ForEach(service.cards) { card in cardRow(card) } } }
+            ScrollView { LazyVStack(spacing: 7) { ForEach(service.results) { card in cardRow(card) } } }
         }.padding(16)
     }
 
@@ -121,7 +142,7 @@ struct DownloadMonitorFeatureView: View {
     let compact: Bool
     @ObservedObject private var service = LocalFileIndexService.shared
     @ObservedObject private var bridge = BrowserBridgeService.shared
-    private var downloads: [LocalFileCard] { service.cards.filter { $0.url.path.contains("/Downloads/") } }
+    private var downloads: [LocalFileCard] { service.authorizedCards.filter { $0.url.path.contains("/Downloads/") } }
     var body: some View {
         Group {
             if compact { Label(bridge.downloads.first.map { "\($0.filename) · \($0.state)" } ?? "最近下载 \(downloads.count)", systemImage: "arrow.down.circle").font(.system(size: 10, weight: .semibold)).lineLimit(1) }
@@ -129,9 +150,29 @@ struct DownloadMonitorFeatureView: View {
                 Label("下载监控", systemImage: "arrow.down.circle").font(.headline)
                 Text("\(bridge.status)。扩展事件提供实时状态，本地目录作为完成记录兜底。")
                     .font(.caption).foregroundStyle(.secondary)
+                if let lastEventAt = bridge.lastEventAt {
+                    Text("最近扩展事件：\(lastEventAt.formatted(date: .omitted, time: .standard))")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                if !bridge.isExtensionConnected { BrowserExtensionConnectionButtons() }
                 ForEach(bridge.downloads.prefix(8)) { item in
                     HStack { Image(systemName: item.state == "complete" ? "checkmark.circle.fill" : "arrow.down.circle"); Text(item.filename).lineLimit(1); Spacer(); Text(item.state).font(.caption).foregroundStyle(.secondary) }
                         .padding(8).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+                }
+                if bridge.downloads.isEmpty && downloads.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "arrow.down.circle.dotted").font(.title2).foregroundStyle(.secondary)
+                        Text("尚未收到下载记录").fontWeight(.semibold)
+                        Text("实时状态需要浏览器扩展使用当前配对令牌；本地完成记录需要先授权 Downloads。")
+                            .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        if service.pendingDefaultFolders.contains(where: { $0.lastPathComponent == "Downloads" }) {
+                            Button("授权 Downloads") {
+                                if let folder = service.pendingDefaultFolders.first(where: { $0.lastPathComponent == "Downloads" }) {
+                                    service.authorizeDefaultFolder(folder)
+                                }
+                            }.buttonStyle(.borderedProminent)
+                        }
+                    }.frame(maxWidth: .infinity).padding(.vertical, 28)
                 }
                 ScrollView { LazyVStack(spacing: 7) { ForEach(downloads.prefix(100)) { card in
                     Button { service.reveal(card) } label: { HStack { Image(systemName: "arrow.down.doc"); Text(card.name).lineLimit(1); Spacer(); Text(card.modifiedAt, style: .relative).font(.caption2) }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9)) }.buttonStyle(.plain)

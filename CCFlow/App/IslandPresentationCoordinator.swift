@@ -34,7 +34,7 @@ final class IslandPresentationCoordinator {
             hasPhysicalNotch: geometry.hasPhysicalNotch
         )
 
-        // Flow 岛固定展示，但启动时不默认展开；屏幕切换后也不恢复展开态。
+        // flow Island固定展示，但启动时不默认展开；屏幕切换后也不恢复展开态。
         bindViewModel()
         bindSettings()
         applySurfaceMode(AppSettings.surfaceMode, activationPolicy: .silent)
@@ -52,10 +52,10 @@ final class IslandPresentationCoordinator {
         applySurfaceMode(AppSettings.surfaceMode, performBootAnimation: false)
     }
 
-    /// 强制刷新 docked Flow 岛窗口的可见性。
+    /// 强制刷新 docked flow Island窗口的可见性。
     /// 启动时窗口可能因应用未激活而未被 window server 完成渲染，
     /// 调用此方法重新执行 orderFrontRegardless 以确保窗口可见。
-    /// 宠物分离态下 Flow 岛依然展示，同样需要刷新。
+    /// 宠物分离态下 flow Island依然展示，同样需要刷新。
     func requestDockedWindowVisibilityRefresh() {
         dockedWindowController?.refreshVisibility()
     }
@@ -87,7 +87,7 @@ final class IslandPresentationCoordinator {
         )
         activeDetachmentPayload = payload
 
-        // 宠物分离到桌面后 Flow 岛继续展示（仅隐藏宠物），无需重建 docked 窗口，
+        // 宠物分离到桌面后 flow Island继续展示（仅隐藏宠物），无需重建 docked 窗口，
         // 用户可随时将宠物拖回；仅在 docked 窗口不存在时补建
         if dockedWindowController == nil {
             recreateDockedWindow(performBootAnimation: false)
@@ -210,10 +210,10 @@ final class IslandPresentationCoordinator {
             return
         }
 
-        // 拖拽分离后保留 Flow 岛，不销毁 docked 窗口
+        // 拖拽分离后保留 flow Island，不销毁 docked 窗口
         activeDetachmentPayload = nil
 
-        // 宠物分离到桌面时 Flow 岛依然展示（仅隐藏宠物），确保 docked 窗口存在
+        // 宠物分离到桌面时 flow Island依然展示（仅隐藏宠物），确保 docked 窗口存在
         if dockedWindowController == nil {
             recreateDockedWindow(performBootAnimation: false)
         }
@@ -291,7 +291,7 @@ final class IslandPresentationCoordinator {
         }
 
         // 非启动动画场景（如屏幕切换、redock）预置滑块下降动画，
-        // NotchView.onAppear 消费此标志并通过 spring 动画将 Flow 岛从屏幕上方滑入。
+        // NotchView.onAppear 消费此标志并通过 spring 动画将 flow Island从屏幕上方滑入。
         if !performBootAnimation {
             viewModel.prepareScreenSlideIn()
         }

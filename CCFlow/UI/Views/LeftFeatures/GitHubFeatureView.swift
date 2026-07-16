@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct GitHubFeatureView: View {
@@ -37,6 +38,7 @@ struct GitHubFeatureView: View {
                         Text("@\(profile.login)").foregroundStyle(.secondary)
                     }
                 }
+                Text(service.status).font(.caption).foregroundStyle(service.status == "已连接" ? Color.secondary : Color.orange)
                 HStack(spacing: 10) {
                     stat("仓库", profile.repositories, .cyan)
                     stat("关注者", profile.followers, .purple)
@@ -45,19 +47,28 @@ struct GitHubFeatureView: View {
                 if !service.contributions.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("贡献记录 · \(service.contributions.reduce(0) { $0 + $1.count }) 次").font(.caption).foregroundStyle(.secondary)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            LazyHGrid(rows: Array(repeating: GridItem(.fixed(8), spacing: 3), count: 7), spacing: 3) {
-                                ForEach(service.contributions) { day in
-                                    RoundedRectangle(cornerRadius: 2).fill(contributionColor(day.count)).frame(width: 8, height: 8)
+                        GeometryReader { proxy in
+                            let days = visibleContributionDays(for: proxy.size.width)
+                            let weeks = max(1, Int(ceil(Double(days.count) / 7.0)))
+                            let spacing: CGFloat = 3
+                            let cell = max(4, min(11, (proxy.size.width - CGFloat(weeks - 1) * spacing) / CGFloat(weeks)))
+                            LazyHGrid(rows: Array(repeating: GridItem(.fixed(cell), spacing: spacing), count: 7), spacing: spacing) {
+                                ForEach(days) { day in
+                                    RoundedRectangle(cornerRadius: max(1, cell * 0.2)).fill(contributionColor(day.count)).frame(width: cell, height: cell)
                                         .accessibilityLabel("\(day.date)，\(day.count) 次贡献")
                                 }
-                            }
-                        }.frame(height: 74)
+                            }.frame(maxWidth: .infinity, alignment: .trailing)
+                        }.frame(height: 95)
                     }.padding(10).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
                 }
                 ForEach(service.repositories.prefix(4)) { repository in
-                    HStack { Image(systemName: "folder"); Text(repository.name).lineLimit(1); Spacer(); Label("\(repository.stars)", systemImage: "star") }
-                        .font(.system(size: 10)).padding(.horizontal, 8)
+                    Button {
+                        if let url = repository.url { NSWorkspace.shared.open(url) }
+                    } label: {
+                        HStack { Image(systemName: "folder"); Text(repository.name).lineLimit(1); Spacer(); Label("\(repository.stars)", systemImage: "star"); Image(systemName: "arrow.up.right") }
+                            .font(.system(size: 10)).padding(.horizontal, 8).contentShape(Rectangle())
+                    }.buttonStyle(.plain).disabled(repository.url == nil)
+                        .accessibilityHint(repository.url == nil ? "仓库地址不可用" : "在默认浏览器打开仓库")
                 }
                 Spacer()
             } else {
@@ -72,6 +83,11 @@ struct GitHubFeatureView: View {
         if count < 3 { return .green.opacity(0.35) }
         if count < 6 { return .green.opacity(0.65) }
         return .green
+    }
+
+    private func visibleContributionDays(for width: CGFloat) -> [GitHubContributionDay] {
+        let weeks = max(1, min(53, Int((width + 3) / 7)))
+        return Array(service.contributions.suffix(weeks * 7))
     }
 
     private func stat(_ title: String, _ value: Int, _ color: Color) -> some View {

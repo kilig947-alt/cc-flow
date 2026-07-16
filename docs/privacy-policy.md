@@ -82,4 +82,4 @@ Simple Log Service to store product usage events. See
 
 For privacy questions or support, open an issue at:
 
-https://github.com/ccsonicc333/trae-flow/issues
+https://github.com/kilig947-alt/cc-flow/issues

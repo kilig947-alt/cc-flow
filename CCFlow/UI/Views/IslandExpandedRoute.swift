@@ -18,7 +18,7 @@ enum IslandExpandedRoute: Equatable {
     case attentionNotification(SessionState)
     case completionNotification(SessionCompletionNotification)
     case chat(SessionState)
-    /// Spec 2.4: 自定义内容全屏面板，由点击 Flow 岛左半区触发
+    /// Spec 2.4: 自定义内容全屏面板，由点击 flow Island左半区触发
     case customExpanded
 }
 

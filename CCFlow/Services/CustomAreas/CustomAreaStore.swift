@@ -143,7 +143,7 @@ final class CustomAreaStore: ObservableObject {
 
     // MARK: - Default Custom Area HTML Contents
 
-    /// 默认预设 1 的 CC FLOW 演示页 —— 三个真实交互区块（Flow 岛提示 / 外部接口 / localStorage 持久化）。
+    /// 默认预设 1 的 CC FLOW 演示页 —— 三个真实交互区块（flow Island提示 / 外部接口 / localStorage 持久化）。
     /// 当前内置预设已改用 `testHTMLContent`（四个真实交互区块，含系统数据监控），
     /// 本常量保留以兼容可能引用它的其他代码。
     private static let defaultDemoHTMLContent = """
@@ -248,12 +248,12 @@ final class CustomAreaStore: ObservableObject {
 <body>
   <div class="header">
     <h1>CC FLOW 演示页</h1>
-    <p>三个真实交互区块：Flow 岛提示、外部接口请求、本地计数器持久化。</p>
+    <p>三个真实交互区块：flow Island提示、外部接口请求、本地计数器持久化。</p>
   </div>
 
   <div class="card">
-    <div class="card-title">推送提示到 Flow 岛</div>
-    <div class="card-desc">调用 <code>ccFlowHint.postMessage</code> 向紧凑态 Flow 岛推送限时提示；点击后按钮短暂变绿作为成功反馈。</div>
+    <div class="card-title">推送提示到 flow Island</div>
+    <div class="card-desc">调用 <code>ccFlowHint.postMessage</code> 向紧凑态 flow Island推送限时提示；点击后按钮短暂变绿作为成功反馈。</div>
     <div class="btn-row">
       <button class="primary" onclick="sendHint(this, '默认提示 5 秒')">默认 5 秒</button>
       <button onclick="sendHint(this, '自定义 3 秒', 3000)">自定义 3 秒</button>
@@ -440,8 +440,8 @@ final class CustomAreaStore: ObservableObject {
         return area
     }
 
-    /// 测试 HTML 内容 —— 演示四个真实交互区块（Flow 岛提示 / 外部接口 / localStorage 持久化 / 系统数据监控）。
-    /// 深色圆角卡片风格，与 Flow 岛视觉一致。包含 loading spinner、5 秒超时、
+    /// 测试 HTML 内容 —— 演示四个真实交互区块（flow Island提示 / 外部接口 / localStorage 持久化 / 系统数据监控）。
+    /// 深色圆角卡片风格，与 flow Island视觉一致。包含 loading spinner、5 秒超时、
     /// 计数器防抖、错误态橙边、成功态绿边、按钮成功反馈、系统指标进度条等交互打磨。
     private static let testHTMLContent = """
 <!DOCTYPE html>
@@ -564,13 +564,13 @@ final class CustomAreaStore: ObservableObject {
 <body>
   <div class="header">
     <h1>CC FLOW 演示页</h1>
-    <p>四个真实交互区块：Flow 岛提示、外部接口请求、本地计数器持久化、系统数据监控。</p>
+    <p>四个真实交互区块：flow Island提示、外部接口请求、本地计数器持久化、系统数据监控。</p>
   </div>
 
-  <!-- 区块 1: 推送提示到 Flow 岛 -->
+  <!-- 区块 1: 推送提示到 flow Island -->
   <div class="card">
-    <div class="card-title">推送提示到 Flow 岛</div>
-    <div class="card-desc">调用 <code>ccFlowHint.postMessage</code> 向紧凑态 Flow 岛推送限时提示；点击后按钮短暂变绿作为成功反馈。</div>
+    <div class="card-title">推送提示到 flow Island</div>
+    <div class="card-desc">调用 <code>ccFlowHint.postMessage</code> 向紧凑态 flow Island推送限时提示；点击后按钮短暂变绿作为成功反馈。</div>
     <div class="btn-row">
       <button class="primary" onclick="sendHint(this, '默认提示 5 秒')">默认 5 秒</button>
       <button onclick="sendHint(this, '自定义 3 秒', 3000)">自定义 3 秒</button>
@@ -621,7 +621,7 @@ final class CustomAreaStore: ObservableObject {
   </div>
 
 <script>
-  // ===== 区块 1: Flow 岛提示 =====
+  // ===== 区块 1: flow Island提示 =====
   // 调用后给按钮临时加 .success 类 800ms 作为成功反馈
   function flashSuccess(btn) {
     if (!btn) return;

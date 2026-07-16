@@ -12,6 +12,7 @@ import Foundation
 enum AppSettingsDefaultKeys {
     nonisolated static let surfaceMode = "surfaceMode"
     nonisolated static let notchModuleWidth = "notchModuleWidth"
+    nonisolated static let expandedPanelWidth = "expandedPanelWidth"
     nonisolated static let floatingPetAnchor = "floatingPetAnchor"
     nonisolated static let floatingPetSizeMode = "floatingPetSizeMode"
     nonisolated static let floatingPetCustomScale = "floatingPetCustomScale"
@@ -336,6 +337,9 @@ final class AppSettingsStore: ObservableObject {
     nonisolated static let defaultNotchModuleWidth: Double = 320
     nonisolated static let minimumNotchModuleWidth: Double = 70
     nonisolated static let maximumNotchModuleWidth: Double = 1000
+    nonisolated static let defaultExpandedPanelWidth: Double = 900
+    nonisolated static let minimumExpandedPanelWidth: Double = 470
+    nonisolated static let maximumExpandedPanelWidth: Double = 1600
 
     private let defaults: UserDefaults
     private let bridgeRuntimeConfigWriter: (BridgeRuntimeConfigSnapshot) -> Void
@@ -375,9 +379,9 @@ final class AppSettingsStore: ObservableObject {
         // Spec: 紧凑态/展开态功能选择由 LeftFeatureStore 统一管理（持久化键 leftFeatureCompactID / leftFeatureExpandedActiveID）
         // Spec: 紧凑态左半区高度（默认 24，范围 24–80，步长 1），调高后可承载歌词等富内容
         static let compactLeftHeight = "compactLeftHeight"
-        // Spec: 紧凑态自定义 HTML 提示开关 —— 开启后在 Flow 岛显示 JS Bridge 推送的提示
+        // Spec: 紧凑态自定义 HTML 提示开关 —— 开启后在 flow Island显示 JS Bridge 推送的提示
         static let showCompactHintEnabled = "showCompactHintEnabled"
-        // Spec: 远程 URL 功能收起后保活开关 —— 开启后 Flow 岛收起时 WKWebView 继续运行（音频/JS/网络）
+        // Spec: 远程 URL 功能收起后保活开关 —— 开启后 flow Island收起时 WKWebView 继续运行（音频/JS/网络）
         static let keepWebURLAliveWhenCollapsed = "keepWebURLAliveWhenCollapsed"
         static let showAgentDetail = "showAgentDetail"
         static let subagentVisibilityMode = "subagentVisibilityMode"
@@ -581,7 +585,7 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
-    /// Flow 岛始终以展开态显示（默认开启）。开启后启动直接进入展开态、
+    /// flow Island始终以展开态显示（默认开启）。开启后启动直接进入展开态、
     /// hover 离开不再自动收起、低功耗/空闲策略也不再把窗口推出屏幕；
     /// 仍可通过点击面板外手动收起（notchClose）。
     @Published var alwaysExpandFlowIsland: Bool {
@@ -591,7 +595,7 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
-    /// 鼠标悬停是否自动展开 Flow 岛（默认开启，保持向后兼容）。
+    /// 鼠标悬停是否自动展开 flow Island（默认开启，保持向后兼容）。
     /// 关闭后鼠标移入触发区不会启动 hover 展开计时器，仅保留点击展开入口。
     @Published var openOnHover: Bool {
         didSet {
@@ -617,7 +621,7 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
-    /// 鼠标移入 Flow 岛后延迟多少毫秒再展开（仅当 openOnHover 开启时生效）。
+    /// 鼠标移入 flow Island后延迟多少毫秒再展开（仅当 openOnHover 开启时生效）。
     @Published var hoverOpenDelayMs: Int {
         didSet {
             let clamped = min(max(hoverOpenDelayMs, 0), 2000)
@@ -647,11 +651,11 @@ final class AppSettingsStore: ObservableObject {
     // Spec: 紧凑态/展开态功能选择由 LeftFeatureStore 统一管理（compactFeatureID / expandedActiveFeatureID），
     // Settings 不再重复持有这两个字段，避免双套持久化键冲突。
 
-    /// Spec: 紧凑态左半区高度（默认 24，范围 30–80，步长 1），调高后可承载歌词等富内容。
-    /// Flow 岛 `closedNotchSize.height` 跟随该值动态扩展以避免内容被截断。
+    /// Spec: 紧凑态左半区高度（默认 24，范围 24–80，步长 1），调高后可承载歌词等富内容。
+    /// flow Island `closedNotchSize.height` 跟随该值动态扩展以避免内容被截断。
     @Published var compactLeftHeight: CGFloat = 24 {
         didSet {
-            let clamped = min(max(compactLeftHeight, 30), 80)
+            let clamped = min(max(compactLeftHeight, 24), 80)
             if compactLeftHeight != clamped {
                 compactLeftHeight = clamped
                 return
@@ -662,7 +666,7 @@ final class AppSettingsStore: ObservableObject {
     }
 
     /// Spec: 紧凑态自定义 HTML 提示开关（默认 true）。
-    /// 开启后，自定义 HTML 通过 JS Bridge 推送的提示会叠加显示在 Flow 岛紧凑态左半区。
+    /// 开启后，自定义 HTML 通过 JS Bridge 推送的提示会叠加显示在 flow Island紧凑态左半区。
     @Published var showCompactHintEnabled: Bool = true {
         didSet {
             guard !isBootstrapping else { return }
@@ -671,7 +675,7 @@ final class AppSettingsStore: ObservableObject {
     }
 
     /// Spec: 远程 URL 功能收起后保活开关（默认 true）。
-    /// 开启后，Flow 岛收起时远程 URL（`.webURL` / `.newsnow`）/ Mineradio 功能的 WKWebView 不会被销毁，
+    /// 开启后，flow Island收起时远程 URL（`.webURL` / `.newsnow`）/ Mineradio 功能的 WKWebView 不会被销毁，
     /// 音频播放、JS 执行、网络请求继续运行；下次展开时复用同一实例。
     @Published var keepWebURLAliveWhenCollapsed: Bool = true {
         didSet {
@@ -754,7 +758,10 @@ final class AppSettingsStore: ObservableObject {
 
     @Published var expandedPanelWidth: Double {
         didSet {
-            let clamped = min(max(expandedPanelWidth, 470), 800)
+            let clamped = min(
+                max(expandedPanelWidth, Self.minimumExpandedPanelWidth),
+                Self.maximumExpandedPanelWidth
+            )
             if expandedPanelWidth != clamped {
                 expandedPanelWidth = clamped
                 return
@@ -1561,7 +1568,7 @@ final class AppSettingsStore: ObservableObject {
             exists: persistedKeys.contains(Keys.autoOpenCompactedNotificationPanel),
             default: true
         ))
-        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(30, Self.doubleValue(
+        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(24, Self.doubleValue(
             from: defaults,
             key: Keys.compactLeftHeight,
             exists: persistedKeys.contains(Keys.compactLeftHeight),
@@ -1610,11 +1617,17 @@ final class AppSettingsStore: ObservableObject {
             exists: persistedKeys.contains(Keys.maxPanelHeight),
             default: 580
         ))
-        _expandedPanelWidth = Published(initialValue: Self.doubleValue(
-            from: defaults,
-            key: Keys.expandedPanelWidth,
-            exists: persistedKeys.contains(Keys.expandedPanelWidth),
-            default: 500
+        _expandedPanelWidth = Published(initialValue: min(
+            max(
+                Self.doubleValue(
+                    from: defaults,
+                    key: Keys.expandedPanelWidth,
+                    exists: persistedKeys.contains(Keys.expandedPanelWidth),
+                    default: Self.defaultExpandedPanelWidth
+                ),
+                Self.minimumExpandedPanelWidth
+            ),
+            Self.maximumExpandedPanelWidth
         ))
         _notchModuleWidth = Published(initialValue: Self.normalizedNotchModuleWidth(Self.doubleValue(
             from: defaults,
@@ -1762,6 +1775,8 @@ enum AppSettings {
     nonisolated static let maximumSettingsWindowSize = CGSize(width: 1440, height: 1100)
     nonisolated static let notchModuleWidthRange =
         AppSettingsStore.minimumNotchModuleWidth...AppSettingsStore.maximumNotchModuleWidth
+    nonisolated static let expandedPanelWidthRange =
+        AppSettingsStore.minimumExpandedPanelWidth...AppSettingsStore.maximumExpandedPanelWidth
 
     static var notificationSound: NotificationSound {
         get { shared.notificationSound }

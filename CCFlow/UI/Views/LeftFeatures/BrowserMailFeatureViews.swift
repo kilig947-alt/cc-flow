@@ -14,6 +14,7 @@ struct BrowserResourcesFeatureView: View {
                 Text("兼容 Chrome、Edge 和 Safari。保存与分类只写入 CC FLOW，不修改浏览器书签。")
                     .font(.caption).foregroundStyle(.secondary)
                 Text(bridge.status).font(.caption2).foregroundStyle(.secondary)
+                if !bridge.isExtensionConnected { BrowserExtensionConnectionButtons() }
                 HStack { TextField("https://…", text: $service.inputURL).textFieldStyle(.roundedBorder)
                     Button("保存资源") { service.saveCurrentInput() }.buttonStyle(.borderedProminent) }
                 ScrollView { LazyVStack(spacing: 7) { ForEach(service.resources) { item in
@@ -23,6 +24,28 @@ struct BrowserResourcesFeatureView: View {
                     }.padding(8).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
                 } } }
             }.padding(16)
+        }
+    }
+}
+
+struct BrowserExtensionConnectionButtons: View {
+    @ObservedObject private var bridge = BrowserBridgeService.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("选择浏览器连接（点击后会复制配对令牌）")
+                .font(.caption2).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                ForEach(BrowserExtensionTarget.allCases) { target in
+                    Button {
+                        bridge.connect(to: target)
+                    } label: {
+                        Label(target.displayName, systemImage: target.systemImage)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("复制配对令牌、收起 Flow Island 并打开 \(target.displayName)")
+                }
+            }
         }
     }
 }

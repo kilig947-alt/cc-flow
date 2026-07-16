@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import OSLog
 
-/// Spec: 实现目录/入口文件监听器（FSEvents），自动检测 HTML 文件创建/修改并刷新 Flow 岛与设置页预览
+/// Spec: 实现目录/入口文件监听器（FSEvents），自动检测 HTML 文件创建/修改并刷新 flow Island与设置页预览
 ///
 /// 使用 DispatchSource 监听每个自定义区域目录的文件变化，触发回调。
 /// 适配沙箱外目录（用户选择 ~/Documents 等场景）需要 Security-Scoped Bookmark；

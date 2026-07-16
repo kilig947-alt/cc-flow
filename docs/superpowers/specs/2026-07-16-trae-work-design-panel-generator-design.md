@@ -88,15 +88,15 @@ Both paths share validation and import behavior with automatic discovery to avoi
 
 ## Settings UI
 
-The feature-list card title bar places the panel recovery controls on its left side and retains “添加自定义功能” on its right side. The left control group contains “扫描生成面板”, “选择目录导入”, and the latest scan status. The controls remain compact and keep text or symbol-based success and error feedback.
+The feature-list card title bar places the panel recovery controls on its left side and retains “添加自定义功能” on its right side. The left control group contains “扫描生成功能”, “选择目录导入”, and the latest scan status. The controls remain compact and keep text or symbol-based success and error feedback.
 
 The feature list sizes itself to its actual rows up to the current 330-point maximum. Short lists no longer leave a large empty region. Once the content exceeds the maximum, the list scrolls internally and retains drag-to-reorder behavior.
 
-Add a `SettingsSectionCard` immediately below the feature-list card with the title “用 Design 生成面板”. Its layout follows the mascot-generation card:
+Add a `SettingsSectionCard` immediately below the feature-list card with the title “用 Design 生成功能”. Its layout follows the mascot-generation card:
 
 1. An information row explains that the prompt should be copied and pasted into the selected Design conversation and that generated panels appear automatically.
 2. Three equal-width primary buttons open “Codex Design”, “Claude Code Design”, or “TRAE Work Design”. Selecting a destination copies the fixed panel prompt before activating its desktop application. Codex and Claude use their desktop bundle identifiers with application-name fallback; TRAE Work uses `TraeSessionLauncher.activate(.traeWorkCN)`.
-3. A prompt header contains “生成面板提示词” and a “复制提示词” action.
+3. A prompt header contains “生成功能提示词” and a “复制提示词” action.
 4. A selectable, monospaced, vertically scrollable prompt preview shows the full fixed template.
 
 The existing Settings card style, system colors, SF Symbols, typography, and spacing remain the source of truth. The three external-app launch buttons are co-equal primary actions; copy, scan, and import are secondary actions. Controls have text labels, keyboard focus, and VoiceOver labels. Result states use text and symbols as well as color.

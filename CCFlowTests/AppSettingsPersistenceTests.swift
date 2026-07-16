@@ -344,6 +344,28 @@ final class AppSettingsPersistenceTests: XCTestCase {
         XCTAssertEqual(defaults.double(forKey: AppSettingsDefaultKeys.notchModuleWidth), 332)
     }
 
+    func testExpandedPanelWidthDefaultsClampsAndPersists() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        XCTAssertEqual(store.expandedPanelWidth, AppSettingsStore.defaultExpandedPanelWidth)
+
+        store.expandedPanelWidth = 400
+        XCTAssertEqual(store.expandedPanelWidth, AppSettingsStore.minimumExpandedPanelWidth)
+
+        store.expandedPanelWidth = 1800
+        XCTAssertEqual(store.expandedPanelWidth, AppSettingsStore.maximumExpandedPanelWidth)
+
+        store.expandedPanelWidth = 1040
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(reloadedStore.expandedPanelWidth, 1040)
+        XCTAssertEqual(defaults.double(forKey: AppSettingsDefaultKeys.expandedPanelWidth), 1040)
+
+        defaults.set(1800, forKey: AppSettingsDefaultKeys.expandedPanelWidth)
+        let normalizedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(normalizedStore.expandedPanelWidth, AppSettingsStore.maximumExpandedPanelWidth)
+    }
+
     func testSurfaceModePersists() {
         let defaults = makeDefaults()
         let store = makeStore(defaults: defaults)

@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 
-/// 自定义 HTML 区域通过 JS Bridge 推送到紧凑态 Flow 岛的"提示"数据模型
+/// 自定义 HTML 区域通过 JS Bridge 推送到紧凑态 flow Island的"提示"数据模型
 struct CustomAreaHint: Equatable, Identifiable {
     let id: UUID
     let areaID: String

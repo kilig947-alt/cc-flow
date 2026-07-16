@@ -61,16 +61,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if launchFlow.shouldCreateInitialIslandWindow {
             startWindowManagerIfNeeded()
-            // 显式激活应用，确保 Flow 岛窗口在启动时即可见。
+            // 显式激活应用，确保 flow Island窗口在启动时即可见。
             // nonactivatingPanel 在应用未激活时可能不会被 window server 立即渲染，
             // 即使调用了 orderFrontRegardless。激活后再次刷新全屏状态，保证
-            // Flow 岛不会因启动时的误判而被隐藏。
+            // flow Island不会因启动时的误判而被隐藏。
             NSApplication.shared.activate(ignoringOtherApps: true)
             windowManager?.presentationCoordinator?.viewModel.refreshFullscreenPresentationState()
             windowManager?.presentationCoordinator?.requestDockedWindowVisibilityRefresh()
 
             // 部分多屏环境下 NSScreen.screens 在 applicationDidFinishLaunching 时尚未稳定，
-            // 延迟重试一次，确保 Flow 岛在正确的屏幕上显示。
+            // 延迟重试一次，确保 flow Island在正确的屏幕上显示。
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.startWindowManagerIfNeeded()
                 self?.windowManager?.presentationCoordinator?.requestDockedWindowVisibilityRefresh()
@@ -100,8 +100,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.mailAssistantID && $0.isEnabled }) {
             MailAssistantService.shared.start()
         }
+        if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.calendarID && $0.isEnabled }) {
+            CalendarService.shared.startReminderMonitoring()
+        }
         for feature in LeftFeatureStore.shared.features where feature.isEnabled &&
-            (feature.id == LeftFeature.fileCardsID || feature.id == LeftFeature.naturalSearchID || feature.id == LeftFeature.downloadMonitorID) {
+            (feature.id == LeftFeature.fileCardsID || feature.id == LeftFeature.downloadMonitorID) {
             LocalFileIndexService.shared.start()
         }
 

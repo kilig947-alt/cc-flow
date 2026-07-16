@@ -6,7 +6,8 @@ from claude-island by Farouq Aldori. CC FLOW has been substantially
 modified to focus exclusively on TRAE variants
 (TRAE / TRAE CN / TRAE WORK / TRAE WORK CN).
 
-Forked and modified by ccsonicc333.
+Forked and modified by ccsonicc333:
+https://github.com/ccsonicc333/trae-flow.git
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this work except in compliance with the License.

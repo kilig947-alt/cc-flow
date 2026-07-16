@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Spec: 自定义 HTML 提示紧凑态视图 —— 当 `CustomAreaHintStore` 中存在该 areaID 的活跃提示时，
-/// 在 Flow 岛紧凑态左半区替代 `CustomAreaWebView` 显示提示文本（带 bell.badge 图标）。
+/// 在 flow Island紧凑态左半区替代 `CustomAreaWebView` 显示提示文本（带 bell.badge 图标）。
 /// 提示到期或被清除后自动回退到 `CustomAreaWebView`。
 struct CustomAreaHintCompactView: View {
     let hint: CustomAreaHint

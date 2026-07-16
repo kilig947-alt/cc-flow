@@ -6,7 +6,7 @@ import WebKit
 /// Spec: 实现 WKWebView 包装组件，支持加载本地文件目录并正确处理相对路径资源
 /// Spec: 实现安全策略：限制 WebView 网络/JS 能力，防止加载外部资源带来的风险
 /// Spec: 支持 JS Bridge —— HTML 通过 `window.webkit.messageHandlers.ccFlowHint.postMessage(...)`
-/// 向紧凑态 Flow 岛推送提示文本，由 `CustomAreaHintStore` 接收并自动超时清除。
+/// 向紧凑态 flow Island推送提示文本，由 `CustomAreaHintStore` 接收并自动超时清除。
 /// Spec: 支持双内容源（本地自定义区域目录 / 远程 URL），按源选择 `loadFileURL` 或 `load(URLRequest)`。
 struct CustomAreaWebView: NSViewRepresentable {
     /// JS Bridge 消息处理器名称 —— HTML 端通过 `window.webkit.messageHandlers.ccFlowHint` 调用
