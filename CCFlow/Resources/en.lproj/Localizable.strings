@@ -652,6 +652,10 @@
 "当前会话" = "Current session";
 "剩余 %d%%" = "%d%% remaining";
 "今日 %@" = "Today %@";
+"%@ %d%%" = "%@ %d%%";
+"%@ 今日 %@" = "%@ today %@";
+"%@ 用量" = "%@ usage";
+"账号用量：%@" = "Account usage: %@";
 "今日明细：输入 %@ · 输出 %@ · 缓存读取 %@ · 缓存写入 %@" = "Today: input %@ · output %@ · cache read %@ · cache write %@";
 "数据可能已过期" = "Data may be stale";
 "未检测到限额" = "Limits not detected";
