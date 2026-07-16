@@ -854,6 +854,7 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var updateManager = UpdateManager.shared
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
+    @ObservedObject private var aiProviderSettings = AIProviderSettings.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
     @ObservedObject private var mineradioCoordinator = MineradioBridgeCoordinator.shared
     @State private var selectedCategory: SettingsCategory? = .general
@@ -908,6 +909,7 @@ private struct SettingsPanelContentView: View {
     @State private var autoFilledIconImage: String?
     @State private var isFetchingMetadata = false
     @State private var githubPATDraft = ""
+    @State private var openAIKeyDraft = ""
     @State private var productivitySecretMessage: String?
 
     var body: some View {
@@ -2096,6 +2098,25 @@ private struct SettingsPanelContentView: View {
                     Button("删除", role: .destructive) {
                         do { try ProductivitySecretsStore.shared.delete(.githubPAT); productivitySecretMessage = "备用 Token 已删除" }
                         catch { productivitySecretMessage = error.localizedDescription }
+                    }
+                }
+                Divider()
+                Picker("AI Provider", selection: $aiProviderSettings.selection) {
+                    ForEach(AIProviderSelection.allCases) { provider in Text(provider.displayName).tag(provider) }
+                }
+                if aiProviderSettings.selection == .openAICompatible {
+                    TextField("API Base URL", text: $aiProviderSettings.baseURL).textFieldStyle(.roundedBorder)
+                    TextField("模型", text: $aiProviderSettings.model).textFieldStyle(.roundedBorder)
+                    HStack {
+                        SecureField("API Key", text: $openAIKeyDraft).textFieldStyle(.roundedBorder)
+                        Button("保存") {
+                            do { try ProductivitySecretsStore.shared.set(openAIKeyDraft, for: .openAIAPIKey); openAIKeyDraft = ""; productivitySecretMessage = "API Key 已保存到钥匙串" }
+                            catch { productivitySecretMessage = error.localizedDescription }
+                        }.disabled(openAIKeyDraft.isEmpty)
+                        Button("删除", role: .destructive) {
+                            do { try ProductivitySecretsStore.shared.delete(.openAIAPIKey); productivitySecretMessage = "API Key 已删除" }
+                            catch { productivitySecretMessage = error.localizedDescription }
+                        }
                     }
                 }
                 if let productivitySecretMessage { Text(productivitySecretMessage).font(.caption).foregroundStyle(.secondary) }

@@ -1,7 +1,10 @@
 import AppKit
 import Combine
 import Foundation
+import ImageIO
+import PDFKit
 import UniformTypeIdentifiers
+import Vision
 
 struct LocalFileCard: Identifiable, Equatable {
     let id: String
@@ -11,6 +14,8 @@ struct LocalFileCard: Identifiable, Equatable {
     let size: Int64
     let modifiedAt: Date
     let tags: [String]
+    let summary: String
+    let ocrText: String
     let suggestion: String
 }
 
@@ -36,7 +41,7 @@ final class LocalFileIndexService: ObservableObject {
         return cards.filter {
             $0.name.lowercased().contains(needle) || $0.url.path.lowercased().contains(needle) ||
             $0.kind.lowercased().contains(needle) || $0.tags.contains { $0.lowercased().contains(needle) } ||
-            $0.suggestion.lowercased().contains(needle)
+            $0.summary.lowercased().contains(needle) || $0.ocrText.lowercased().contains(needle)
         }
     }
 
@@ -56,10 +61,12 @@ final class LocalFileIndexService: ObservableObject {
                     if ["crdownload", "download", "part"].contains(url.pathExtension.lowercased()) { continue }
                     let kind = values.contentType?.localizedDescription ?? url.pathExtension.uppercased()
                     let tags = Self.tags(for: url)
+                    let ocrText = output.count < 40 ? Self.recognizeText(at: url) : ""
                     output.append(LocalFileCard(
                         id: url.standardizedFileURL.path, url: url, name: name, kind: kind,
                         size: Int64(values.fileSize ?? 0), modifiedAt: values.contentModificationDate ?? .distantPast,
-                        tags: tags, suggestion: Self.suggestion(for: url, tags: tags)
+                        tags: tags, summary: "\(kind) · \(ByteCountFormatter.string(fromByteCount: Int64(values.fileSize ?? 0), countStyle: .file))",
+                        ocrText: String(ocrText.prefix(8_000)), suggestion: Self.suggestion(for: url, tags: tags)
                     ))
                 }
             }
@@ -93,5 +100,30 @@ final class LocalFileIndexService: ObservableObject {
         if tags.contains("图片") { return "建议归档到“图片”文件夹（仅建议，确认后才会执行）" }
         if tags.contains("文档") { return "建议归档到“文档”文件夹（仅建议，确认后才会执行）" }
         return "暂无整理建议"
+    }
+
+    nonisolated static func recognizeText(at url: URL) -> String {
+        let ext = url.pathExtension.lowercased()
+        var images: [CGImage] = []
+        if ext == "pdf", let document = PDFDocument(url: url) {
+            for index in 0..<min(document.pageCount, 3) {
+                guard let page = document.page(at: index) else { continue }
+                let image = page.thumbnail(of: CGSize(width: 1800, height: 2400), for: .mediaBox)
+                if let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) { images.append(cg) }
+            }
+        } else if ["png", "jpg", "jpeg", "heic", "tiff", "gif"].contains(ext),
+                  let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) { images = [image] }
+        guard !images.isEmpty else { return "" }
+        var lines: [String] = []
+        for image in images {
+            let request = VNRecognizeTextRequest { request, _ in
+                let observations = request.results as? [VNRecognizedTextObservation] ?? []
+                lines.append(contentsOf: observations.compactMap { $0.topCandidates(1).first?.string })
+            }
+            request.recognitionLevel = .accurate; request.recognitionLanguages = ["zh-Hans", "en-US"]
+            try? VNImageRequestHandler(cgImage: image).perform([request])
+        }
+        return lines.joined(separator: "\n")
     }
 }
