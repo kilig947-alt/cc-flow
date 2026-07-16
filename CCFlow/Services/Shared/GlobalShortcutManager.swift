@@ -5,19 +5,26 @@ import Combine
 extension Notification.Name {
     static let ccFlowOpenActiveSessionShortcut = Notification.Name("ccFlowOpenActiveSessionShortcut")
     static let ccFlowOpenSessionListShortcut = Notification.Name("ccFlowOpenSessionListShortcut")
+    static let ccFlowOpenLeftFeatureShortcut = Notification.Name("ccFlowOpenLeftFeatureShortcut")
     static let ccFlowPresentNotchDetachmentHint = Notification.Name("ccFlowPresentNotchDetachmentHint")
 }
 
 @MainActor
-final class GlobalShortcutManager {
+final class GlobalShortcutManager: ObservableObject {
     static let shared = GlobalShortcutManager()
 
-    private var hotKeyRefs: [GlobalShortcutAction: EventHotKeyRef] = [:]
-    private var registeredActionsByHotKeyID: [UInt32: GlobalShortcutAction] = [:]
+    private enum Target: Hashable {
+        case action(GlobalShortcutAction)
+        case leftFeature(String)
+    }
+
+    private var hotKeyRefs: [Target: EventHotKeyRef] = [:]
+    private var registeredTargetsByHotKeyID: [UInt32: Target] = [:]
     private var eventHandlerRef: EventHandlerRef?
     private var cancellables = Set<AnyCancellable>()
     private let signature = GlobalShortcutManager.fourCharCode(from: "PISL")
     private var nextHotKeyID: UInt32 = 100
+    @Published private(set) var registrationErrors: [String: String] = [:]
 
     private init() {
         installEventHandlerIfNeeded()
@@ -30,6 +37,11 @@ final class GlobalShortcutManager {
             self?.refreshRegistrations()
         }
         .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .ccFlowLeftFeaturesChanged)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshRegistrations() }
+            .store(in: &cancellables)
     }
 
     func start() {
@@ -38,20 +50,31 @@ final class GlobalShortcutManager {
 
     private func refreshRegistrations() {
         unregisterAllHotKeys()
+        registrationErrors = [:]
 
         var registeredShortcuts = Set<GlobalShortcut>()
 
         for action in GlobalShortcutAction.allCases {
-            guard let shortcut = AppSettings.shortcut(for: action),
-                  registeredShortcuts.insert(shortcut).inserted else {
+            guard let shortcut = AppSettings.shortcut(for: action) else { continue }
+            guard registeredShortcuts.insert(shortcut).inserted else {
+                registrationErrors["action:\(action.rawValue)"] = "与另一个已配置快捷键冲突"
                 continue
             }
 
-            register(shortcut, for: action)
+            register(shortcut, for: .action(action))
+        }
+
+        for feature in LeftFeatureStore.shared.enabledFeatures {
+            guard let shortcut = feature.globalShortcut else { continue }
+            guard registeredShortcuts.insert(shortcut).inserted else {
+                registrationErrors["feature:\(feature.id)"] = "与另一个已配置快捷键冲突"
+                continue
+            }
+            register(shortcut, for: .leftFeature(feature.id))
         }
     }
 
-    private func register(_ shortcut: GlobalShortcut, for action: GlobalShortcutAction) {
+    private func register(_ shortcut: GlobalShortcut, for target: Target) {
         var hotKeyRef: EventHotKeyRef?
         let carbonID = nextRegistrationID()
         let hotKeyID = EventHotKeyID(signature: signature, id: carbonID)
@@ -64,9 +87,25 @@ final class GlobalShortcutManager {
             &hotKeyRef
         )
 
-        guard status == noErr, let hotKeyRef else { return }
-        hotKeyRefs[action] = hotKeyRef
-        registeredActionsByHotKeyID[carbonID] = action
+        guard status == noErr, let hotKeyRef else {
+            let key: String
+            switch target {
+            case .action(let action): key = "action:\(action.rawValue)"
+            case .leftFeature(let id): key = "feature:\(id)"
+            }
+            registrationErrors[key] = "系统注册失败（\(status)），请检查是否被其他应用占用"
+            return
+        }
+        hotKeyRefs[target] = hotKeyRef
+        registeredTargetsByHotKeyID[carbonID] = target
+    }
+
+    func registrationError(forFeatureID id: String) -> String? {
+        registrationErrors["feature:\(id)"]
+    }
+
+    func registrationError(for action: GlobalShortcutAction) -> String? {
+        registrationErrors["action:\(action.rawValue)"]
     }
 
     private func unregisterAllHotKeys() {
@@ -74,7 +113,7 @@ final class GlobalShortcutManager {
             UnregisterEventHotKey(hotKeyRef)
         }
         hotKeyRefs.removeAll()
-        registeredActionsByHotKeyID.removeAll()
+        registeredTargetsByHotKeyID.removeAll()
     }
 
     private func installEventHandlerIfNeeded() {
@@ -118,15 +157,24 @@ final class GlobalShortcutManager {
             return status
         }
 
-        guard let action = registeredActionsByHotKeyID[hotKeyID.id] else {
+        guard let target = registeredTargetsByHotKeyID[hotKeyID.id] else {
             return OSStatus(eventNotHandledErr)
         }
 
-        switch action {
-        case .openActiveSession:
-            NotificationCenter.default.post(name: .ccFlowOpenActiveSessionShortcut, object: nil)
-        case .openSessionList:
-            NotificationCenter.default.post(name: .ccFlowOpenSessionListShortcut, object: nil)
+        switch target {
+        case .action(let action):
+            switch action {
+            case .openActiveSession:
+                NotificationCenter.default.post(name: .ccFlowOpenActiveSessionShortcut, object: nil)
+            case .openSessionList:
+                NotificationCenter.default.post(name: .ccFlowOpenSessionListShortcut, object: nil)
+            }
+        case .leftFeature(let featureID):
+            NotificationCenter.default.post(
+                name: .ccFlowOpenLeftFeatureShortcut,
+                object: nil,
+                userInfo: ["featureID": featureID]
+            )
         }
 
         return noErr

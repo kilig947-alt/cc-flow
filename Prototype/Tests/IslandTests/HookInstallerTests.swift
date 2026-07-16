@@ -65,6 +65,24 @@ func installerCreatesLauncherUnderCCFlowSupportDirectory() throws {
 }
 
 @Test
+func installerWritesClaudeUsageSnapshotThroughPrivateSecureTemporaryFile() throws {
+    let root = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let installer = HookInstaller(homeDirectory: root)
+    try installer.installDefaultHookAssets()
+
+    let scriptURL = root.appending(path: ".cc-flow/bin/cc-flow-statusline")
+    let script = try String(contentsOf: scriptURL, encoding: .utf8)
+    #expect(script.contains("umask 077"))
+    #expect(script.contains("Library/Application Support/cc-flow"))
+    #expect(script.contains("mktemp"))
+    #expect(!script.contains("/tmp/cc-flow-usage"))
+    #expect(!script.contains("/tmp/cc-flow-rate-limits"))
+}
+
+@Test
 func installerAcceptsJSONCSettingsFiles() throws {
     let root = URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: UUID().uuidString, directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

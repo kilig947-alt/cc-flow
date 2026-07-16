@@ -49,6 +49,7 @@ func resolveIconKind(_ identifier: String?) -> IconKind {
 /// - newsnow: 内置 NewsNow 热点新闻功能，关联实例 baseURL（Spec: add-newsnow-built-in-feature）
 /// - mineradio: 内置 Mineradio 矿石电台，关联 pageURL，注入 Bridge 兼容层 + JSC 引擎（Spec: mineradio-bridge-compat-layer）
 enum LeftFeatureKind: Codable, Equatable, Hashable {
+    case usage
     case music
     case shelf
     case customArea(areaID: String)
@@ -80,6 +81,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
     var expandedHeight: Double?
     /// 展开即固定开关；true = 切换到该功能时面板自动 pin
     var expandedPinned: Bool
+    /// 可选全局快捷键；功能禁用时保留配置但不注册。
+    var globalShortcut: GlobalShortcut?
 
     init(id: String = UUID().uuidString,
          kind: LeftFeatureKind,
@@ -90,7 +93,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
          customDisplayName: String? = nil,
          expandedWidth: Double? = nil,
          expandedHeight: Double? = nil,
-         expandedPinned: Bool = false) {
+         expandedPinned: Bool = false,
+         globalShortcut: GlobalShortcut? = nil) {
         self.id = id
         self.kind = kind
         self.isEnabled = isEnabled
@@ -101,6 +105,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.expandedWidth = expandedWidth
         self.expandedHeight = expandedHeight
         self.expandedPinned = expandedPinned
+        self.globalShortcut = globalShortcut
     }
 
     // MARK: - Codable（向后兼容老 left-features.json）
@@ -116,6 +121,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         case expandedWidth
         case expandedHeight
         case expandedPinned
+        case globalShortcut
     }
 
     /// 自定义解码：容忍老 `left-features.json` 缺少新增字段，
@@ -132,6 +138,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.expandedWidth = try c.decodeIfPresent(Double.self, forKey: .expandedWidth)
         self.expandedHeight = try c.decodeIfPresent(Double.self, forKey: .expandedHeight)
         self.expandedPinned = try c.decodeIfPresent(Bool.self, forKey: .expandedPinned) ?? false
+        self.globalShortcut = try c.decodeIfPresent(GlobalShortcut.self, forKey: .globalShortcut)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -146,12 +153,14 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         try c.encodeIfPresent(expandedWidth, forKey: .expandedWidth)
         try c.encodeIfPresent(expandedHeight, forKey: .expandedHeight)
         try c.encode(expandedPinned, forKey: .expandedPinned)
+        try c.encodeIfPresent(globalShortcut, forKey: .globalShortcut)
     }
 }
 
 extension LeftFeature {
     /// 内置功能的稳定 id
     static let musicID = "music"
+    static let usageID = "usage"
     static let shelfID = "shelf"
     static let newsnowID = "newsnow"
     static let mineradioID = "mineradio"
@@ -162,6 +171,8 @@ extension LeftFeature {
             return customIconName
         }
         switch kind {
+        case .usage:
+            return "chart.bar.xaxis"
         case .music:
             return "music.note"
         case .shelf:
@@ -188,6 +199,8 @@ extension LeftFeature {
             return customDisplayName
         }
         switch kind {
+        case .usage:
+            return "用量"
         case .music:
             return "音乐"
         case .shelf:
