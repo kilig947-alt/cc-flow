@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import SwiftUI
 
-/// 左侧 Flow 岛"功能系统"注册中心
+/// 左侧 flow Island"功能系统"注册中心
 /// 管理内置功能（音乐 / 中转站）与自定义 HTML 区域功能的启用/禁用、排序、
 /// 紧凑态与展开态各自的选择（`compactFeatureID` / `expandedActiveFeatureID`）。
 /// 持久化：
@@ -103,8 +103,10 @@ final class LeftFeatureStore: ObservableObject {
         migrateFromLegacy()
         ensureBuiltinUsageFeature()
         ensureProductivityFeatures()
-        ensureBuiltinNewsNowFeature()
+        migrateNaturalSearchIntoFileWatch()
+        ensureBuiltinAIHotFeature()
         ensureBuiltinMineradioFeature()
+        normalizeBuiltinDefaultExpandedWidths()
     }
 
     // MARK: - Loading & Persistence
@@ -159,7 +161,6 @@ final class LeftFeatureStore: ObservableObject {
                 kind: .mineradio(pageURL: "https://mineradio.art/"),
                 isEnabled: true,
                 sortOrder: 0,
-                expandedWidth: 900,
                 expandedHeight: 600
             ),
             LeftFeature(
@@ -232,22 +233,36 @@ final class LeftFeatureStore: ObservableObject {
     /// 已存在则不动（保留用户编辑过的 baseURL / isEnabled / sortOrder）。
     /// 在 init 末尾 load() 之后调用。
     /// Spec: 内置 newsnow 功能自动获取网站 favicon（若 customIconName 为 nil）
-    private func ensureBuiltinNewsNowFeature() {
-        if features.contains(where: { $0.id == LeftFeature.newsnowID }) {
-            // 已存在：补获 favicon（若未设置自定义图标）
+    private func ensureBuiltinAIHotFeature() {
+        if let index = features.firstIndex(where: { $0.id == LeftFeature.newsnowID }) {
+            let migrated = Self.featuresByMigratingNewsNowToAIHot(features)
+            if migrated != features { features = migrated; persist() }
             fetchBuiltinFaviconIfNeeded(LeftFeature.newsnowID)
             return
         }
         let maxSortOrder = features.map(\.sortOrder).max() ?? -1
         features.append(LeftFeature(
             id: LeftFeature.newsnowID,
-            kind: .newsnow(baseURL: "https://newsnow.busiyi.world"),
+            kind: .newsnow(baseURL: Self.aiHotURL),
             isEnabled: true,
             sortOrder: maxSortOrder + 1,
             expandedHeight: 420
         ))
         persist()
         fetchBuiltinFaviconIfNeeded(LeftFeature.newsnowID)
+    }
+
+    static let aiHotURL = "https://aihot.virxact.com/"
+
+    static func featuresByMigratingNewsNowToAIHot(_ source: [LeftFeature]) -> [LeftFeature] {
+        source.map { feature in
+            guard feature.id == LeftFeature.newsnowID else { return feature }
+            var migrated = feature
+            migrated.kind = .newsnow(baseURL: aiHotURL)
+            migrated.customDisplayName = nil
+            if migrated.customIconName?.hasPrefix("img:favicon-") == true { migrated.customIconName = nil }
+            return migrated
+        }
     }
 
     /// 首次升级时把原生用量功能插入第一位；之后尊重用户排序和启用状态。
@@ -270,7 +285,6 @@ final class LeftFeatureStore: ObservableObject {
             kind: .usage,
             isEnabled: true,
             sortOrder: 0,
-            expandedWidth: LeftFeature.defaultExpandedWidth,
             expandedHeight: LeftFeature.defaultExpandedHeight
         ))
         return result
@@ -286,28 +300,61 @@ final class LeftFeatureStore: ObservableObject {
     }
 
     static func featuresByEnsuringProductivityFeatures(_ source: [LeftFeature]) -> [LeftFeature] {
-        let definitions: [(String, LeftFeatureKind, Double, Double)] = [
-            (LeftFeature.systemMonitorID, .systemMonitor, 760, 500),
-            (LeftFeature.calendarID, .calendar, 760, 520),
-            (LeftFeature.githubID, .github, 760, 520),
-            (LeftFeature.fileCardsID, .fileCards, 780, 560),
-            (LeftFeature.naturalSearchID, .naturalSearch, 760, 520),
-            (LeftFeature.downloadMonitorID, .downloadMonitor, 720, 480),
-            (LeftFeature.browserResourcesID, .browserResources, 780, 540),
-            (LeftFeature.mailAssistantID, .mailAssistant, 720, 500)
+        let definitions: [(String, LeftFeatureKind, Double)] = [
+            (LeftFeature.systemMonitorID, .systemMonitor, 500),
+            (LeftFeature.calendarID, .calendar, 520),
+            (LeftFeature.githubID, .github, 520),
+            (LeftFeature.fileCardsID, .fileCards, 560),
+            (LeftFeature.downloadMonitorID, .downloadMonitor, 480),
+            (LeftFeature.browserResourcesID, .browserResources, 540),
+            (LeftFeature.mailAssistantID, .mailAssistant, 500)
         ]
         var result = source
         var nextSortOrder = (source.map(\.sortOrder).max() ?? -1) + 1
-        for (id, kind, width, height) in definitions where !result.contains(where: { $0.id == id }) {
+        for (id, kind, height) in definitions where !result.contains(where: { $0.id == id }) {
             result.append(LeftFeature(
                 id: id,
                 kind: kind,
                 isEnabled: false,
                 sortOrder: nextSortOrder,
-                expandedWidth: width,
                 expandedHeight: height
             ))
             nextSortOrder += 1
+        }
+        return result
+    }
+
+    private func migrateNaturalSearchIntoFileWatch() {
+        let migrated = Self.featuresByMergingNaturalSearchIntoFileWatch(features)
+        let selectionNeedsMigration = compactFeatureID == LeftFeature.naturalSearchID
+            || expandedActiveFeatureID == LeftFeature.naturalSearchID
+        guard migrated != features || selectionNeedsMigration else { return }
+        features = migrated
+        if compactFeatureID == LeftFeature.naturalSearchID { compactFeatureID = LeftFeature.fileCardsID }
+        if expandedActiveFeatureID == LeftFeature.naturalSearchID { expandedActiveFeatureID = LeftFeature.fileCardsID }
+        persist()
+    }
+
+    static func featuresByMergingNaturalSearchIntoFileWatch(_ source: [LeftFeature]) -> [LeftFeature] {
+        guard let legacy = source.first(where: { $0.id == LeftFeature.naturalSearchID || $0.kind == .naturalSearch }) else {
+            return source
+        }
+        var result = source.filter { $0.id != LeftFeature.naturalSearchID && $0.kind != .naturalSearch }
+        if let index = result.firstIndex(where: { $0.id == LeftFeature.fileCardsID || $0.kind == .fileCards }) {
+            result[index].isEnabled = result[index].isEnabled || legacy.isEnabled
+        } else {
+            result.append(LeftFeature(
+                id: LeftFeature.fileCardsID,
+                kind: .fileCards,
+                isEnabled: legacy.isEnabled,
+                sortOrder: legacy.sortOrder,
+                createdAt: legacy.createdAt,
+                customIconName: legacy.customIconName,
+                expandedWidth: legacy.expandedWidth,
+                expandedHeight: legacy.expandedHeight,
+                expandedPinned: legacy.expandedPinned,
+                globalShortcut: legacy.globalShortcut
+            ))
         }
         return result
     }
@@ -336,11 +383,44 @@ final class LeftFeatureStore: ObservableObject {
             kind: .mineradio(pageURL: "https://mineradio.art/"),
             isEnabled: true,
             sortOrder: maxSortOrder + 1,
-            expandedWidth: 900,
             expandedHeight: 600
         ))
         persist()
         fetchBuiltinFaviconIfNeeded(LeftFeature.mineradioID)
+    }
+
+    /// Clears shipped width presets so every built-in feature follows the shared 900pt baseline.
+    /// Values outside the known presets are treated as user customizations and preserved.
+    private func normalizeBuiltinDefaultExpandedWidths() {
+        let migrated = Self.featuresByNormalizingBuiltinDefaultExpandedWidths(features)
+        guard migrated != features else { return }
+        features = migrated
+        persist()
+    }
+
+    static func featuresByNormalizingBuiltinDefaultExpandedWidths(_ source: [LeftFeature]) -> [LeftFeature] {
+        let knownPresets: [String: Set<Double>] = [
+            LeftFeature.usageID: [680],
+            LeftFeature.mineradioID: [900],
+            LeftFeature.systemMonitorID: [760],
+            LeftFeature.calendarID: [760],
+            LeftFeature.githubID: [760],
+            LeftFeature.fileCardsID: [780],
+            LeftFeature.naturalSearchID: [760],
+            LeftFeature.downloadMonitorID: [720],
+            LeftFeature.browserResourcesID: [780],
+            LeftFeature.mailAssistantID: [720]
+        ]
+
+        return source.map { feature in
+            guard let width = feature.expandedWidth,
+                  knownPresets[feature.id]?.contains(width) == true else {
+                return feature
+            }
+            var normalized = feature
+            normalized.expandedWidth = nil
+            return normalized
+        }
     }
 
     /// Spec: 为内置 newsnow/mineradio 功能自动获取网站 favicon。
@@ -406,9 +486,12 @@ final class LeftFeatureStore: ObservableObject {
             Task { await UsageService.shared.refresh(reason: .passive) }
         }
         if id == LeftFeature.systemMonitorID, isEnabled { AppUsageTracker.shared.start() }
+        if id == LeftFeature.calendarID {
+            isEnabled ? CalendarService.shared.startReminderMonitoring() : CalendarService.shared.stopReminderMonitoring()
+        }
         if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
         if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
-        if (id == LeftFeature.fileCardsID || id == LeftFeature.naturalSearchID || id == LeftFeature.downloadMonitorID), isEnabled {
+        if (id == LeftFeature.fileCardsID || id == LeftFeature.downloadMonitorID), isEnabled {
             LocalFileIndexService.shared.start()
         }
     }

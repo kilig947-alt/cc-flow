@@ -6,6 +6,10 @@ import PDFKit
 import UniformTypeIdentifiers
 import Vision
 
+extension Notification.Name {
+    static let ccFlowCollapseForFilePicker = Notification.Name("ccFlowCollapseForFilePicker")
+}
+
 struct LocalFileCard: Codable, Identifiable, Equatable {
     let id: String
     let url: URL
@@ -24,6 +28,7 @@ final class LocalFileIndexService: ObservableObject {
     static let shared = LocalFileIndexService()
     @Published private(set) var cards: [LocalFileCard] = []
     @Published private(set) var folders: [URL] = []
+    @Published private(set) var pendingDefaultFolders: [URL] = []
     @Published private(set) var isScanning = false
     @Published var query = ""
     @Published var aiEnhancementEnabled: Bool {
@@ -32,6 +37,8 @@ final class LocalFileIndexService: ObservableObject {
 
     private let defaultsKey = "productivity.watchedFolderPaths"
     private let removedDefaultsKey = "productivity.removedDefaultFolderPaths"
+    private let home = FileManager.default.homeDirectoryForCurrentUser
+    private var didOfferDefaultFolderAuthorization = false
     private let cardsURL = BridgeRuntimePaths.runtimeDirectoryURL
         .appendingPathComponent("productivity", isDirectory: true)
         .appendingPathComponent("file-cards-v1.json")
@@ -42,10 +49,13 @@ final class LocalFileIndexService: ObservableObject {
     private var monitorTimer: AnyCancellable?
     private var energyCancellable: AnyCancellable?
     private init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
         let removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
-        let saved = UserDefaults.standard.stringArray(forKey: defaultsKey)?.map(URL.init(fileURLWithPath:)) ?? []
-        folders = Self.initialFolders(home: home, removedDefaultPaths: removedDefaults, saved: saved)
+        let saved = (UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []).compactMap {
+            WatchedFolderBookmarkStore.resolve(path: $0)
+        }
+        let initialFolders = Self.initialFolders(home: home, removedDefaultPaths: removedDefaults, saved: saved)
+        folders = initialFolders
+        pendingDefaultFolders = Self.pendingDefaults(home: home, removedDefaultPaths: removedDefaults, authorized: initialFolders)
         aiEnhancementEnabled = UserDefaults.standard.bool(forKey: "productivity.fileCards.aiEnabled")
         if let data = try? Data(contentsOf: cardsURL), let decoded = try? JSONDecoder().decode([LocalFileCard].self, from: data) {
             cards = decoded
@@ -53,9 +63,23 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     nonisolated static func initialFolders(home: URL, removedDefaultPaths: Set<String>, saved: [URL]) -> [URL] {
-        let defaults = [home.appendingPathComponent("Downloads"), home.appendingPathComponent("Desktop")]
-            .filter { !removedDefaultPaths.contains($0.path) }
-        return Array(Set(defaults + saved)).sorted { $0.path < $1.path }
+        Array(Set(saved.filter { !removedDefaultPaths.contains($0.path) })).sorted { $0.path < $1.path }
+    }
+
+    nonisolated static func defaultFolders(home: URL) -> [URL] {
+        [home.appendingPathComponent("Downloads", isDirectory: true), home.appendingPathComponent("Documents", isDirectory: true)]
+    }
+
+    nonisolated static func pendingDefaults(home: URL, removedDefaultPaths: Set<String>, authorized: [URL]) -> [URL] {
+        let authorizedPaths = Set(authorized.map { $0.standardizedFileURL.path })
+        return defaultFolders(home: home).filter {
+            !removedDefaultPaths.contains($0.path) && !authorizedPaths.contains($0.standardizedFileURL.path)
+        }
+    }
+
+    var hasRemovedDefaultFolders: Bool {
+        let removed = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
+        return Self.defaultFolders(home: home).contains { removed.contains($0.path) }
     }
 
     func start() {
@@ -94,8 +118,21 @@ final class LocalFileIndexService: ObservableObject {
 
     var results: [LocalFileCard] {
         let parsed = NaturalFileQuery.parse(query)
-        guard !parsed.isEmpty else { return cards }
-        return cards.filter { parsed.matches($0) }
+        let authorizedCards = self.authorizedCards
+        guard !parsed.isEmpty else { return authorizedCards }
+        return authorizedCards.filter { parsed.matches($0) }
+    }
+
+    var authorizedCards: [LocalFileCard] {
+        cards.filter { Self.isAuthorized($0.url, roots: folders) }
+    }
+
+    nonisolated static func isAuthorized(_ url: URL, roots: [URL]) -> Bool {
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        return roots.contains { root in
+            let rootPath = root.standardizedFileURL.resolvingSymlinksInPath().path
+            return path == rootPath || path.hasPrefix(rootPath.hasSuffix("/") ? rootPath : rootPath + "/")
+        }
     }
 
     func scan() {
@@ -111,7 +148,7 @@ final class LocalFileIndexService: ObservableObject {
             var output: [LocalFileCard] = []
             for root in roots {
                 guard !Task.isCancelled else { return }
-                let resolved = WatchedFolderBookmarkStore.resolve(path: root.path) ?? root
+                guard let resolved = WatchedFolderBookmarkStore.resolve(path: root.path) else { continue }
                 let accessing = resolved.startAccessingSecurityScopedResource()
                 defer { if accessing { resolved.stopAccessingSecurityScopedResource() } }
                 guard let enumerator = FileManager.default.enumerator(at: resolved, includingPropertiesForKeys: Array(keys),
@@ -148,15 +185,59 @@ final class LocalFileIndexService: ObservableObject {
     }
 
     func addFolder() {
+        presentFolderPicker(message: "选择要加入 File Watch 的文件夹")
+    }
+
+    func requestDefaultFolderAuthorizationIfNeeded() {
+        guard !didOfferDefaultFolderAuthorization, !pendingDefaultFolders.isEmpty else { return }
+        didOfferDefaultFolderAuthorization = true
+        presentFolderPicker(message: "请选择 Downloads 和 Documents（可按住 Command 多选）", directoryURL: home)
+    }
+
+    func authorizeDefaultFolder(_ folder: URL) {
+        presentFolderPicker(
+            message: "请选择 \(folder.lastPathComponent) 以授权 File Watch",
+            directoryURL: folder.deletingLastPathComponent()
+        )
+    }
+
+    func restoreDefaultFolders() {
+        var removed = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
+        Self.defaultFolders(home: home).forEach { removed.remove($0.path) }
+        UserDefaults.standard.set(Array(removed), forKey: removedDefaultsKey)
+        refreshPendingDefaultFolders()
+        didOfferDefaultFolderAuthorization = false
+        requestDefaultFolderAuthorizationIfNeeded()
+    }
+
+    private func presentFolderPicker(message: String, directoryURL: URL? = nil) {
+        NotificationCenter.default.post(name: .ccFlowCollapseForFilePicker, object: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.runFolderPicker(message: message, directoryURL: directoryURL)
+        }
+    }
+
+    private func runFolderPicker(message: String, directoryURL: URL?) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = true
-        guard panel.runModal() == .OK else { return }
-        panel.urls.forEach { _ = WatchedFolderBookmarkStore.save(url: $0) }
+        panel.message = message
+        panel.directoryURL = directoryURL
+        panel.begin { [weak self] response in
+            guard response == .OK else { return }
+            let urls = panel.urls
+            Task { @MainActor in self?.acceptAuthorizedFolders(urls) }
+        }
+    }
+
+    private func acceptAuthorizedFolders(_ urls: [URL]) {
+        let authorizedURLs = urls.filter { WatchedFolderBookmarkStore.save(url: $0) }
+        guard !authorizedURLs.isEmpty else { return }
         var removedDefaults = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
-        panel.urls.forEach { removedDefaults.remove($0.path) }
+        authorizedURLs.forEach { removedDefaults.remove($0.path) }
         UserDefaults.standard.set(Array(removedDefaults), forKey: removedDefaultsKey)
-        folders = Array(Set(folders + panel.urls)).sorted { $0.path < $1.path }
+        folders = Array(Set(folders + authorizedURLs)).sorted { $0.path < $1.path }
         UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
+        refreshPendingDefaultFolders()
         scan()
     }
 
@@ -166,16 +247,20 @@ final class LocalFileIndexService: ObservableObject {
         WatchedFolderBookmarkStore.remove(path: url.path)
         folders.removeAll { $0.standardizedFileURL == url.standardizedFileURL }
         UserDefaults.standard.set(folders.map(\.path), forKey: defaultsKey)
-        let prefix = url.standardizedFileURL.path + "/"
-        cards.removeAll { $0.url.standardizedFileURL.path.hasPrefix(prefix) }
+        cards.removeAll { Self.isAuthorized($0.url, roots: [url]) }
         persistCards()
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let defaultPaths = Set([home.appendingPathComponent("Downloads").path, home.appendingPathComponent("Desktop").path])
+        let defaultPaths = Set(Self.defaultFolders(home: home).map(\.path))
         if defaultPaths.contains(url.path) {
             var removed = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
             removed.insert(url.path); UserDefaults.standard.set(Array(removed), forKey: removedDefaultsKey)
         }
+        refreshPendingDefaultFolders()
         if consumers > 0, !folders.isEmpty { scan() }
+    }
+
+    private func refreshPendingDefaultFolders() {
+        let removed = Set(UserDefaults.standard.stringArray(forKey: removedDefaultsKey) ?? [])
+        pendingDefaultFolders = Self.pendingDefaults(home: home, removedDefaultPaths: removed, authorized: folders)
     }
 
     func reveal(_ card: LocalFileCard) { NSWorkspace.shared.activateFileViewerSelecting([card.url]) }

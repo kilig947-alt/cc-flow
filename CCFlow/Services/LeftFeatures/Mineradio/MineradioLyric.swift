@@ -3,7 +3,7 @@ import Foundation
 /// Spec: mineradio-bridge-compat-layer — Mineradio 歌词数据模型与 LRC 解析器。
 ///
 /// 由 `MineradioBridgeCoordinator` 在收到播放状态后调用 `/api/lyric` 获取 LRC 文本，
-/// 解析为按时间排序的行数组，再根据 `elapsed` 定位当前行显示到 Flow 岛紧凑态。
+/// 解析为按时间排序的行数组，再根据 `elapsed` 定位当前行显示到 flow Island紧凑态。
 
 /// 单行歌词：时间戳 + 文本
 struct MineradioLyricLine: Identifiable, Equatable {

@@ -120,7 +120,7 @@ final class MineradioBridgeCoordinator: ObservableObject {
     ///   3. 空
     /// 这些都不可靠，title/artist/cover 只从 WKWebView DOM/playQueue 获取。
     /// elapsed/duration 优先用 WKWebView `playback` 消息（最准确），但当 WKWebView 不在视图层级
-    /// （Flow 岛收起）时 JS 事件可能暂停，playback 消息停止到达。此时用 MediaRemote 的
+    /// （flow Island收起）时 JS 事件可能暂停，playback 消息停止到达。此时用 MediaRemote 的
     /// elapsed/duration 作为回退，避免 UI 卡在旧值/0 秒。
     private func handleNowPlayingUpdate(_ info: NowPlayingInfo?) {
         guard let info = info else {

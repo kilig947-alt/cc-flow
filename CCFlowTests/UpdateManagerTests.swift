@@ -32,7 +32,7 @@ final class UpdateManagerTests: XCTestCase {
     func testPublishedGitHubFeedURLIsAccepted() {
         XCTAssertTrue(
             UpdateManager.isValidFeedURL(
-                "https://github.com/ccsonicc333/trae-flow/releases/latest/download/appcast.xml"
+                "https://github.com/kilig947-alt/cc-flow/releases/latest/download/appcast.xml"
             )
         )
     }
@@ -90,7 +90,7 @@ final class UpdateManagerTests: XCTestCase {
                     domain: SUSparkleErrorDomain,
                     code: Int(SUError.downloadError.rawValue),
                     userInfo: [
-                        NSLocalizedDescriptionKey: "A network error occurred while downloading https://github.com/ccsonicc333/trae-flow/releases/latest/download/appcast.xml. not found (404)"
+                        NSLocalizedDescriptionKey: "A network error occurred while downloading https://github.com/kilig947-alt/cc-flow/releases/latest/download/appcast.xml. not found (404)"
                     ]
                 )
             ]

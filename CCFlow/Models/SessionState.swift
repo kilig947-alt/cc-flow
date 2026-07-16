@@ -472,6 +472,16 @@ struct SessionState: Equatable, Identifiable, Sendable {
         phase.isWaitingForApproval || intervention?.kind == .approval
     }
 
+    /// A completed turn that can accept a normal follow-up message. Unlike
+    /// `needsAttention`, this deliberately includes `.waitingForInput` because
+    /// that is the normal Codex/Claude completion state.
+    nonisolated var isCompletionQuickReplyEligible: Bool {
+        phase == .waitingForInput
+            && intervention == nil
+            && !needsQuestionResponse
+            && !needsApprovalResponse
+    }
+
     /// Whether Island has a concrete response target for the active approval.
     nonisolated var canSubmitApprovalFromIsland: Bool {
         if let toolUseId = activePermission?.toolUseId,

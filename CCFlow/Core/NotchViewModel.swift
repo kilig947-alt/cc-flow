@@ -27,7 +27,7 @@ enum NotchOpenReason {
 enum NotchContentType: Equatable {
     case instances
     case chat(SessionState)
-    /// Spec 2.4: 展开态自定义内容全屏面板，由点击 Flow 岛左半区触发
+    /// Spec 2.4: 展开态自定义内容全屏面板，由点击 flow Island左半区触发
     case customExpanded
 
     var id: String {
@@ -58,7 +58,7 @@ class NotchViewModel: ObservableObject {
     @Published var isHovering: Bool = false
     @Published private(set) var openedMeasuredHeight: CGFloat?
     /// 分离态专用内容类型，与 docked 的 contentType 完全解耦，
-    /// 避免 detach 腐蚀 docked Flow 岛的会话/内容状态。
+    /// 避免 detach 腐蚀 docked flow Island的会话/内容状态。
     @Published private(set) var detachedContentType: NotchContentType = .instances
     /// 分离态专用测量高度，与 docked 的 openedMeasuredHeight 解耦。
     @Published private(set) var detachedOpenedMeasuredHeight: CGFloat?
@@ -96,9 +96,8 @@ class NotchViewModel: ObservableObject {
     @Published private(set) var hasPhysicalNotch: Bool
 
     private static let defaultClosedHeight = ScreenNotchMetrics.fallbackClosedHeight
-    /// 任务列表点击展开时的面板最大宽度比例（仅受屏幕限制，不跟随面板宽度设置）
-    private static let clickedInstancesPanelWidthRatio: CGFloat = 0.6
-    private static let clickedInstancesPanelMaximumWidth: CGFloat = 700
+    /// Detached 浮动内容保持原有紧凑宽度，不跟随 docked 展开默认宽度设置。
+    private static let detachedExpandedPanelWidth: Double = 500
     private static let detachmentLongPressNarrowedWidthScale: CGFloat = 0.82
     private static let detachmentLongPressMaximumShrink: CGFloat = 56
     @Published private(set) var closedWidth: CGFloat
@@ -118,9 +117,9 @@ class NotchViewModel: ObservableObject {
         if usesPhysicalNotchClosedPresentation {
             return deviceNotchRect.size
         }
-        // Spec: 紧凑态左半区高度可配置（Settings.compactLeftHeight），Flow 岛整体高度跟随
+        // Spec: 紧凑态左半区高度可配置（Settings.compactLeftHeight），flow Island整体高度跟随
         // 该值动态扩展以容纳更高的自定义 HTML 内容（如歌词）。取 max 确保不会因
-        // compactLeftHeight 小于原默认高度而缩小 Flow 岛。
+        // compactLeftHeight 小于原默认高度而缩小 flow Island。
         let height = max(closedHeight, AppSettings.compactLeftHeight)
         return CGSize(width: closedWidth, height: height)
     }
@@ -199,7 +198,7 @@ class NotchViewModel: ObservableObject {
         // docked 与 detached 使用各自的内容类型与测量高度，互不腐蚀
         let resolvedContentType: NotchContentType = style == .detached ? detachedContentType : contentType
 
-        // 只有 docked 左侧功能展开态使用 680×460 基准尺寸；聊天和 detached 保持原有全局回退。
+        // docked 内容统一使用全局展开默认宽度；左侧功能的显式自定义宽度可覆盖它。
         let activeFeature = LeftFeatureStore.shared.expandedActiveFeature
         let usesLeftFeatureDefaultSize: Bool
         if style == .docked, case .customExpanded = resolvedContentType {
@@ -208,9 +207,14 @@ class NotchViewModel: ObservableObject {
             usesLeftFeatureDefaultSize = false
         }
 
-        let featureWidth = usesLeftFeatureDefaultSize
-            ? (activeFeature?.resolvedExpandedWidth ?? LeftFeature.defaultExpandedWidth)
-            : (activeFeature?.expandedWidth ?? AppSettings.expandedPanelWidth)
+        let featureWidth: Double
+        if usesLeftFeatureDefaultSize {
+            featureWidth = activeFeature?.expandedWidth ?? AppSettings.expandedPanelWidth
+        } else if style == .docked {
+            featureWidth = AppSettings.expandedPanelWidth
+        } else {
+            featureWidth = Self.detachedExpandedPanelWidth
+        }
         let featureHeight = usesLeftFeatureDefaultSize
             ? (activeFeature?.resolvedExpandedHeight ?? LeftFeature.defaultExpandedHeight)
             : (activeFeature?.expandedHeight ?? AppSettings.maxPanelHeight)
@@ -246,12 +250,7 @@ class NotchViewModel: ObservableObject {
             switch style {
             case .docked:
                 return CGSize(
-                    width: resolvedOpenReason == .hover
-                        ? min(screenRect.width - 64, 600)
-                        : min(
-                            screenRect.width * Self.clickedInstancesPanelWidthRatio,
-                            Self.clickedInstancesPanelMaximumWidth
-                        ),
+                    width: min(screenRect.width - 64, CGFloat(AppSettings.expandedPanelWidth)),
                     // 任务列表高度仅受屏幕限制，不跟随面板高度设置；
                     // 实际高度由内容测量驱动（OpenedPanelContentHeightPreferenceKey）。
                     height: min(screenRect.height - 120, max(closedHeight + 24, measuredHeight))
@@ -282,7 +281,7 @@ class NotchViewModel: ObservableObject {
         let fallbackHeight: CGFloat = 220
 
         return CGSize(
-            width: min(screenRect.width - 112, CGFloat(AppSettings.expandedPanelWidth)),
+            width: min(screenRect.width - 112, CGFloat(Self.detachedExpandedPanelWidth)),
             height: min(maxAllowedHeight, max(closedHeight + 24, fallbackHeight))
         )
     }
@@ -503,7 +502,7 @@ class NotchViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Spec: compactLeftHeight 变化时触发 closedSize 重算与 Flow 岛窗口尺寸更新
+        // Spec: compactLeftHeight 变化时触发 closedSize 重算与 flow Island窗口尺寸更新
         AppSettings.shared.$compactLeftHeight
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -529,7 +528,7 @@ class NotchViewModel: ObservableObject {
 
     func refreshFullscreenPresentationState() {
         // 应用尚未被激活时（例如刚启动），frontmostApplication 可能是其他应用，
-        // 此时若前方有全屏窗口会被误判为当前屏幕处于全屏，导致 Flow 岛启动即隐藏。
+        // 此时若前方有全屏窗口会被误判为当前屏幕处于全屏，导致 flow Island启动即隐藏。
         // 固定展示策略：未激活时不进入任何全屏隐藏/edge-reveal 状态，等应用被激
         // 活后再重新评估。
         let isAppActive = NSApp.isActive
@@ -652,7 +651,7 @@ class NotchViewModel: ObservableObject {
     private var currentChatSession: SessionState?
 
     private func handleMouseMove(_ location: CGPoint) {
-        // Flow 岛始终保持交互：宠物分离态下 docked 窗口仍需响应 hover/展开
+        // flow Island始终保持交互：宠物分离态下 docked 窗口仍需响应 hover/展开
         guard presentationMode != .detached || status != .opened || !isInlineTextInputActive else { return }
 
         let inNotch = isPointInHoverTrigger(location)
@@ -693,7 +692,7 @@ class NotchViewModel: ObservableObject {
     }
 
     private func handleMouseDown(_ event: NSEvent) {
-        // Flow 岛始终保持交互：宠物分离态下点击 docked 窗口仍可展开/关闭
+        // flow Island始终保持交互：宠物分离态下点击 docked 窗口仍可展开/关闭
         guard presentationMode != .detached || status != .opened || !isInlineTextInputActive else { return }
 
         if isSettingsPopoverPresented {
@@ -740,7 +739,7 @@ class NotchViewModel: ObservableObject {
 
         let location = NSEvent.mouseLocation
 
-        // 文件拖拽经过 Flow 岛时自动展开并切换到中转站
+        // 文件拖拽经过 flow Island时自动展开并切换到中转站
         handleFileDragHover(at: location)
 
         guard var tracking = detachmentTracking else { return }
@@ -902,14 +901,14 @@ class NotchViewModel: ObservableObject {
     }
 
     var shouldHideWindowPresentation: Bool {
-        // 宠物分离态不再隐藏 Flow 岛：胶囊继续展示，仅在 NotchView 中隐藏宠物。
+        // 宠物分离态不再隐藏 flow Island：胶囊继续展示，仅在 NotchView 中隐藏宠物。
         if isFullscreenBrowserHiddenActive {
             return true
         }
         if isFullscreenEdgeRevealActive && status != .opened {
             return true
         }
-        // Flow 岛固定展示：关闭态胶囊始终可见，不受 idle/low-power 策略影响。
+        // flow Island固定展示：关闭态胶囊始终可见，不受 idle/low-power 策略影响。
         return false
     }
 
@@ -918,7 +917,7 @@ class NotchViewModel: ObservableObject {
     }
 
     var shouldSuppressAutomaticPresentation: Bool {
-        // 宠物分离态下 Flow 岛保持正常交互（hover/通知自动展开等），不再抑制。
+        // 宠物分离态下 flow Island保持正常交互（hover/通知自动展开等），不再抑制。
         isFullscreenBrowserHiddenActive
             || (isFullscreenEdgeRevealActive && status != .opened)
     }
@@ -939,7 +938,7 @@ class NotchViewModel: ObservableObject {
     }
 
     func updateIdleAutoHiddenState(hasVisibleSessionActivity: Bool) {
-        // Flow 岛固定展示：即使没有活跃任务或开启 autoHideWhenIdle，也不让关闭态胶囊隐藏。
+        // flow Island固定展示：即使没有活跃任务或开启 autoHideWhenIdle，也不让关闭态胶囊隐藏。
         _ = hasVisibleSessionActivity
         if isIdleAutoHiddenActive {
             isIdleAutoHiddenActive = false
@@ -1015,7 +1014,7 @@ class NotchViewModel: ObservableObject {
     }
 
     func notchClose() {
-        // “固定显示 Flow 岛”或当前功能设置「展开即固定」时，保持面板展开直到用户取消固定。
+        // “固定显示 flow Island”或当前功能设置「展开即固定」时，保持面板展开直到用户取消固定。
         // per-feature 的 expandedPinned 仅对当前激活功能生效，切换到其他功能时自动跟随全局配置。
         guard !currentPanelPinned else { return }
         status = .closed
@@ -1063,7 +1062,7 @@ class NotchViewModel: ObservableObject {
         detachedOpenedMeasuredHeight = nil
         presentationMode = .docked
 
-        // 宠物拖回 Flow 岛后，若 docked 面板仍处于展开态，需将其收合，
+        // 宠物拖回 flow Island后，若 docked 面板仍处于展开态，需将其收合，
         // 否则展开的透明窗口会继续占据屏幕上半区域，导致其他窗口无法点击。
         if status == .opened {
             status = .closed
@@ -1185,7 +1184,7 @@ class NotchViewModel: ObservableObject {
     }
 
     /// Boot presentation. The closed notch stays visible by default.
-    /// 当用户开启“固定显示 Flow 岛”时，启动后直接展开面板并保持打开。
+    /// 当用户开启“固定显示 flow Island”时，启动后直接展开面板并保持打开。
     func performBootAnimation() {
         guard !shouldSuppressAutomaticPresentation else { return }
         if AppSettings.keepIslandOpen {

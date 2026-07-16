@@ -19,9 +19,9 @@
 
 "系统" = "System";
 "登录时打开" = "Launch at login";
-"启动 macoS 后自动显示 Flow岛" = "Show Island automatically after macOS starts";
+"启动 macoS 后自动显示 Flow Island" = "Show Island automatically after macOS starts";
 "显示器" = "Display";
-"选择 Flow岛 所在显示器" = "Choose which display Island appears on";
+"选择 Flow Island 所在显示器" = "Choose which display Island appears on";
 "行为" = "Behavior";
 "全屏时隐藏" = "Hide in fullscreen";
 "无刘海屏会在全屏时收起到顶部中央触发区；刘海屏会收缩为空白系统刘海，hover 后再展示 Island 内容" = "On displays without a notch, Island collapses into a top-center trigger in fullscreen. On notched displays, it shrinks back into the system notch until you hover.";
@@ -40,7 +40,7 @@
 "立即关闭 CC FLOW" = "Quit CC FLOW immediately";
 
 "当前显示器" = "Current display";
-"切换后会重新挂载 Flow岛 窗口位置" = "Reposition the Island window after switching";
+"切换后会重新挂载 Flow Island 窗口位置" = "Reposition the Island window after switching";
 "当前输出" = "Current output";
 "选择策略" = "Selection mode";
 "自动" = "Automatic";
@@ -222,6 +222,7 @@
 "导出失败：%@" = "Export failed: %@";
 "GitHub" = "GitHub";
 "打开 Issues 页面反馈问题" = "Open the Issues page to report a problem";
+"访问项目主页与反馈问题" = "Visit the project home page or report an issue";
 
 "客户端宠物" = "Client mascots";
 "每个客户端都有默认专属形象，你也可以在这里单独改成别的宠物。刘海、会话列表和 hover 预览都会同步使用这里的配置。" = "Each client has its own default mascot, and you can override it here. The notch, session list, and hover preview all use the same configuration.";
@@ -669,7 +670,7 @@
 "暂无用量数据" = "No usage data";
 "重试" = "Retry";
 "设置全局快捷键" = "Set global shortcut";
-"设置全局快捷键，快速在 Flow 岛打开此功能。" = "Set a global shortcut to open this feature in Flow Island.";
+"设置全局快捷键，快速在 flow Island打开此功能。" = "Set a global shortcut to open this feature in Flow Island.";
 "5 小时" = "5 hours";
 "主要限额" = "Primary limit";
 "次要限额" = "Secondary limit";
@@ -679,3 +680,5 @@
 "无法解析 Codex 账户限额" = "Unable to parse Codex account limits";
 "本次刷新未取得账户限额，显示上次成功数据" = "This refresh could not retrieve account limits; showing the last successful data.";
 "与另一个已配置快捷键冲突" = "Conflicts with another configured shortcut";
+"展开默认宽度" = "Default expanded width";
+"统一调整活跃会话、通知和未自定义尺寸的左侧功能宽度" = "Sets one width for active sessions, notifications, and left-side features without a custom size.";

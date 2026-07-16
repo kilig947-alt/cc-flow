@@ -59,7 +59,7 @@ final class CustomAreaWebViewCache {
     }
 
     /// Spec: 将 WebView 移入离屏宿主窗口，使其仍在窗口层级中。
-    /// 由 `CustomAreaWebView.dismantleNSView` 在 Flow 岛收起时调用。
+    /// 由 `CustomAreaWebView.dismantleNSView` 在 flow Island收起时调用。
     /// 若 WebView 仍在某个窗口中（尚未被 SwiftUI 移除）则不做任何操作。
     func hostInOffscreenWindow(_ webView: WKWebView) {
         guard webView.window == nil else { return }

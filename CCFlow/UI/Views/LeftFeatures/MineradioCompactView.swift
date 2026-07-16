@@ -8,7 +8,7 @@ import SwiftUI
 /// 3. 空白（无歌词且无标题时不显示任何文本）
 ///
 /// 与 Mineradio 网页歌词页面行为对齐 —— 当网页歌词页面显示歌名（无歌词/纯音乐/未匹配）
-/// 时，Flow 岛紧凑态也显示歌名，保持两边视觉一致。
+/// 时，flow Island紧凑态也显示歌名，保持两边视觉一致。
 ///
 /// 歌词渲染：karaoke 高亮 —— 整行文本用暗色绘制，叠加一层亮色文本用 `mask`
 /// 按 `currentLyricProgress` 从左到右渐变填充，模拟 Mineradio 网页的逐字进度效果。
@@ -19,7 +19,7 @@ import SwiftUI
 /// 2. LeftFeature.customIconName（通常是 Mineradio 网站 favicon）
 /// 3. `antenna.radiowaves.left.and.right` SF Symbol（最终回退）
 ///
-/// 无背景包裹、无登录指示点 —— 紧凑态直接悬浮在 Flow 岛上。
+/// 无背景包裹、无登录指示点 —— 紧凑态直接悬浮在 flow Island上。
 struct MineradioCompactView: View {
     @ObservedObject private var coordinator = MineradioBridgeCoordinator.shared
     private let feature = LeftFeatureStore.shared.features.first { $0.id == LeftFeature.mineradioID }

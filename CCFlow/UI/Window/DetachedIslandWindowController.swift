@@ -1174,7 +1174,7 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
 
     private func isPetAnchorInNotchZone() -> Bool {
         guard let petAnchor = currentPetAnchor else { return false }
-        // 使用 Flow 岛闭合矩形外扩作为拖回检测区域，确保用户能轻松将宠物拖回
+        // 使用 flow Island闭合矩形外扩作为拖回检测区域，确保用户能轻松将宠物拖回
         let targetRect = viewModel.closedScreenRect.insetBy(dx: -40, dy: -40)
         return targetRect.contains(petAnchor)
     }

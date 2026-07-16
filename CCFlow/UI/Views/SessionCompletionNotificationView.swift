@@ -434,7 +434,8 @@ struct SessionCompletionNotificationView: View {
 
     private var availableQuickReplies: [String] {
         guard notification.kind.supportsQuickReplies,
-              settings.completionQuickRepliesEnabled else { return [] }
+              settings.completionQuickRepliesEnabled,
+              session.isCompletionQuickReplyEligible else { return [] }
         return settings.completionQuickReplies
     }
 

@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import Combine
 import CoreGraphics
 import SwiftUI
 
@@ -54,7 +55,7 @@ struct NotchView: View {
     @State private var completionReadyTimestamps: [String: Date] = [:]
     @State private var taskErrorTimestamps: [String: Date] = [:]
     @State private var isAppActive: Bool = NSApp.isActive
-    // Flow 岛固定展示：启动时即应为可见状态，避免窗口已 orderFront 但 SwiftUI
+    // flow Island固定展示：启动时即应为可见状态，避免窗口已 orderFront 但 SwiftUI
     // 内容因初始 opacity 为 0 而需要等待 .onAppear 或一次点击后才渲染。
     @State private var isVisible: Bool = true
     @State private var isHovering: Bool = false
@@ -212,6 +213,11 @@ struct NotchView: View {
 
     private var areReminderNotificationsSuppressed: Bool {
         settings.areNotificationsMutedTemporarily
+    }
+
+    private var shouldPresentCompletionQuickReplyNotification: Bool {
+        settings.completionQuickRepliesEnabled
+            && !settings.completionQuickReplies.isEmpty
     }
 
     private var hasRecentTaskError: Bool {
@@ -437,6 +443,25 @@ struct NotchView: View {
             .onReceive(sessionMonitor.$pendingInstances) { sessions in
                 handlePendingSessionsChange(sessions)
             }
+            .onReceive(CalendarService.shared.$reminderPromptToken) { token in
+                guard token > 0,
+                      CalendarService.shared.consumeReminderPrompt(token),
+                      leftFeatureStore.features.contains(where: { $0.id == LeftFeature.calendarID && $0.isEnabled }),
+                      !AppSettings.areReminderNotificationsSuppressed else { return }
+                leftFeatureStore.expandedActiveFeatureID = LeftFeature.calendarID
+                viewModel.presentCustomExpanded(reason: .notification)
+            }
+            .onReceive(ProductivityProactiveEventCenter.shared.$latestEvent.compactMap { $0 }) { event in
+                guard ProductivityProactiveEventCenter.shared.consume(event.sequence) else { return }
+                guard leftFeatureStore.features.contains(where: { $0.id == event.targetFeatureID && $0.isEnabled }),
+                      !AppSettings.areReminderNotificationsSuppressed,
+                      !viewModel.isInlineTextInputActive,
+                      !viewModel.isSettingsPopoverPresented,
+                      !hasPendingPermission,
+                      !hasHumanIntervention else { return }
+                leftFeatureStore.expandedActiveFeatureID = event.targetFeatureID
+                viewModel.presentCustomExpanded(reason: .notification)
+            }
             .onReceive(sessionMonitor.$instances) { instances in
                 viewModel.setManualAttentionActive(
                     instances.contains { $0.needsPromptNotification }
@@ -526,6 +551,12 @@ struct NotchView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowHookWalkthroughDemoShouldCloseNotch)) { _ in
                 closeDockedNotchForHookWalkthroughDemo()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForFilePicker)) { _ in
+                viewModel.notchClose()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForBrowserConnection)) { _ in
+                viewModel.notchClose()
             }
             .onPreferenceChange(OpenedPanelContentHeightPreferenceKey.self) { height in
                 guard viewModel.status == .opened else {
@@ -761,7 +792,7 @@ struct NotchView: View {
                         closedCenterContent
                     }
 
-                    // Spec 2.3: Flow 岛右侧 — MascotView 宠物图标 + 活跃会话计数 badge
+                    // Spec 2.3: flow Island右侧 — MascotView 宠物图标 + 活跃会话计数 badge
                     if viewModel.status != .opened {
                         closedRightMascotRegion
                             .frame(width: closedTrailingWidth, alignment: .trailing)
@@ -854,7 +885,7 @@ struct NotchView: View {
         flowIslandLeftCompactWidth
     }
 
-    /// Spec: Flow 岛左侧紧凑态宽度 —— 简化为两种模式：
+    /// Spec: flow Island左侧紧凑态宽度 —— 简化为两种模式：
     /// - 有 `compactFeature` 时占满"宠物/任务计数区左侧"剩余空间
     ///   （中间内容仅保留最小宽度以显示截断消息）
     /// - 无 `compactFeature` 时返回 8pt 占位，避免挤占中间内容
@@ -906,7 +937,7 @@ struct NotchView: View {
         case .fileCards:
             FileCardsFeatureView(compact: true)
         case .naturalSearch:
-            NaturalSearchFeatureView(compact: true)
+            FileCardsFeatureView(compact: true)
         case .downloadMonitor:
             DownloadMonitorFeatureView(compact: true)
         case .browserResources:
@@ -1246,7 +1277,7 @@ struct NotchView: View {
     }
 
     /// 屏幕切换重建窗口时，ViewModel 的 triggerScreenSlideIn 已被置为 true，
-    /// 此处消费该标志并通过 spring 动画将 Flow 岛从屏幕上方滑入原位。
+    /// 此处消费该标志并通过 spring 动画将 flow Island从屏幕上方滑入原位。
     private func handleSlideInAnimation() {
         guard !hasHandledSlideIn else { return }
         hasHandledSlideIn = true
@@ -1338,10 +1369,12 @@ struct NotchView: View {
         previousCompletedReadyIds = completedIds
 
         if !newCompletedIds.isEmpty {
-            // Spec: 任务完成后自动展开任务列表（会话列表），保持 Flow 岛始终显示。
+            // Spec: 任务完成后自动展开任务列表（会话列表），保持 flow Island始终显示。
             // 完成自动展开现为默认行为（旧 autoOpenCompletionPanel 设置已移除），无条件展开。
             // 不在用户正在交互（hover/inline input/settings popover）时强制切换，避免打断输入。
-            presentSessionListOnCompletionIfNeeded()
+            if !shouldPresentCompletionQuickReplyNotification {
+                presentSessionListOnCompletionIfNeeded()
+            }
 
             // Trigger bounce animation to get user's attention
             DispatchQueue.main.async {
@@ -1360,8 +1393,8 @@ struct NotchView: View {
         }
     }
 
-    /// Spec: 任务完成时自动展开 Flow 岛并显示会话列表。
-    /// 无条件展开面板，确保任务完成后 Flow 岛始终可见且显示任务列表。
+    /// Spec: 任务完成时自动展开 flow Island并显示会话列表。
+    /// 无条件展开面板，确保任务完成后 flow Island始终可见且显示任务列表。
     private func presentSessionListOnCompletionIfNeeded() {
         // 清空通知队列与活动通知，避免残留触发旧的 dismiss 流程
         completionNotificationQueue.removeAll()
@@ -1386,7 +1419,7 @@ struct NotchView: View {
             viewModel.status = .opened
         }
 
-        // 确保 Flow 岛可见
+        // 确保 flow Island可见
         isVisible = true
     }
 
@@ -1417,8 +1450,10 @@ struct NotchView: View {
 
         guard !newlyCompletedSessions.isEmpty else { return }
 
-        // 任务从活跃→完成：展开任务列表，保持 Flow 岛始终显示
-        presentSessionListOnCompletionIfNeeded()
+        // 任务从活跃→完成：展开任务列表，保持 flow Island始终显示
+        if !shouldPresentCompletionQuickReplyNotification {
+            presentSessionListOnCompletionIfNeeded()
+        }
     }
 
     private func primeCompletionNotificationTracking(_ instances: [SessionState]) {
@@ -1456,7 +1491,7 @@ struct NotchView: View {
             return wasActive && isNowComplete
         }
 
-        if hasNewCompletion {
+        if hasNewCompletion && !shouldPresentCompletionQuickReplyNotification {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
             presentSessionListOnCompletionIfNeeded()
@@ -1466,7 +1501,14 @@ struct NotchView: View {
         // Ambient popups are one-shot notifications. If the notch is already expanded for
         // some other reason, drop new ones instead of queueing them to appear later on
         // top of the normal expanded UI.
-        if viewModel.status == .opened && activeCompletionNotification == nil {
+        let canReplaceOpenSessionListWithQuickReplyNotification: Bool = {
+            guard shouldPresentCompletionQuickReplyNotification,
+                  case .instances = viewModel.contentType else { return false }
+            return true
+        }()
+        if viewModel.status == .opened,
+           activeCompletionNotification == nil,
+           !canReplaceOpenSessionListWithQuickReplyNotification {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
             return
@@ -1573,25 +1615,18 @@ struct NotchView: View {
 
     private func maybePresentNextCompletionNotification() {
         guard !areReminderNotificationsSuppressed else { return }
+        guard activeCompletionNotification == nil else { return }
         guard !completionNotificationQueue.isEmpty else { return }
         guard !viewModel.shouldSuppressAutomaticPresentation else { return }
         guard !hasPendingPermission && !hasHumanIntervention else { return }
 
-        // 任务完成后自动展开任务列表（会话列表），保持 Flow 岛始终显示。
-        // 不再弹出完成通知气泡，直接展示会话列表，由用户手动收起。
-        completionNotificationQueue.removeAll()
-        activeCompletionNotification = nil
-        completionNotificationDismissWorkItem?.cancel()
-        completionNotificationDismissWorkItem = nil
-
-        if viewModel.status != .opened {
-            viewModel.presentSessionList(reason: .notification)
-        } else if case .instances = viewModel.contentType {
-            // 已展开且正在展示会话列表，无需切换
-        } else {
-            viewModel.exitChat()
-            viewModel.openReason = .notification
-        }
+        let nextNotification = completionNotificationQueue.removeFirst()
+        activeCompletionNotification = nextNotification
+        viewModel.exitChat()
+        viewModel.openReason = .notification
+        viewModel.status = .opened
+        isVisible = true
+        scheduleCompletionNotificationDismissal(for: nextNotification.id)
     }
 
     private func scheduleCompletionNotificationDismissal(for notificationID: UUID) {
@@ -1599,7 +1634,7 @@ struct NotchView: View {
 
         let workItem = DispatchWorkItem { [self] in
             guard activeCompletionNotification?.id == notificationID else { return }
-            // 任务完成后保持 Flow 岛始终展开：通知自动消失时仅清除通知本身，
+            // 任务完成后保持 flow Island始终展开：通知自动消失时仅清除通知本身，
             // 不收起面板，由用户手动点击外部收起。
             dismissActiveCompletionNotification(closePanel: false, advanceQueue: true)
         }

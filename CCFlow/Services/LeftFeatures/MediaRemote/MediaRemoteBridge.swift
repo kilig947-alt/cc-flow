@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-// Spec: 左侧 Flow 岛音乐功能使用 MediaRemote 私有框架（系统级 Now Playing 聚合层）。
+// Spec: 左侧 flow Island音乐功能使用 MediaRemote 私有框架（系统级 Now Playing 聚合层）。
 // 项目不上架 App Store，可直接使用私有框架。
 //
 // 实现方式：MediaRemote.framework 的 SDK tbd 仅声明 arm64e 目标，

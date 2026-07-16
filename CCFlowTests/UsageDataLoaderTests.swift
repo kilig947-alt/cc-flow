@@ -3,10 +3,10 @@ import XCTest
 @testable import CC_FLOW
 
 final class UsageDataLoaderTests: XCTestCase {
-    func testLeftFeatureExpandedSizeDefaultsToUsagePanelSize() {
+    func testLeftFeatureExpandedSizeDefaultsToSharedMineradioWidth() {
         let feature = LeftFeature(kind: .newsnow(baseURL: "https://example.com"))
 
-        XCTAssertEqual(feature.resolvedExpandedWidth, 680)
+        XCTAssertEqual(feature.resolvedExpandedWidth, 900)
         XCTAssertEqual(feature.resolvedExpandedHeight, 460)
     }
 
@@ -98,6 +98,7 @@ final class UsageDataLoaderTests: XCTestCase {
 
         XCTAssertEqual(ordered.first?.id, LeftFeature.usageID)
         XCTAssertEqual(ordered.first?.isEnabled, true)
+        XCTAssertNil(ordered.first?.expandedWidth)
         XCTAssertEqual(LeftFeatureStore.featuresByEnsuringUsageFeature(migrated), migrated)
     }
 
@@ -111,15 +112,68 @@ final class UsageDataLoaderTests: XCTestCase {
         let migrated = LeftFeatureStore.featuresByEnsuringProductivityFeatures(source)
         let productivityIDs = Set([
             LeftFeature.systemMonitorID, LeftFeature.calendarID, LeftFeature.githubID,
-            LeftFeature.fileCardsID, LeftFeature.naturalSearchID, LeftFeature.downloadMonitorID,
+            LeftFeature.fileCardsID, LeftFeature.downloadMonitorID,
             LeftFeature.browserResourcesID, LeftFeature.mailAssistantID
         ])
 
         XCTAssertEqual(Set(migrated.filter { productivityIDs.contains($0.id) }.map(\.id)), productivityIDs)
         XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.systemMonitorID })?.isEnabled, true)
         XCTAssertTrue(migrated.filter { $0.id != LeftFeature.systemMonitorID && productivityIDs.contains($0.id) }.allSatisfy { !$0.isEnabled })
+        XCTAssertTrue(migrated.filter { productivityIDs.contains($0.id) }.allSatisfy { $0.expandedWidth == nil })
         XCTAssertEqual(migrated.prefix(source.count).map(\.id), source.map(\.id))
         XCTAssertEqual(LeftFeatureStore.featuresByEnsuringProductivityFeatures(migrated), migrated)
+    }
+
+    @MainActor
+    func testNaturalSearchMigrationMergesIntoFileWatch() {
+        let source = [
+            LeftFeature(id: LeftFeature.musicID, kind: .music, isEnabled: true, sortOrder: 0),
+            LeftFeature(id: LeftFeature.naturalSearchID, kind: .naturalSearch, isEnabled: true, sortOrder: 2),
+            LeftFeature(id: LeftFeature.fileCardsID, kind: .fileCards, isEnabled: false, sortOrder: 4),
+            LeftFeature(id: LeftFeature.shelfID, kind: .shelf, isEnabled: true, sortOrder: 5)
+        ]
+        let migrated = LeftFeatureStore.featuresByMergingNaturalSearchIntoFileWatch(source)
+        XCTAssertFalse(migrated.contains { $0.id == LeftFeature.naturalSearchID || $0.kind == .naturalSearch })
+        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.fileCardsID })?.isEnabled, true)
+        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.fileCardsID })?.sortOrder, 4)
+        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.shelfID })?.sortOrder, 5)
+        XCTAssertEqual(LeftFeatureStore.featuresByMergingNaturalSearchIntoFileWatch(migrated), migrated)
+    }
+
+    @MainActor
+    func testNewsNowMigrationPreservesPreferencesAndBecomesAIHot() {
+        let source = [LeftFeature(id: LeftFeature.newsnowID, kind: .newsnow(baseURL: "https://old.example"),
+            isEnabled: false, sortOrder: 7, customIconName: "img:favicon-old.png", expandedWidth: 812,
+            expandedHeight: 455, expandedPinned: true)]
+        let migrated = LeftFeatureStore.featuresByMigratingNewsNowToAIHot(source)
+        XCTAssertEqual(migrated[0].kind, .newsnow(baseURL: LeftFeatureStore.aiHotURL))
+        XCTAssertEqual(migrated[0].sortOrder, 7)
+        XCTAssertEqual(migrated[0].expandedWidth, 812)
+        XCTAssertEqual(migrated[0].expandedPinned, true)
+        XCTAssertNil(migrated[0].customIconName)
+        XCTAssertEqual(LeftFeatureStore.featuresByMigratingNewsNowToAIHot(migrated), migrated)
+    }
+
+    @MainActor
+    func testBuiltinDefaultWidthMigrationClearsKnownPresetsAndPreservesCustomWidths() {
+        let source = [
+            LeftFeature(id: LeftFeature.usageID, kind: .usage, expandedWidth: 680),
+            LeftFeature(id: LeftFeature.mineradioID, kind: .mineradio(pageURL: "https://mineradio.art"), expandedWidth: 900),
+            LeftFeature(id: LeftFeature.calendarID, kind: .calendar, expandedWidth: 760),
+            LeftFeature(id: LeftFeature.githubID, kind: .github, expandedWidth: 850),
+            LeftFeature(id: LeftFeature.usageID, kind: .usage, expandedWidth: 700),
+            LeftFeature(id: LeftFeature.usageID, kind: .usage, expandedWidth: 900)
+        ]
+
+        let migrated = LeftFeatureStore.featuresByNormalizingBuiltinDefaultExpandedWidths(source)
+
+        XCTAssertNil(migrated[0].expandedWidth)
+        XCTAssertNil(migrated[1].expandedWidth)
+        XCTAssertNil(migrated[2].expandedWidth)
+        XCTAssertEqual(migrated[3].expandedWidth, 850)
+        XCTAssertEqual(migrated[4].expandedWidth, 700)
+        XCTAssertEqual(migrated[5].expandedWidth, 900)
+        XCTAssertEqual(LeftFeatureStore.featuresByNormalizingBuiltinDefaultExpandedWidths(migrated), migrated)
     }
 
     func testProductivityKindsRoundTrip() throws {

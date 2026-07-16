@@ -5,7 +5,7 @@ import XCTest
 ///
 /// 验证：
 /// - 单个会话状态按 Codex 规范映射
-/// - Flow 岛关闭态右侧聚合状态优先级正确
+/// - flow Island关闭态右侧聚合状态优先级正确
 /// - `.runRight` 作为 running 状态的 canonical 表示
 final class MascotStatusTests: XCTestCase {
 

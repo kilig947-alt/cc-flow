@@ -18,6 +18,7 @@ final class MailAssistantService: ObservableObject {
     @Published private(set) var isLoading = false
     private var timer: AnyCancellable?
     private var consumers = 0
+    private var hasEstablishedSignalBaseline = false
     private init() {}
 
     func start() {
@@ -60,9 +61,29 @@ final class MailAssistantService: ObservableObject {
                 let signals = text.split(separator: "\n").compactMap(Self.parseLine)
                 let errorText = String(data: errorData, encoding: .utf8) ?? ""
                 await MainActor.run {
-                    self.signals = signals
-                    self.status = process.terminationStatus == 0 ? "已读取 \(signals.count) 封最近邮件" : (errorText.isEmpty ? "无法读取 Mail" : errorText)
+                    let succeeded = process.terminationStatus == 0
+                    self.status = succeeded ? "已读取 \(signals.count) 封最近邮件" : (errorText.isEmpty ? "无法读取 Mail" : errorText)
                     self.isLoading = false
+                    if succeeded {
+                        let previousIDs = Set(self.signals.map(\.id))
+                        let currentIDs = Set(signals.map(\.id))
+                        let newCount = ProductivityProactiveEventCenter.newMailCount(
+                            previousIDs: previousIDs,
+                            currentIDs: currentIDs,
+                            hasBaseline: self.hasEstablishedSignalBaseline
+                        )
+                        self.signals = signals
+                        self.hasEstablishedSignalBaseline = true
+                        if newCount > 0 {
+                            let latestSubject = signals.first(where: { !previousIDs.contains($0.id) })?.subject ?? "新邮件"
+                            ProductivityProactiveEventCenter.shared.publish(
+                                targetFeatureID: LeftFeature.mailAssistantID,
+                                kind: .mailReceived,
+                                summary: newCount == 1 ? "新邮件：\(latestSubject)" : "收到 \(newCount) 封新邮件",
+                                count: newCount
+                            )
+                        }
+                    }
                     if self.timer == nil && self.consumers > 0 { self.startAfterExplicitRequest() }
                 }
             } catch { await MainActor.run { self.status = error.localizedDescription; self.isLoading = false } }

@@ -41,7 +41,7 @@ struct LeftFeatureContainerView: View {
         case .fileCards:
             FileCardsFeatureView(compact: false)
         case .naturalSearch:
-            NaturalSearchFeatureView(compact: false)
+            FileCardsFeatureView(compact: false)
         case .downloadMonitor:
             DownloadMonitorFeatureView(compact: false)
         case .browserResources:
@@ -63,7 +63,7 @@ struct LeftFeatureContainerView: View {
             }
         case .webURL(let urlString):
             // Spec: 远程 URL 功能 —— 构造 .remoteURL 源传入 CustomAreaWebView
-            // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 Flow 岛时 WebView 保活
+            // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 flow Island时 WebView 保活
             if let url = URL(string: urlString) {
                 CustomAreaWebView(source: .remoteURL(url), keepsAlive: settings.keepWebURLAliveWhenCollapsed)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -85,7 +85,7 @@ struct LeftFeatureContainerView: View {
         case .mineradio(let pageURL):
             // Spec: mineradio-bridge-compat-layer —— 构造 .mineradio 源传入 CustomAreaWebView
             //（注入 Bridge user script + 注册 message handler + 共享 cookie store）
-            // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 Flow 岛时 WebView 保活
+            // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 flow Island时 WebView 保活
             if let url = URL(string: pageURL) {
                 CustomAreaWebView(source: .mineradio(url), keepsAlive: settings.keepWebURLAliveWhenCollapsed)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

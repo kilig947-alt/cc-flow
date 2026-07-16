@@ -1,7 +1,40 @@
+import AppKit
 import Combine
 import CryptoKit
 import Foundation
 import Network
+
+extension Notification.Name {
+    static let ccFlowCollapseForBrowserConnection = Notification.Name("ccFlowCollapseForBrowserConnection")
+}
+
+enum BrowserExtensionTarget: String, CaseIterable, Identifiable {
+    case chrome
+    case edge
+    case safari
+
+    var id: String { rawValue }
+    var displayName: String {
+        switch self { case .chrome: "Chrome"; case .edge: "Edge"; case .safari: "Safari" }
+    }
+    var systemImage: String {
+        switch self { case .chrome: "globe"; case .edge: "network"; case .safari: "safari" }
+    }
+    var bundleIdentifier: String {
+        switch self {
+        case .chrome: "com.google.Chrome"
+        case .edge: "com.microsoft.edgemac"
+        case .safari: "com.apple.Safari"
+        }
+    }
+    var extensionManagementURL: URL? {
+        switch self {
+        case .chrome: URL(string: "chrome://extensions/")
+        case .edge: URL(string: "edge://extensions/")
+        case .safari: nil
+        }
+    }
+}
 
 struct BrowserDownloadEvent: Identifiable, Equatable {
     let id: String
@@ -33,10 +66,17 @@ final class BrowserBridgeService: ObservableObject {
     static let port: UInt16 = 43128
     @Published private(set) var downloads: [BrowserDownloadEvent] = []
     @Published private(set) var status = "未启动"
+    @Published private(set) var lastEventAt: Date?
+    @Published private(set) var isExtensionConnected = false
     private var listener: NWListener?
     private var consumers = 0
+    private var disconnectTask: Task<Void, Never>?
+    private let downloadStatesKey = "productivity.browserDownloadStates.v1"
+    private var downloadStates: [String: String]
 
-    private init() {}
+    private init() {
+        downloadStates = UserDefaults.standard.dictionary(forKey: downloadStatesKey) as? [String: String] ?? [:]
+    }
 
     var pairingToken: String {
         if let token = ProductivitySecretsStore.shared.value(for: .browserPairingToken) { return token }
@@ -46,16 +86,79 @@ final class BrowserBridgeService: ObservableObject {
     }
 
     func rotateToken() -> String {
-        let token = Self.makeToken(); try? ProductivitySecretsStore.shared.set(token, for: .browserPairingToken); return token
+        let token = Self.makeToken()
+        try? ProductivitySecretsStore.shared.set(token, for: .browserPairingToken)
+        disconnectTask?.cancel()
+        disconnectTask = nil
+        isExtensionConnected = false
+        if listener != nil { status = "监听中，尚未连接浏览器扩展" }
+        return token
+    }
+
+    func connect(to target: BrowserExtensionTarget) {
+        ensureListenerStarted()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(pairingToken, forType: .string)
+        NotificationCenter.default.post(name: .ccFlowCollapseForBrowserConnection, object: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.launch(target)
+        }
+    }
+
+    private func launch(_ target: BrowserExtensionTarget) {
+        let workspace = NSWorkspace.shared
+        guard let applicationURL = workspace.urlForApplication(withBundleIdentifier: target.bundleIdentifier) else {
+            presentConnectionAlert(
+                title: "未找到 \(target.displayName)",
+                message: "请先安装 \(target.displayName)，然后重新点击连接。配对令牌已经复制。"
+            )
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        if let managementURL = target.extensionManagementURL {
+            workspace.open([managementURL], withApplicationAt: applicationURL, configuration: configuration) { [weak self] _, error in
+                guard let error else { return }
+                Task { @MainActor in
+                    self?.presentConnectionAlert(title: "无法打开 \(target.displayName)", message: error.localizedDescription)
+                }
+            }
+        } else {
+            presentConnectionAlert(
+                title: "Safari 配对令牌已复制",
+                message: "请在 Safari 中打开“Safari → 设置 → 扩展”，启用 CC FLOW Safari，再到扩展选项中粘贴令牌。"
+            )
+            workspace.openApplication(at: applicationURL, configuration: configuration) { [weak self] _, error in
+                guard let error else { return }
+                Task { @MainActor in
+                    self?.presentConnectionAlert(title: "无法打开 Safari", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func presentConnectionAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "好")
+        alert.runModal()
     }
 
     func start() {
-        consumers += 1; guard listener == nil else { return }
+        consumers += 1
+        ensureListenerStarted()
+    }
+
+    private func ensureListenerStarted() {
+        guard listener == nil else { return }
         do {
             let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: Self.port)!)
             listener.newConnectionHandler = { [weak self] connection in Task { @MainActor in self?.accept(connection) } }
             listener.stateUpdateHandler = { [weak self] state in Task { @MainActor in
-                switch state { case .ready: self?.status = "正在监听 Chrome、Edge 与 Safari"
+                switch state { case .ready: self?.status = "监听中，尚未连接浏览器扩展"
                 case .failed(let error): self?.status = error.localizedDescription
                 default: break }
             } }
@@ -63,7 +166,16 @@ final class BrowserBridgeService: ObservableObject {
         } catch { status = error.localizedDescription }
     }
 
-    func stop() { consumers = max(0, consumers - 1); guard consumers == 0 else { return }; listener?.cancel(); listener = nil; status = "未启动" }
+    func stop() {
+        consumers = max(0, consumers - 1)
+        guard consumers == 0 else { return }
+        listener?.cancel()
+        listener = nil
+        disconnectTask?.cancel()
+        disconnectTask = nil
+        isExtensionConnected = false
+        status = "未启动"
+    }
 
     private func accept(_ connection: NWConnection) {
         guard Self.isLoopback(connection.endpoint) else { connection.cancel(); return }
@@ -100,22 +212,66 @@ final class BrowserBridgeService: ObservableObject {
     private func handleHTTP(_ data: Data, connection: NWConnection) {
         guard let text = String(data: data, encoding: .utf8), let separator = text.range(of: "\r\n\r\n") else { respond(400, connection); return }
         let body = Data(text[separator.upperBound...].utf8)
-        guard body.count <= 64_000, let envelope = try? JSONDecoder().decode(BrowserBridgeEnvelope.self, from: body),
-              envelope.version == 1, envelope.token == pairingToken else { respond(401, connection); return }
+        guard body.count <= 64_000,
+              let envelope = try? JSONDecoder().decode(BrowserBridgeEnvelope.self, from: body),
+              envelope.version == 1 else {
+            status = "扩展协议无法识别，请重新安装最新版扩展"
+            respond(400, connection)
+            return
+        }
+        guard envelope.token == pairingToken else {
+            status = "扩展配对失败，请在扩展设置中更新配对令牌"
+            respond(401, connection)
+            return
+        }
         switch envelope.type {
+        case "heartbeat":
+            break
         case "pageSaved":
             if let raw = envelope.url, let url = URL(string: raw), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                BrowserResourceService.shared.add(url: url, title: envelope.title, browser: envelope.browser)
+                BrowserResourceService.shared.add(url: url, title: envelope.title, browser: envelope.browser, notify: true)
             }
         case "download":
-            let event = BrowserDownloadEvent(id: envelope.id ?? UUID().uuidString, browser: envelope.browser,
+            let stableFallbackID = "\(envelope.filename ?? "download")|\(envelope.url ?? "")"
+            let event = BrowserDownloadEvent(id: envelope.id ?? stableFallbackID, browser: envelope.browser,
                 filename: envelope.filename ?? "下载", state: envelope.state ?? "unknown",
                 receivedBytes: envelope.receivedBytes ?? 0, totalBytes: envelope.totalBytes ?? 0, updatedAt: Date())
+            let stateKey = "\(event.browser)|\(event.id)"
+            let previousState = downloadStates[stateKey]
             downloads.removeAll { $0.id == event.id && $0.browser == event.browser }; downloads.insert(event, at: 0)
             downloads = Array(downloads.prefix(100))
+            for transition in ProductivityProactiveEventCenter.downloadTransitions(previousState: previousState, newState: event.state) {
+                let summary = transition == .downloadCompleted ? "下载完成：\(event.filename)" : "新下载：\(event.filename)"
+                ProductivityProactiveEventCenter.shared.publish(
+                    targetFeatureID: LeftFeature.downloadMonitorID,
+                    kind: transition,
+                    summary: summary
+                )
+            }
+            if previousState?.lowercased() != "complete" {
+                downloadStates[stateKey] = event.state
+                if downloadStates.count > 1_000 {
+                    for key in downloadStates.keys.sorted().prefix(downloadStates.count - 1_000) { downloadStates[key] = nil }
+                }
+                UserDefaults.standard.set(downloadStates, forKey: downloadStatesKey)
+            }
         default: respond(422, connection); return
         }
+        if envelope.type != "heartbeat" { lastEventAt = Date() }
+        markExtensionConnected(browser: envelope.browser)
         respond(200, connection)
+    }
+
+    private func markExtensionConnected(browser: String) {
+        isExtensionConnected = true
+        status = "已连接 \(browser)"
+        disconnectTask?.cancel()
+        disconnectTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(75))
+            guard !Task.isCancelled, let self else { return }
+            self.isExtensionConnected = false
+            self.status = "监听中，尚未连接浏览器扩展"
+        }
     }
 
     private func respond(_ code: Int, _ connection: NWConnection) {

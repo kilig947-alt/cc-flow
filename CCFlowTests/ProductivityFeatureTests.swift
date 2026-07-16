@@ -3,6 +3,36 @@ import Network
 @testable import CC_FLOW
 
 final class ProductivityFeatureTests: XCTestCase {
+    func testDownloadNotificationsOnlyTriggerAtStartAndCompletion() {
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: nil, newState: "in_progress"), [.downloadStarted])
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: "in_progress", newState: "in_progress"), [])
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: "in_progress", newState: "complete"), [.downloadCompleted])
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: "complete", newState: "complete"), [])
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: "complete", newState: "in_progress"), [])
+        XCTAssertEqual(ProductivityProactiveEventCenter.downloadTransitions(previousState: nil, newState: "complete"), [.downloadStarted, .downloadCompleted])
+    }
+
+    func testMailNotificationsRequireBaselineAndOnlyCountNewIDs() {
+        XCTAssertEqual(ProductivityProactiveEventCenter.newMailCount(previousIDs: [], currentIDs: ["a"], hasBaseline: false), 0)
+        XCTAssertEqual(ProductivityProactiveEventCenter.newMailCount(previousIDs: ["a"], currentIDs: ["a", "b", "c"], hasBaseline: true), 2)
+        XCTAssertEqual(ProductivityProactiveEventCenter.newMailCount(previousIDs: ["a"], currentIDs: ["a"], hasBaseline: true), 0)
+    }
+
+    @MainActor
+    func testProactiveEventsAggregateAndConsumeOnce() async throws {
+        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01)
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "A")
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadCompleted, summary: "B")
+        try await Task.sleep(for: .milliseconds(50))
+        let event = try XCTUnwrap(center.latestEvent)
+        XCTAssertEqual(event.targetFeatureID, LeftFeature.downloadMonitorID)
+        XCTAssertEqual(event.kind, .downloadCompleted)
+        XCTAssertEqual(event.summary, "B")
+        XCTAssertEqual(event.count, 2)
+        XCTAssertTrue(center.consume(event.sequence))
+        XCTAssertFalse(center.consume(event.sequence))
+    }
+
     func testLocalAIProviderProducesVersionedNonExecutableResult() {
         let request = AIProviderRequest(task: .fileCard, filename: "notes.pdf", path: "/tmp/notes.pdf",
             fileType: "pdf", ocrText: nil, query: nil, title: nil, snippet: nil)
@@ -38,6 +68,15 @@ final class ProductivityFeatureTests: XCTestCase {
         XCTAssertFalse(BrowserBridgeService.isLoopback(.hostPort(host: "192.168.1.8", port: 43128)))
     }
 
+    func testBrowserExtensionTargetsUseExpectedAppsAndManagementPages() {
+        XCTAssertEqual(BrowserExtensionTarget.chrome.bundleIdentifier, "com.google.Chrome")
+        XCTAssertEqual(BrowserExtensionTarget.chrome.extensionManagementURL?.absoluteString, "chrome://extensions/")
+        XCTAssertEqual(BrowserExtensionTarget.edge.bundleIdentifier, "com.microsoft.edgemac")
+        XCTAssertEqual(BrowserExtensionTarget.edge.extensionManagementURL?.absoluteString, "edge://extensions/")
+        XCTAssertEqual(BrowserExtensionTarget.safari.bundleIdentifier, "com.apple.Safari")
+        XCTAssertNil(BrowserExtensionTarget.safari.extensionManagementURL)
+    }
+
     @MainActor
     func testNaturalSearchOnlyMatchesCardMetadata() {
         let service = LocalFileIndexService.shared
@@ -46,12 +85,55 @@ final class ProductivityFeatureTests: XCTestCase {
         service.query = ""
     }
 
+    func testFileWatchRejectsCardsOutsideAuthorizedFolders() {
+        let authorized = URL(fileURLWithPath: "/Users/test/Documents")
+        XCTAssertTrue(LocalFileIndexService.isAuthorized(URL(fileURLWithPath: "/Users/test/Documents/a.pdf"), roots: [authorized]))
+        XCTAssertFalse(LocalFileIndexService.isAuthorized(URL(fileURLWithPath: "/Users/test/Documents-old/a.pdf"), roots: [authorized]))
+        XCTAssertFalse(LocalFileIndexService.isAuthorized(URL(fileURLWithPath: "/Users/test/Desktop/a.pdf"), roots: [authorized]))
+    }
+
+    func testCalendarActionableRemindersOnlyIncludesOverdueAndToday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_720_008_000)
+        let reminders = [
+            ReminderAgendaItem(id: "past", title: "past", dueDate: now.addingTimeInterval(-86_400), priority: 0),
+            ReminderAgendaItem(id: "today", title: "today", dueDate: now.addingTimeInterval(60), priority: 0),
+            ReminderAgendaItem(id: "future", title: "future", dueDate: now.addingTimeInterval(172_800), priority: 0),
+            ReminderAgendaItem(id: "none", title: "none", dueDate: nil, priority: 0)
+        ]
+        XCTAssertEqual(CalendarService.actionableReminders(reminders, now: now, calendar: calendar).map(\.id), ["past", "today"])
+    }
+
     func testRemovedDefaultFolderDoesNotReturnOnNextInitialization() {
         let home = URL(fileURLWithPath: "/Users/test")
         let folders = LocalFileIndexService.initialFolders(home: home,
             removedDefaultPaths: [home.appendingPathComponent("Downloads").path], saved: [])
         XCTAssertFalse(folders.contains(home.appendingPathComponent("Downloads")))
-        XCTAssertTrue(folders.contains(home.appendingPathComponent("Desktop")))
+        XCTAssertFalse(folders.contains(home.appendingPathComponent("Desktop")))
+    }
+
+    func testFileWatchDefaultsToDownloadsAndDocumentsAsPendingAuthorization() {
+        let home = URL(fileURLWithPath: "/Users/test")
+        XCTAssertEqual(LocalFileIndexService.defaultFolders(home: home).map(\.lastPathComponent), ["Downloads", "Documents"])
+        XCTAssertEqual(
+            LocalFileIndexService.pendingDefaults(home: home, removedDefaultPaths: [], authorized: []).map(\.lastPathComponent),
+            ["Downloads", "Documents"]
+        )
+    }
+
+    func testFileWatchPendingDefaultsRespectAuthorizationAndRemoval() {
+        let home = URL(fileURLWithPath: "/Users/test")
+        let downloads = home.appendingPathComponent("Downloads")
+        let documents = home.appendingPathComponent("Documents")
+        XCTAssertEqual(
+            LocalFileIndexService.pendingDefaults(home: home, removedDefaultPaths: [], authorized: [downloads]).map(\.path),
+            [documents.path]
+        )
+        XCTAssertEqual(
+            LocalFileIndexService.pendingDefaults(home: home, removedDefaultPaths: [documents.path], authorized: []).map(\.path),
+            [downloads.path]
+        )
     }
 
     func testNaturalQueryParsesChinesePathTypeAndTagWithoutSQL() {

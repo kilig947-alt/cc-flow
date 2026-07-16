@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "将下载状态和用户主动保存的页面发送到本机 CC FLOW。",
   "icons": {"16": "icon16.png", "32": "icon32.png", "128": "icon128.png"},
-  "permissions": ["activeTab", "downloads", "storage"],
+  "permissions": ["activeTab", "alarms", "downloads", "storage"],
   "host_permissions": ["http://127.0.0.1:43128/*"],
   "background": {"service_worker": "background.js"},
   "action": {"default_title": "保存到 CC FLOW"},

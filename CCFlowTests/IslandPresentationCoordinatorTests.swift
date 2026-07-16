@@ -33,7 +33,7 @@ final class IslandPresentationCoordinatorTests: XCTestCase {
         ))
         XCTAssertEqual(coordinator.viewModel.presentationMode, .detached)
 
-        // 宠物拖回 Flow 岛。
+        // 宠物拖回 flow Island。
         coordinator.redockDetached()
 
         // 分离期间 docked 窗口一直保留，拖回时不应再重建。

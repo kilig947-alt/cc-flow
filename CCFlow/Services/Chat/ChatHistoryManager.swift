@@ -92,7 +92,6 @@ class ChatHistoryManager: ObservableObject {
             if histories[session.sessionId] != filteredItems {
                 newHistoryRevisions[session.sessionId, default: 0] += 1
             }
-            loadedSessions.insert(session.sessionId)
         }
         newHistoryRevisions = newHistoryRevisions.filter { newHistories.keys.contains($0.key) }
         historyRevisions = newHistoryRevisions

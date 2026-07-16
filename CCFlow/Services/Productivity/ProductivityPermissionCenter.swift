@@ -23,7 +23,8 @@ final class ProductivityPermissionCenter: ObservableObject {
             item("calendar", "日历", event),
             item("reminders", "提醒事项", reminder),
             ProductivityPermissionItem(id: "folders", name: "文件夹", status: "已配置 \(LocalFileIndexService.shared.folders.count) 个", isReady: !LocalFileIndexService.shared.folders.isEmpty),
-            ProductivityPermissionItem(id: "browser", name: "浏览器桥", status: BrowserBridgeService.shared.status, isReady: BrowserBridgeService.shared.status.contains("监听")),
+            ProductivityPermissionItem(id: "browser", name: "浏览器桥", status: BrowserBridgeService.shared.status,
+                isReady: BrowserBridgeService.shared.status.contains("已连接")),
             ProductivityPermissionItem(id: "mail", name: "Mail Automation", status: mailRequested ? MailAssistantService.shared.status : "尚未请求", isReady: mailRequested && !MailAssistantService.shared.status.contains("无法")),
         ]
     }

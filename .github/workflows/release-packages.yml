@@ -57,7 +57,7 @@ jobs:
 
       - name: Build Release (ad-hoc signed)
         env:
-          SPARKLE_APPCAST_URL: https://github.com/ccsonicc333/trae-flow/releases/latest/download/appcast.xml
+          SPARKLE_APPCAST_URL: https://github.com/kilig947-alt/cc-flow/releases/latest/download/appcast.xml
           SPARKLE_PUBLIC_ED_KEY: aXspUXrD7+jz5Ev1sJURSH3GfkEFt6+JRdCViHVhy1M=
         run: |
           set -euo pipefail

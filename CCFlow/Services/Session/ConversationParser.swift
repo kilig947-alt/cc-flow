@@ -399,7 +399,30 @@ actor ConversationParser {
                 continue
             }
 
-            if line.contains("\"tool_result\"") {
+            if let lineData = line.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
+               json["type"] as? String == "response_item",
+               let payload = json["payload"] as? [String: Any] {
+                if ["function_call_output", "custom_tool_call_output"].contains(payload["type"] as? String),
+                   let callId = payload["call_id"] as? String {
+                    state.completedToolIds.insert(callId)
+                    let output = Self.codexOutputText(payload["output"])
+                    state.toolResults[callId] = ToolResult(
+                        content: output,
+                        stdout: output,
+                        stderr: nil,
+                        isError: false
+                    )
+                } else if let message = parseCodexResponseItem(
+                    json,
+                    payload: payload,
+                    seenToolIds: &state.seenToolIds,
+                    toolIdToName: &state.toolIdToName
+                ) {
+                    newMessages.append(message)
+                    state.messages.append(message)
+                }
+            } else if line.contains("\"tool_result\"") {
                 if let lineData = line.data(using: .utf8),
                    let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
                    let messageDict = json["message"] as? [String: Any],
@@ -449,6 +472,117 @@ actor ConversationParser {
 
         state.lastFileOffset = fileSize
         return newMessages
+    }
+
+    /// Codex rollout files wrap messages and tool calls in a `response_item`
+    /// envelope instead of Claude's top-level `user` / `assistant` records.
+    private func parseCodexResponseItem(
+        _ json: [String: Any],
+        payload: [String: Any],
+        seenToolIds: inout Set<String>,
+        toolIdToName: inout [String: String]
+    ) -> ChatMessage? {
+        let payloadType = payload["type"] as? String
+        let timestamp = Self.parseTimestamp(json["timestamp"] as? String)
+
+        if payloadType == "function_call" || payloadType == "custom_tool_call" {
+            guard let callId = payload["call_id"] as? String,
+                  let name = payload["name"] as? String,
+                  !seenToolIds.contains(callId) else { return nil }
+
+            seenToolIds.insert(callId)
+            toolIdToName[callId] = name
+            var input: [String: String] = [:]
+            if let customInput = payload["input"] as? String {
+                input["input"] = customInput
+            } else if let arguments = payload["arguments"] as? String,
+               let data = arguments.data(using: .utf8),
+               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                input = Self.stringDictionary(from: object)
+            }
+
+            return ChatMessage(
+                id: callId,
+                role: .assistant,
+                timestamp: timestamp,
+                content: [.toolUse(ToolUseBlock(id: callId, name: name, input: input))]
+            )
+        }
+
+        guard payloadType == "message",
+              let roleValue = payload["role"] as? String,
+              roleValue == "user" || roleValue == "assistant",
+              let content = payload["content"] as? [[String: Any]] else { return nil }
+
+        let blocks: [MessageBlock] = content.compactMap { item in
+            guard let type = item["type"] as? String,
+                  type == "input_text" || type == "output_text",
+                  let text = item["text"] as? String,
+                  !Self.isCodexInjectedContext(text),
+                  let sanitized = SessionTextSanitizer.sanitizedDisplayText(text) else {
+                return nil
+            }
+            return .text(sanitized)
+        }
+        guard !blocks.isEmpty else { return nil }
+
+        let fallbackID = "codex-\(roleValue)-\(json["timestamp"] as? String ?? UUID().uuidString)"
+        return ChatMessage(
+            id: payload["id"] as? String ?? fallbackID,
+            role: roleValue == "user" ? .user : .assistant,
+            timestamp: timestamp,
+            content: blocks
+        )
+    }
+
+    private static func parseTimestamp(_ value: String?) -> Date {
+        guard let value else { return Date() }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: value) ?? Date()
+    }
+
+    private static func stringDictionary(from object: [String: Any]) -> [String: String] {
+        object.reduce(into: [:]) { result, entry in
+            if let value = entry.value as? String {
+                result[entry.key] = value
+            } else if JSONSerialization.isValidJSONObject(entry.value),
+                      let data = try? JSONSerialization.data(withJSONObject: entry.value, options: [.sortedKeys]),
+                      let value = String(data: data, encoding: .utf8) {
+                result[entry.key] = value
+            } else {
+                result[entry.key] = String(describing: entry.value)
+            }
+        }
+    }
+
+    private static func codexOutputText(_ output: Any?) -> String? {
+        if let output = output as? String {
+            return output
+        }
+        if let items = output as? [[String: Any]] {
+            let texts = items.compactMap { $0["text"] as? String }
+            if !texts.isEmpty {
+                return texts.joined(separator: "\n")
+            }
+        }
+        guard let output, JSONSerialization.isValidJSONObject(output),
+              let data = try? JSONSerialization.data(withJSONObject: output),
+              let value = String(data: data, encoding: .utf8) else { return nil }
+        return value
+    }
+
+    private static func isCodexInjectedContext(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix("<permissions instructions>")
+            || trimmed.hasPrefix("<app-context>")
+            || trimmed.hasPrefix("<collaboration_mode>")
+            || trimmed.hasPrefix("<skills_instructions>")
+            || trimmed.hasPrefix("<apps_instructions>")
+            || trimmed.hasPrefix("<plugins_instructions>")
+            || trimmed.hasPrefix("<multi_agent_mode>")
+            || trimmed.hasPrefix("<recommended_plugins>")
+            || trimmed.hasPrefix("# AGENTS.md instructions")
     }
 
     /// Get set of completed tool IDs for a session

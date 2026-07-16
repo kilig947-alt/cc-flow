@@ -104,7 +104,7 @@ final class EventMonitors {
     private func setupMonitors(level: EnergyEventMonitoringLevel) {
         guard level != .disabled else { return }
 
-        // Hover-based Flow岛 expansion relies on global mouse-move events. Keep
+        // Hover-based Flow Island expansion relies on global mouse-move events. Keep
         // the listener active in both .full and .interactionOnly modes so the
         // "open on hover" / "auto-collapse on leave" settings work by default.
         if level == .full || level == .interactionOnly {

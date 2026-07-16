@@ -38,6 +38,8 @@ struct EditableCustomAreaView: View {
     // 展开尺寸 + 固定开关（两模式共用）
     @State private var expandedPinned: Bool
     @State private var useCustomExpandedSize: Bool
+    /// 兼容历史上仅覆盖高度的功能；用户未调整宽度时继续保留动态默认宽度。
+    @State private var hasCustomExpandedWidth: Bool
     @State private var expandedWidth: Double
     @State private var expandedHeight: Double
 
@@ -66,7 +68,8 @@ struct EditableCustomAreaView: View {
         }
         _expandedPinned = State(initialValue: feature?.expandedPinned ?? false)
         _useCustomExpandedSize = State(initialValue: feature?.expandedWidth != nil || feature?.expandedHeight != nil)
-        _expandedWidth = State(initialValue: feature?.resolvedExpandedWidth ?? LeftFeature.defaultExpandedWidth)
+        _hasCustomExpandedWidth = State(initialValue: feature?.expandedWidth != nil)
+        _expandedWidth = State(initialValue: Self.initialExpandedWidth(for: feature))
         _expandedHeight = State(initialValue: feature?.resolvedExpandedHeight ?? LeftFeature.defaultExpandedHeight)
     }
 
@@ -87,7 +90,8 @@ struct EditableCustomAreaView: View {
         }())
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
-        _expandedWidth = State(initialValue: feature.resolvedExpandedWidth)
+        _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
+        _expandedWidth = State(initialValue: Self.initialExpandedWidth(for: feature))
         _expandedHeight = State(initialValue: feature.resolvedExpandedHeight)
         // Spec: 若已有图标是自动获取的 favicon（img:favicon- 前缀），记为 autoFilledIconImage，
         // 这样 URL 变化时允许覆盖；用户手动设置的图标不会被覆盖。
@@ -111,7 +115,7 @@ struct EditableCustomAreaView: View {
             defaultName = feature.displayName
         case .music: defaultName = "音乐"
         case .shelf: defaultName = "中转站"
-        case .newsnow: defaultName = "热点新闻"
+        case .newsnow: defaultName = "AI HOT"
         case .mineradio: defaultName = "Mineradio"
         default: defaultName = ""
         }
@@ -123,7 +127,8 @@ struct EditableCustomAreaView: View {
         _url = State(initialValue: "")
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
-        _expandedWidth = State(initialValue: feature.resolvedExpandedWidth)
+        _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
+        _expandedWidth = State(initialValue: Self.initialExpandedWidth(for: feature))
         _expandedHeight = State(initialValue: feature.resolvedExpandedHeight)
     }
 
@@ -142,6 +147,10 @@ struct EditableCustomAreaView: View {
             return (String(id.dropFirst(5)), nil)
         }
         return (id, nil)
+    }
+
+    private static func initialExpandedWidth(for feature: LeftFeature?) -> Double {
+        feature?.expandedWidth ?? AppSettings.shared.expandedPanelWidth
     }
 
     var body: some View {
@@ -176,12 +185,18 @@ struct EditableCustomAreaView: View {
                     .font(.caption)
                 Toggle("自定义展开尺寸", isOn: $useCustomExpandedSize)
                     .font(.caption)
+                    .onChange(of: useCustomExpandedSize) { _, isEnabled in
+                        hasCustomExpandedWidth = isEnabled
+                    }
                 if useCustomExpandedSize {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("展开宽度：\(Int(expandedWidth)) pt")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Slider(value: $expandedWidth, in: 470...1600, step: 10)
+                            .onChange(of: expandedWidth) { _, _ in
+                                hasCustomExpandedWidth = true
+                            }
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("展开高度：\(Int(expandedHeight)) pt")
@@ -404,7 +419,7 @@ struct EditableCustomAreaView: View {
         }()
 
         // 展开尺寸写回：useCustomExpandedSize == false 时传 nil 跟随全局
-        let resolvedWidth: Double? = useCustomExpandedSize ? expandedWidth : nil
+        let resolvedWidth: Double? = useCustomExpandedSize && hasCustomExpandedWidth ? expandedWidth : nil
         let resolvedHeight: Double? = useCustomExpandedSize ? expandedHeight : nil
 
         switch mode {
@@ -442,7 +457,7 @@ struct EditableCustomAreaView: View {
                 defaultName = feature.displayName
             case .music: defaultName = "音乐"
             case .shelf: defaultName = "中转站"
-            case .newsnow: defaultName = "热点新闻"
+            case .newsnow: defaultName = "AI HOT"
             case .mineradio: defaultName = "Mineradio"
             default: defaultName = ""
             }

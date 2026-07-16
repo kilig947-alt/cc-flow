@@ -41,7 +41,7 @@ func resolveIconKind(_ identifier: String?) -> IconKind {
     return .sfSymbol(id)
 }
 
-/// 左侧 Flow 岛"功能系统"的功能类型
+/// 左侧 flow Island"功能系统"的功能类型
 /// - music: 内置音乐功能
 /// - shelf: 内置中转站（暂存消息/片段）
 /// - customArea: 用户自定义 HTML 区域，关联 CustomArea.id
@@ -66,7 +66,7 @@ enum LeftFeatureKind: Codable, Equatable, Hashable {
     case mineradio(pageURL: String)
 }
 
-/// 左侧 Flow 岛"功能系统"基础数据模型
+/// 左侧 flow Island"功能系统"基础数据模型
 /// 描述一个可在紧凑态/展开态展示的功能项（音乐 / 中转站 / 自定义 HTML / 网站 URL）
 struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
     /// 稳定唯一 ID；内置功能使用 `LeftFeature.musicID` / `LeftFeature.shelfID`
@@ -166,8 +166,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
 }
 
 extension LeftFeature {
-    /// 左侧功能未启用自定义展开尺寸时，统一使用「用量」面板的基准尺寸。
-    static let defaultExpandedWidth: Double = 680
+    /// 主动通知、左侧功能默认态与 Mineradio 共用的标准展开宽度。
+    static let defaultExpandedWidth = AppSettingsStore.defaultExpandedPanelWidth
     static let defaultExpandedHeight: Double = 460
 
     var resolvedExpandedWidth: Double {
@@ -185,6 +185,7 @@ extension LeftFeature {
     static let calendarID = "calendar"
     static let githubID = "github"
     static let fileCardsID = "file-cards"
+    /// Legacy ID retained only to decode and migrate pre-File Watch configurations.
     static let naturalSearchID = "natural-search"
     static let downloadMonitorID = "download-monitor"
     static let browserResourcesID = "browser-resources"
@@ -252,7 +253,7 @@ extension LeftFeature {
         case .github:
             return "GitHub"
         case .fileCards:
-            return "文件卡片"
+            return "File Watch"
         case .naturalSearch:
             return "自然搜索"
         case .downloadMonitor:
@@ -270,7 +271,7 @@ extension LeftFeature {
         case .webURL:
             return "网站"
         case .newsnow:
-            return "热点新闻"
+            return "AI HOT"
         case .mineradio:
             return "Mineradio"
         }

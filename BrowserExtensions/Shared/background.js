@@ -2,13 +2,34 @@ const ENDPOINT = "http://127.0.0.1:43128/event";
 
 async function sendEvent(payload) {
   const { pairingToken = "" } = await chrome.storage.local.get("pairingToken");
-  if (!pairingToken) return;
-  await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ version: 1, token: pairingToken, browser: chrome.runtime.getManifest().name, ...payload })
-  });
+  if (!pairingToken) return false;
+  try {
+    const response = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: 1, token: pairingToken, browser: chrome.runtime.getManifest().name, ...payload })
+    });
+    return response.ok;
+  } catch (_) {
+    return false;
+  }
 }
+
+const sendHeartbeat = () => sendEvent({ type: "heartbeat" });
+chrome.runtime.onInstalled.addListener(sendHeartbeat);
+chrome.runtime.onStartup.addListener(sendHeartbeat);
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes.pairingToken) sendHeartbeat();
+});
+if (chrome.alarms) {
+  chrome.alarms.create("ccFlowHeartbeat", { periodInMinutes: 0.5 });
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "ccFlowHeartbeat") sendHeartbeat();
+  });
+} else {
+  setInterval(sendHeartbeat, 30_000);
+}
+sendHeartbeat();
 
 chrome.action.onClicked.addListener((tab) => {
   if (tab.url && /^https?:/.test(tab.url)) {
