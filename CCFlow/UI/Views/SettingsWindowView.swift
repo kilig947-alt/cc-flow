@@ -854,6 +854,7 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var updateManager = UpdateManager.shared
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
+    @ObservedObject private var generatedPanelScanner = GeneratedPanelScanner.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
     @ObservedObject private var mineradioCoordinator = MineradioBridgeCoordinator.shared
     @State private var selectedCategory: SettingsCategory? = .general
@@ -907,6 +908,9 @@ private struct SettingsPanelContentView: View {
     @State private var autoFilledName: String?
     @State private var autoFilledIconImage: String?
     @State private var isFetchingMetadata = false
+    @State private var generatedPanelPromptCopied = false
+    @State private var showingGeneratedPanelDirectoryImporter = false
+    @State private var generatedPanelActionMessage: String?
 
     var body: some View {
         ZStack {
@@ -2072,8 +2076,222 @@ private struct SettingsPanelContentView: View {
         VStack(alignment: .leading, spacing: 18) {
             flowIslandDisplayCard
             featureListCard
+            generatedPanelDesignCard
         }
     }
+
+    // MARK: - Left Content: TRAE Work Design Generator
+
+    private var generatedPanelDesignCard: some View {
+        SettingsSectionCard(title: "用 TRAE Work Design 生成面板") {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Text("打开 TRAE Work CN，将提示词粘贴到 Design 对话中；生成完成后，面板会自动加入上方功能列表。")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer(minLength: 12)
+
+                    Button {
+                        if !TraeSessionLauncher.activate(.traeWorkCN) {
+                            generatedPanelActionMessage = "无法打开 TRAE Work CN，请确认应用已安装"
+                        }
+                    } label: {
+                        Label("去 TRAE Work Design 生成", systemImage: "arrow.up.forward.app.fill")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Color.accentColor)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("打开 TRAE Work CN")
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+
+                Divider()
+                    .opacity(0.35)
+                    .padding(.top, 12)
+
+                HStack(spacing: 8) {
+                    Text("生成面板提示词")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button {
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(Self.generatedPanelPromptTemplate, forType: .string)
+                        generatedPanelPromptCopied = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            generatedPanelPromptCopied = false
+                        }
+                    } label: {
+                        Label(
+                            generatedPanelPromptCopied ? "已复制" : "复制提示词",
+                            systemImage: generatedPanelPromptCopied ? "checkmark" : "doc.on.doc"
+                        )
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(generatedPanelPromptCopied ? Color.green : Color.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(generatedPanelPromptCopied ? Color.green.opacity(0.1) : Color.white.opacity(0.06))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+                ScrollView {
+                    Text(Self.generatedPanelPromptTemplate)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                }
+                .frame(maxHeight: 210)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.white.opacity(0.035))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                        )
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                HStack(spacing: 8) {
+                    Button {
+                        generatedPanelActionMessage = nil
+                        generatedPanelScanner.scanNow()
+                    } label: {
+                        Label(
+                            generatedPanelScanner.isScanning ? "正在扫描…" : "扫描生成面板",
+                            systemImage: "arrow.clockwise"
+                        )
+                    }
+                    .disabled(generatedPanelScanner.isScanning)
+
+                    Button {
+                        showingGeneratedPanelDirectoryImporter = true
+                    } label: {
+                        Label("选择目录导入", systemImage: "folder.badge.plus")
+                    }
+
+                    Spacer()
+
+                    if let status = generatedPanelStatusText {
+                        Label(status.text, systemImage: status.symbol)
+                            .font(.system(size: 10))
+                            .foregroundStyle(status.isError ? Color.red : Color.secondary)
+                            .lineLimit(2)
+                            .accessibilityLabel(status.text)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+        }
+        .fileImporter(
+            isPresented: $showingGeneratedPanelDirectoryImporter,
+            allowedContentTypes: [.folder]
+        ) { result in
+            switch result {
+            case .success(let url):
+                let didStartAccess = url.startAccessingSecurityScopedResource()
+                defer {
+                    if didStartAccess { url.stopAccessingSecurityScopedResource() }
+                }
+                generatedPanelActionMessage = nil
+                _ = generatedPanelScanner.importSelectedDirectory(url)
+            case .failure(let error):
+                generatedPanelActionMessage = "选择目录失败：\(error.localizedDescription)"
+            }
+        }
+        .onReceive(generatedPanelScanner.$lastResult.dropFirst()) { result in
+            if !result.importedNames.isEmpty {
+                generatedPanelActionMessage = nil
+            }
+        }
+    }
+
+    private var generatedPanelStatusText: (text: String, symbol: String, isError: Bool)? {
+        if let generatedPanelActionMessage {
+            return (generatedPanelActionMessage, "exclamationmark.triangle.fill", true)
+        }
+        let result = generatedPanelScanner.lastResult
+        if !result.importedNames.isEmpty {
+            return ("已导入：\(result.importedNames.joined(separator: "、"))", "checkmark.circle.fill", false)
+        }
+        if let issue = result.issues.first {
+            return ("\(issue.directoryName)：\(issue.message)", "exclamationmark.triangle.fill", true)
+        }
+        return ("没有发现新面板", "checkmark.circle", false)
+    }
+
+    private static let generatedPanelPromptTemplate = """
+    我想创建一个 CC FLOW 左侧自定义面板。请先询问我希望面板实现什么需求，再根据回答直接生成并保存文件。
+
+    【输出目录】
+    为面板选择简短、安全的英文 ID，并创建目录：
+    ~/Library/Application Support/cc-flow/custom-areas/[面板ID]/
+
+    必须生成 index.html。可以同时生成 cc-flow-panel.json：
+    {
+      "id": "[面板ID]",
+      "name": "[面板显示名称]",
+      "entryPoint": "index.html",
+      "icon": "[SF Symbol 名称或 text:文字]",
+      "allowsNetworkAccess": false
+    }
+
+    只有需求确实需要访问外部 HTTP/HTTPS 接口时，才将 allowsNetworkAccess 设为 true。不要修改 CC FLOW 源码或 custom-areas.json。
+
+    【页面要求】
+    - 使用可由 WKWebView 直接加载的 HTML、CSS、JavaScript，可将资源放在同一面板目录内。
+    - 同时适配浅色和深色外观，布局适合可调整大小的桌面面板。
+    - 不要调用未在下方列出的 Bridge，也不要调用 Mineradio 的内部 API。
+    - Bridge 不存在时必须安全降级，使用特性检测或 try/catch，保证普通浏览器预览不报错。
+
+    【CC FLOW JS Bridge】
+    1. 向 Flow 岛紧凑态推送限时提示：
+    window.webkit.messageHandlers.ccFlowHint.postMessage({
+      text: "任务已完成",
+      duration: 5000
+    });
+
+    清除提示：
+    window.webkit.messageHandlers.ccFlowHint.postMessage({ action: "clear" });
+
+    2. 请求系统指标：
+    window.webkit.messageHandlers.ccFlowMetrics.postMessage({});
+
+    页面通过以下回调接收数据：
+    window.receiveMetrics = function (data) {
+      // data.cpu
+      // data.memoryUsed / data.memoryTotal / data.memoryPercent
+      // data.loadOne / data.loadFive / data.loadFifteen
+      // data.cores
+    };
+
+    完成后请检查 index.html 和可选清单文件确实已写入目标目录，并告诉我返回 CC FLOW。CC FLOW 会自动扫描；若未出现，我可以点击“扫描生成面板”或“选择目录导入”。
+    """
 
     // MARK: - Left Content: Feature List
 
