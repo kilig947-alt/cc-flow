@@ -652,6 +652,14 @@
 "当前会话" = "Current session";
 "剩余 %d%%" = "%d%% remaining";
 "今日 %@" = "Today %@";
+"%@ %d%%" = "%@ %d%%";
+"%@ 今日 %@" = "%@ today %@";
+"%@ 用量" = "%@ usage";
+"%@ 账号用量：剩余 %d%%" = "%@ account usage: %d%% remaining";
+"%@ 账号用量：今日 %@ 个令牌" = "%@ account usage today: %@ tokens";
+"%@ 账号用量" = "%@ account usage";
+"账号用量：剩余 %d%%" = "Account usage: %d%% remaining";
+"账号用量：今日 %@ 个令牌" = "Account usage today: %@ tokens";
 "今日明细：输入 %@ · 输出 %@ · 缓存读取 %@ · 缓存写入 %@" = "Today: input %@ · output %@ · cache read %@ · cache write %@";
 "数据可能已过期" = "Data may be stale";
 "未检测到限额" = "Limits not detected";
