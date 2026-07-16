@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "sdkVersion": "1.0.0",
+  "moduleURL": "cc-flow-sdk://v1/index.js",
+  "methods": [
+    {"name":"core.getVersion","summary":"Return the CC FLOW Plugin SDK version.","capability":null,"risk":"safe","params":{},"returns":"{ sdkVersion, schemaVersion }"},
+    {"name":"core.getCapabilities","summary":"Return declared and currently granted plugin capabilities.","capability":null,"risk":"safe","params":{},"returns":"{ declared, granted }"},
+    {"name":"island.hint.show","summary":"Show a temporary message in the compact Flow Island.","capability":"island.presentation","risk":"safe","params":{"text":"string","duration":"number? milliseconds"},"returns":"{ shown: true }"},
+    {"name":"island.hint.clear","summary":"Clear the plugin's active compact hint.","capability":"island.presentation","risk":"safe","params":{},"returns":"{ cleared: true }"},
+    {"name":"system.getMetrics","summary":"Read CPU, memory, load averages and logical core count.","capability":"system.metrics.read","risk":"safe","params":{},"returns":"SystemMetrics"},
+    {"name":"system.getAppearance","summary":"Read light/dark appearance and accessibility display preferences.","capability":"system.appearance.read","risk":"safe","params":{},"returns":"{ colorScheme, reduceMotion, increaseContrast }"},
+    {"name":"system.clipboard.readText","summary":"Read plain text from the macOS clipboard.","capability":"clipboard.read","risk":"sensitive","params":{},"returns":"{ text }"},
+    {"name":"system.clipboard.writeText","summary":"Write plain text to the macOS clipboard.","capability":"clipboard.write","risk":"sensitive","params":{"text":"string"},"returns":"{ written: true }"},
+    {"name":"apps.openURL","summary":"Open an http/https URL in the user's default application.","capability":"apps.open","risk":"sensitive","params":{"url":"string"},"returns":"{ opened: boolean }"},
+    {"name":"apps.launch","summary":"Launch or activate a declared macOS application bundle identifier.","capability":"apps.launch","risk":"sensitive","params":{"bundleIdentifier":"string"},"returns":"{ launched: boolean }"},
+    {"name":"sessions.list","summary":"List tracked coding session status; prompts, results, previews and paths are omitted.","capability":"sessions.status.read","risk":"safe","params":{},"returns":"SessionSummary[]"},
+    {"name":"sessions.focus","summary":"Activate the client or terminal that owns a tracked session.","capability":"sessions.focus","risk":"sensitive","params":{"sessionId":"string"},"returns":"{ focused: boolean }"}
+  ]
+}
