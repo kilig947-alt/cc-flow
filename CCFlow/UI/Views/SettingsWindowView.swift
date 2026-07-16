@@ -907,6 +907,8 @@ private struct SettingsPanelContentView: View {
     @State private var autoFilledName: String?
     @State private var autoFilledIconImage: String?
     @State private var isFetchingMetadata = false
+    @State private var githubPATDraft = ""
+    @State private var productivitySecretMessage: String?
 
     var body: some View {
         ZStack {
@@ -2071,7 +2073,33 @@ private struct SettingsPanelContentView: View {
     private var leftContent: some View {
         VStack(alignment: .leading, spacing: 18) {
             flowIslandDisplayCard
+            productivityCredentialsCard
             featureListCard
+        }
+    }
+
+    private var productivityCredentialsCard: some View {
+        SettingsSectionCard(title: "生产力连接") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("GitHub 优先使用本机 gh 登录；Personal Access Token 仅作为备用并保存到 macOS 钥匙串。")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                HStack {
+                    SecureField("GitHub Personal Access Token", text: $githubPATDraft)
+                        .textFieldStyle(.roundedBorder)
+                    Button("保存") {
+                        do {
+                            try ProductivitySecretsStore.shared.set(githubPATDraft, for: .githubPAT)
+                            githubPATDraft = ""; productivitySecretMessage = "已保存到钥匙串"
+                            GitHubService.shared.refresh()
+                        } catch { productivitySecretMessage = error.localizedDescription }
+                    }.disabled(githubPATDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("删除", role: .destructive) {
+                        do { try ProductivitySecretsStore.shared.delete(.githubPAT); productivitySecretMessage = "备用 Token 已删除" }
+                        catch { productivitySecretMessage = error.localizedDescription }
+                    }
+                }
+                if let productivitySecretMessage { Text(productivitySecretMessage).font(.caption).foregroundStyle(.secondary) }
+            }
         }
     }
 

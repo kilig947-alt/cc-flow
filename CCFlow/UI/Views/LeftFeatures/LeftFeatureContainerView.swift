@@ -34,9 +34,20 @@ struct LeftFeatureContainerView: View {
             UsageExpandedView()
         case .systemMonitor:
             SystemMonitorFeatureView(compact: false)
-        case .calendar, .github, .fileCards, .naturalSearch,
-             .downloadMonitor, .browserResources, .mailAssistant:
-            ProductivityFeaturePlaceholderView(feature: feature, compact: false)
+        case .calendar:
+            CalendarFeatureView(compact: false)
+        case .github:
+            GitHubFeatureView(compact: false)
+        case .fileCards:
+            FileCardsFeatureView(compact: false)
+        case .naturalSearch:
+            NaturalSearchFeatureView(compact: false)
+        case .downloadMonitor:
+            DownloadMonitorFeatureView(compact: false)
+        case .browserResources:
+            BrowserResourcesFeatureView(compact: false)
+        case .mailAssistant:
+            MailAssistantFeatureView(compact: false)
         case .music:
             MusicExpandedView()
         case .shelf:

@@ -895,9 +895,20 @@ struct NotchView: View {
             UsageCompactView()
         case .systemMonitor:
             SystemMonitorFeatureView(compact: true)
-        case .calendar, .github, .fileCards, .naturalSearch,
-             .downloadMonitor, .browserResources, .mailAssistant:
-            ProductivityFeaturePlaceholderView(feature: feature, compact: true)
+        case .calendar:
+            CalendarFeatureView(compact: true)
+        case .github:
+            GitHubFeatureView(compact: true)
+        case .fileCards:
+            FileCardsFeatureView(compact: true)
+        case .naturalSearch:
+            NaturalSearchFeatureView(compact: true)
+        case .downloadMonitor:
+            DownloadMonitorFeatureView(compact: true)
+        case .browserResources:
+            BrowserResourcesFeatureView(compact: true)
+        case .mailAssistant:
+            MailAssistantFeatureView(compact: true)
         case .music:
             MusicCompactView()
         case .shelf:
