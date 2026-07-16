@@ -65,7 +65,12 @@ final class FlowIslandProviderSummaryTests: XCTestCase {
             provider: provider,
             clientInfo: SessionClientInfo(kind: kind, bundleIdentifier: bundleIdentifier),
             phase: attention
-                ? .waitingForApproval(PermissionContext(toolUseId: "tool", toolName: "Bash", receivedAt: lastActivity))
+                ? .waitingForApproval(PermissionContext(
+                    toolUseId: "tool",
+                    toolName: "Bash",
+                    toolInput: nil,
+                    receivedAt: lastActivity
+                ))
                 : .processing,
             lastActivity: lastActivity
         )

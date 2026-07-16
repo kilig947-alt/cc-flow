@@ -11,6 +11,8 @@ final class IslandPresentationCoordinator {
     let sessionMonitor = SessionMonitor()
     let viewModel: NotchViewModel
     var currentScreen: NSScreen { screen }
+    private(set) var dockedWindowRecreationCount = 0
+    var dockedWindowControllerForTesting: NotchWindowController? { dockedWindowController }
 
     private var screen: NSScreen
     private var dockedWindowController: NotchWindowController?
@@ -144,7 +146,7 @@ final class IslandPresentationCoordinator {
 
         AppSettings.surfaceMode = .notch
         viewModel.redockAfterDetached()
-        recreateDockedWindow(performBootAnimation: false)
+        showDockedIsland(performBootAnimation: false)
     }
 
     func invalidate() {
@@ -193,7 +195,11 @@ final class IslandPresentationCoordinator {
             viewModel.redockAfterDetached()
         }
 
-        recreateDockedWindow(performBootAnimation: performBootAnimation)
+        if dockedWindowController == nil {
+            recreateDockedWindow(performBootAnimation: performBootAnimation)
+        } else {
+            dockedWindowController?.refreshVisibility()
+        }
     }
 
     private func presentFloatingPet(
@@ -276,6 +282,8 @@ final class IslandPresentationCoordinator {
     }
 
     private func recreateDockedWindow(performBootAnimation: Bool) {
+        dockedWindowRecreationCount += 1
+
         if let controller = dockedWindowController {
             controller.window?.contentViewController = nil
             controller.window?.orderOut(nil)
