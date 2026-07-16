@@ -62,7 +62,6 @@ final class LocalFileIndexService: ObservableObject {
         consumers += 1
         guard energyCancellable == nil else { return }
         energyCancellable = EnergyGovernor.shared.$mode.removeDuplicates().sink { [weak self] mode in self?.scheduleMonitor(for: mode) }
-        scan()
     }
     func stop() {
         consumers = max(0, consumers - 1)
@@ -82,8 +81,15 @@ final class LocalFileIndexService: ObservableObject {
         case .quietBackground: interval = 15 * 60
         case .systemSuspended: interval = nil
         }
-        guard let interval else { scanTask?.cancel(); enrichmentTask?.cancel(); return }
+        guard let interval else {
+            scanGeneration += 1
+            scanTask?.cancel(); scanTask = nil
+            enrichmentTask?.cancel(); enrichmentTask = nil
+            isScanning = false
+            return
+        }
         monitorTimer = Timer.publish(every: interval, on: .main, in: .common).autoconnect().sink { [weak self] _ in self?.scan() }
+        if !isScanning { scan() }
     }
 
     var results: [LocalFileCard] {
