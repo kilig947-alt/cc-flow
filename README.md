@@ -20,6 +20,10 @@
   <sub>监视活跃的 AI 编码会话，响应审批请求，并从原生 macOS Flow Island 一键跳回对应终端、tmux pane 或 IDE。</sub>
 </p>
 
+<p align="center">
+  <img src="docs/images/settings-panel.png" alt="CC FLOW 设置面板" width="760">
+</p>
+
 ## 什么是 CC FLOW？
 
 CC FLOW 是一款 macOS 菜单栏应用。当 Claude Code、Codex 或 TRAE 会话需要关注时，它会展开为紧凑的灵动岛风格面板。应用通过各客户端的正式 Hook 接口接收审批、提问、工具执行、压缩、子代理和生命周期事件。
@@ -32,15 +36,16 @@ Claude Code 与 Codex 是默认集成；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK
 
 - **三类客户端** — Claude Code、Codex 默认启用，兼容四个 TRAE 变体。
 - **Flow 岛左右分区** — 左侧展示内置功能或会话内容，右侧聚合 Claude、Codex、TRAE 待处理数；TRAE 可展开到四个变体。
-- **🎵 音乐控制** — 内置「正在播放」面板，支持 Music.app、Spotify、网易云音乐、QQ 音乐。紧凑态显示封面和曲目信息，展开态提供完整的播放控制（上/下一曲、播放/暂停、进度条拖拽）。正在播放时自动切换到紧凑态显示。
+- **自定义组件** — 灵动岛左侧可组合音乐、中转站、NewsNow、Mineradio、本地 HTML 和远程网页，支持排序、开关和展开尺寸记忆。
+- **🎵 音乐控制** — 内置「正在播放」面板，支持 Music.app、Spotify、网易云音乐、QQ 音乐。紧凑态显示封面和曲目信息，展开态提供完整播放控制。
 - **📦 中转站** — 文件暂存区，支持拖入文件暂存，展开态显示文件网格，可通过 AirDrop 一键分享全部文件。
-- **📄 自定义区域** — 将本地 HTML 文件夹渲染到灵动岛中，支持 JS Bridge 向紧凑态推送限时通知。
-- **🌐 网页嵌入** — 在灵动岛中直接嵌入任意远程网页。
+- **📰 NewsNow 与 ⛏ Mineradio** — 浏览新闻，或在岛内播放音乐并显示歌词；收起后通过离屏 WebView 保持运行。
+- **📄 自定义区域与网页嵌入** — 渲染本地 HTML 或远程网页，支持 JS Bridge 提示、自定义名称、URL 和图标。
 - **正式 Hook profiles** — 管理 `~/.claude/settings.json`、`~/.codex/hooks.json` 与检测到的 TRAE Hook 配置，同时保留用户自己的 Hook。
 - **一键跳回** — Claude/Codex 优先返回捕获到的终端、tmux pane 或 IDE；Codex 有 deep link 时优先使用；TRAE 保留逐变体跳回。
 - **关注优先 UI** — 在会话需要审批、输入、审查或干预之前保持紧凑状态。
 - **从灵动岛操作** — 无需切换标签页即可审批工具、拒绝请求和回复追问。
-- **🐱 内置宠物** — 支持精灵表动画的桌面宠物系统，内置 CC FLOW、光环小猫、月薪喵等多个主题包，兼容 Codex 宠物规范。
+- **🐱 内置宠物** — 支持精灵表动画、拖拽分离、滚轮缩放和动画速度调节，兼容 Codex 宠物规范。
 
 <a id="支持的变体"></a>
 
@@ -49,7 +54,7 @@ Claude Code 与 Codex 是默认集成；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK
 | 客户端 | 默认展示 | Hook 配置 | 岛内响应 |
 | --- | --- | --- | --- |
 | Claude Code | 是 | `~/.claude/settings.json` | 审批与 AskUserQuestion |
-| Codex | 是 | `~/.codex/hooks.json` | PermissionRequest 审批；通用提问跳回终端 |
+| Codex | 是 | `~/.codex/hooks.json`（首次安装后需在 Codex `/hooks` 中信任） | PermissionRequest 审批；通用提问跳回终端 |
 | TRAE 系列 | 检测后展示 | 见下表 | 官方 Hook 支持的审批与提问 |
 
 TRAE 兼容变体：
@@ -69,15 +74,15 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 ### 紧凑态
 
-![alt text](docs/images/trae-flow-top-demo.gif)
+![CC FLOW 紧凑态](docs/images/trae-flow-top-demo.gif)
 
-- **左侧**：当前选中的功能视图（音乐 / 中转站 / 自定义区域 / 网页），正在播放音乐时自动切换到音乐。
+- **左侧**：当前选中的功能视图（音乐 / 中转站 / NewsNow / Mineradio / 自定义区域 / 网页），正在播放音乐时自动切换到音乐。
 - **右侧**：CC 图标与全部客户端待处理总数。
 
 ### 展开态
 
-![alt text](docs/images/trae-flow-tsks-demo.png)
-![alt text](docs/images/trae-flow-tasks-talk.png)
+![CC FLOW 会话列表](docs/images/trae-flow-tsks-demo.png)
+![CC FLOW 会话交互](docs/images/trae-flow-tasks-talk.png)
 
 - **顶部**：功能切换栏，支持拖拽排序。
 - **左侧**：当前功能的展开内容，或活跃会话详情（审批、追问、完成）。
@@ -107,10 +112,10 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 在灵动岛中渲染本地 HTML 目录和外部网站URL，支持完整的 Web 交互能力。
 
-![alt text](docs/images/trae-flow-mineradio.gif)
+![CC FLOW Mineradio](docs/images/trae-flow-mineradio.gif)
 
 
-![alt text](docs/images/trae-flow-html-url-demo.png)
+![CC FLOW 自定义网页](docs/images/trae-flow-html-url-demo.png)
 
 - **JS Bridge**：HTML 页面可调用 `window.webkit.messageHandlers.ccFlowHint.postMessage()` 向紧凑态推送限时通知
 - **文件监听**：通过 FSEvents 监听文件变化，自动刷新 Flow 岛和设置预览
@@ -119,7 +124,20 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 ### 🌐 网页嵌入
 
-在灵动岛中直接加载远程网页，支持编辑名称、URL 和图标，可在系统默认浏览器中打开当前页面。
+在灵动岛中直接加载远程网页，支持编辑名称、URL 和图标，可在系统默认浏览器中打开当前页面，并可选择收起灵动岛后保持网页后台运行。
+
+### 📰 NewsNow
+
+内置 NewsNow 远程实例，无需配置即可在灵动岛中快速浏览新闻资讯。支持自定义实例地址，自动获取站点图标。
+
+### ⛏ Mineradio
+
+内置 Mineradio Bridge 兼容层，在灵动岛内直接播放 [Mineradio](https://mineradio.art/) 音乐并展示歌词。
+
+- **平台支持**：网易云音乐、QQ 音乐、酷狗音乐
+- **歌词显示**：紧凑态可展示当前歌词，展开态浏览完整播放器
+- **后台播放**：收起灵动岛后仍通过离屏窗口保持 WebView 运行，音乐不间断
+- **登录同步**：登录状态通过默认 Cookie 存储共享，支持在设置中查看/登出
 
 ### 🐱 内置宠物
 
@@ -150,7 +168,7 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 ### 下载发布版本
 
-1. 前往 [Releases](https://github.com/ccsonicc333/trae-flow/releases)。
+1. 前往 [Releases](https://github.com/kilig947-alt/cc-flow/releases)。
 2. 下载最新的 DMG。
 3. 将 `CC FLOW.app` 拖到应用程序文件夹。
 4. 启动应用并选择需要启用的 Hook profiles。
@@ -176,14 +194,16 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 需要 macOS 14+ 和可构建 Xcode 项目及 Swift 6.1 `Prototype` 包测试的 Xcode 工具链。
 
 ```bash
-git clone https://github.com/ccsonicc333/trae-flow.git
-cd trae-flow
+git clone https://github.com/kilig947-alt/cc-flow.git
+cd cc-flow
 
 # Debug 构建
-xcodebuild -project CCFlow.xcodeproj -scheme CCFlow -configuration Debug build
+xcodebuild -project CCFlow.xcodeproj -scheme CCFlow \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build
 
 # Release 构建
-xcodebuild -project CCFlow.xcodeproj -scheme CCFlow -configuration Release build
+xcodebuild -project CCFlow.xcodeproj -scheme CCFlow \
+  -configuration Release CODE_SIGNING_ALLOWED=NO build
 ```
 
 创建本地可分享的未签名测试包：
@@ -211,6 +231,7 @@ Claude Code / Codex / TRAE variants
 - Socket 默认 `/tmp/cc-flow.sock`；配置位于 `~/Library/Application Support/cc-flow/bridge-config.json`。
 - 环境变量读取顺序为 `CC_FLOW_*`、`TRAE_FLOW_*`、`ISLAND_*`。
 - Bridge launcher 位于 `~/.cc-flow/bin/cc-flow-bridge`，安装时会清理旧 TRAE FLOW 托管条目，但保留用户 Hook。
+- Codex 命令 Hooks 由 Codex 自身维护信任状态；CC FLOW 安装后会显示信任指引，收到真实 Codex Hook 事件后才标记为已生效。
 
 ## 系统要求
 
