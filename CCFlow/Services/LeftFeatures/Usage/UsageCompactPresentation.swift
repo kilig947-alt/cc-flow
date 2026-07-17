@@ -35,6 +35,24 @@ nonisolated enum UsageCompactMetric: Equatable, Sendable {
     case generic
 }
 
+nonisolated struct UsageCompactBrandPresentation: Equatable, Sendable {
+    let provider: UsageProviderID
+    let remainingPercentage: Int
+}
+
+nonisolated enum UsageCompactBrandPresentationResolver {
+    static func resolve(metric: UsageCompactMetric) -> UsageCompactBrandPresentation? {
+        guard case .providerRemaining(let provider, let remaining) = metric else {
+            return nil
+        }
+
+        return UsageCompactBrandPresentation(
+            provider: provider,
+            remainingPercentage: Int(max(0, min(100, remaining)).rounded())
+        )
+    }
+}
+
 nonisolated enum UsageCompactMetricResolver {
     static func resolve(
         snapshot: UsageSnapshot?,

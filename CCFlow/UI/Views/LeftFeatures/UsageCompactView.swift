@@ -9,20 +9,36 @@ struct UsageCompactView: View {
     }
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 11, weight: .semibold))
-            Text(compactText)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-            if service.isRefreshing {
-                ProgressView().controlSize(.mini)
+        ZStack {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+
+            if let presentation = compactPresentation {
+                HStack(spacing: 5) {
+                    Image(presentation.provider.logoAssetName)
+                        .resizable()
+                        .renderingMode(.original)
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .accessibilityHidden(true)
+
+                    Text(verbatim: "\(presentation.remainingPercentage)%")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .foregroundColor(.white.opacity(0.86))
+
+                    if service.isRefreshing {
+                        ProgressView()
+                            .controlSize(.mini)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(accessibilityText(for: presentation)))
             }
         }
-        .foregroundColor(.white.opacity(0.86))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(accessibilityText))
         .onAppear { service.start() }
     }
 
@@ -33,46 +49,16 @@ struct UsageCompactView: View {
         )
     }
 
-    private var compactText: String {
-        switch compactMetric {
-        case .providerRemaining(let provider, let remaining):
-            return AppLocalization.format("%@ %d%%", provider.compactDisplayName, Int(remaining.rounded()))
-        case .providerTodayTokens(let provider, let today):
-            return AppLocalization.format("%@ 今日 %@", provider.compactDisplayName, Self.formatTokens(today))
-        case .providerOnly(let provider):
-            return AppLocalization.format("%@ 用量", provider.compactDisplayName)
-        case .aggregateRemaining(let remaining):
-            return AppLocalization.format("剩余 %d%%", Int(remaining.rounded()))
-        case .aggregateTodayTokens(let today):
-            return AppLocalization.format("今日 %@", Self.formatTokens(today))
-        case .generic:
-            return AppLocalization.string("用量")
-        }
+    private var compactPresentation: UsageCompactBrandPresentation? {
+        UsageCompactBrandPresentationResolver.resolve(metric: compactMetric)
     }
 
-    private var accessibilityText: String {
-        switch compactMetric {
-        case .providerRemaining(let provider, let remaining):
-            return AppLocalization.format(
-                "%@ 账号用量：剩余 %d%%",
-                provider.displayName,
-                Int(remaining.rounded())
-            )
-        case .providerTodayTokens(let provider, let today):
-            return AppLocalization.format(
-                "%@ 账号用量：今日 %@ 个令牌",
-                provider.displayName,
-                Self.formatTokens(today)
-            )
-        case .providerOnly(let provider):
-            return AppLocalization.format("%@ 账号用量", provider.displayName)
-        case .aggregateRemaining(let remaining):
-            return AppLocalization.format("账号用量：剩余 %d%%", Int(remaining.rounded()))
-        case .aggregateTodayTokens(let today):
-            return AppLocalization.format("账号用量：今日 %@ 个令牌", Self.formatTokens(today))
-        case .generic:
-            return AppLocalization.string("账号用量")
-        }
+    private func accessibilityText(for presentation: UsageCompactBrandPresentation) -> String {
+        AppLocalization.format(
+            "%@ 账号用量：剩余 %d%%",
+            presentation.provider.displayName,
+            presentation.remainingPercentage
+        )
     }
 
     static func formatTokens(_ value: Int) -> String {

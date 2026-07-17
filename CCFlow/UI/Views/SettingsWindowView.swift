@@ -4561,10 +4561,13 @@ private struct SettingsClientIcon: View {
         if let preferredLogoAssetName {
             Image(preferredLogoAssetName)
                 .resizable()
+                .renderingMode(.original)
                 .interpolation(.high)
                 .scaledToFit()
+                .frame(width: 28, height: 28)
                 .frame(width: 34, height: 34)
                 .shadow(color: Color.black.opacity(0.18), radius: 8, y: 3)
+                .accessibilityHidden(true)
         } else if let resolvedAppIcon {
             Image(nsImage: resolvedAppIcon)
                 .resizable()
