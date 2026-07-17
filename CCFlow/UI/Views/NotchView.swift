@@ -54,6 +54,7 @@ struct NotchView: View {
     @State private var manualAttentionTracker = SessionManualAttentionTracker()
     @State private var pendingSessionRetryWorkItem: DispatchWorkItem?
     @State private var manualAttentionRetryWorkItem: DispatchWorkItem?
+    @State private var deliveredCustomAreaHintIDs = Set<UUID>()
     @State private var previousCompletedReadyIds: Set<String> = []
     @State private var completionReadyTimestamps: [String: Date] = [:]
     @State private var taskErrorTimestamps: [String: Date] = [:]
@@ -215,6 +216,17 @@ struct NotchView: View {
 
     private var areReminderNotificationsSuppressed: Bool {
         settings.areNotificationsMutedTemporarily
+    }
+
+    private var automaticNotificationPresentationDecision: AutomaticNotificationPresentationDecision {
+        AutomaticNotificationPresentationPolicy.resolve(
+            mode: settings.notificationPresentationMode,
+            smartSuppressionTriggered: settings.smartSuppression
+                && TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace(),
+            isPanelOpen: viewModel.status != .closed,
+            isFullscreenSuppressed: viewModel.shouldSuppressAutomaticPresentation,
+            isReminderMuted: areReminderNotificationsSuppressed
+        )
     }
 
     private var shouldPresentCompletionQuickReplyNotification: Bool {
@@ -443,22 +455,15 @@ struct NotchView: View {
             .onChange(of: settings.notificationPresentationMode) { _, mode in
                 if mode == .active {
                     compactBroadcasts.clear()
-                    handlePendingSessionsChange(sessionMonitor.pendingInstances)
-                    handleManualAttentionChange(sessionMonitor.instances)
                 }
+                handlePendingSessionsChange(sessionMonitor.pendingInstances)
+                handleManualAttentionChange(sessionMonitor.instances)
+                maybePresentNextCompletionNotification()
+                presentNextProductivityNotificationIfPossible()
+                handleActiveCustomAreaHints()
             }
             .onReceive(hintStore.hintPosted) { hint in
-                guard settings.notificationPresentationMode == .quiet,
-                      viewModel.status == .closed,
-                      let feature = leftFeatureStore.features.first(where: {
-                          guard case .customArea(let areaID) = $0.kind else { return false }
-                          return areaID == hint.areaID && $0.isEnabled
-                      }) else { return }
-                enqueueLeftFeatureBroadcast(
-                    featureID: feature.id,
-                    iconName: "bell.badge.fill",
-                    summary: hint.text
-                )
+                handleCustomAreaHint(hint)
             }
             .onChange(of: settings.autoHideWhenIdle) { _, _ in
                 handleProcessingChange()
@@ -496,6 +501,9 @@ struct NotchView: View {
                     isVisible = false
                 } else {
                     handleProcessingChange()
+                    if !isActive {
+                        resumeDeferredAutomaticNotifications()
+                    }
                     scheduleDetachmentHintPresentationIfNeeded(delay: Self.detachmentHintRetryDelay)
                 }
             }
@@ -504,6 +512,7 @@ struct NotchView: View {
                     isVisible = false
                 } else {
                     handleProcessingChange()
+                    resumeDeferredAutomaticNotifications()
                     scheduleDetachmentHintPresentationIfNeeded(delay: Self.detachmentHintRetryDelay)
                 }
             }
@@ -1033,8 +1042,7 @@ struct NotchView: View {
 
     @ViewBuilder
     private var compactBroadcastOverlay: some View {
-        if settings.notificationPresentationMode == .quiet,
-           viewModel.status == .closed,
+        if viewModel.status == .closed,
            compactBroadcasts.activeLeftFeature != nil || compactBroadcasts.activeSession != nil {
             HStack(spacing: 0) {
                 Group {
@@ -1213,9 +1221,20 @@ struct NotchView: View {
             }
             isVisible = !viewModel.shouldHideWindowPresentation
             maybePresentNextCompletionNotification()
+            handlePendingSessionsChange(sessionMonitor.pendingInstances)
+            handleManualAttentionChange(sessionMonitor.instances)
             presentNextProductivityNotificationIfPossible()
+            handleActiveCustomAreaHints()
             scheduleDetachmentHintPresentationIfNeeded(delay: Self.detachmentHintRetryDelay)
         }
+    }
+
+    private func resumeDeferredAutomaticNotifications() {
+        maybePresentNextCompletionNotification()
+        handlePendingSessionsChange(sessionMonitor.pendingInstances)
+        handleManualAttentionChange(sessionMonitor.instances)
+        presentNextProductivityNotificationIfPossible()
+        handleActiveCustomAreaHints()
     }
 
     private func presentNextProductivityNotificationIfPossible() {
@@ -1229,13 +1248,19 @@ struct NotchView: View {
         let featureEnabled = leftFeatureStore.features.contains {
             $0.id == event.targetFeatureID && $0.isEnabled
         }
-        if AppSettings.areReminderNotificationsSuppressed || !featureEnabled {
+        if !featureEnabled {
             _ = center.consume(event.sequence)
             return
         }
 
-        if settings.notificationPresentationMode == .quiet,
-           viewModel.status == .closed {
+        switch automaticNotificationPresentationDecision {
+        case .discard:
+            _ = center.consume(event.sequence)
+            return
+        case .defer:
+            scheduleProductivityNotificationRetry()
+            return
+        case .broadcast:
             enqueueLeftFeatureBroadcast(
                 featureID: event.targetFeatureID,
                 iconName: productivityIconName(for: event.kind),
@@ -1245,6 +1270,8 @@ struct NotchView: View {
             productivityNotificationRetryWorkItem = nil
             _ = center.consume(event.sequence)
             return
+        case .expand:
+            break
         }
 
         if activeCompletionNotification != nil {
@@ -1381,28 +1408,18 @@ struct NotchView: View {
         let currentIds = Set(sessions.map { $0.stableId })
         let undeliveredIds = pendingSessionDeliveryState.undelivered(currentIDs: currentIds)
 
-        if areReminderNotificationsSuppressed {
+        switch automaticNotificationPresentationDecision {
+        case .discard:
             pendingSessionDeliveryState.discard(currentIds)
             cancelPendingSessionRetry()
             return
-        }
-
-        let shouldSuppressAutoOpen = settings.smartSuppression &&
-            TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace()
-
-        if viewModel.shouldSuppressAutomaticPresentation || shouldSuppressAutoOpen {
-            if settings.notificationPresentationMode == .active,
-               !undeliveredIds.isEmpty {
+        case .defer:
+            if !undeliveredIds.isEmpty {
                 schedulePendingSessionRetry()
-            } else if settings.notificationPresentationMode == .quiet {
-                pendingSessionDeliveryState.discard(currentIds)
-                cancelPendingSessionRetry()
             }
             return
-        }
-
-        if settings.notificationPresentationMode == .quiet,
-           !undeliveredIds.isEmpty {
+        case .broadcast:
+            guard !undeliveredIds.isEmpty else { return }
             sessions
                 .filter { undeliveredIds.contains($0.stableId) }
                 .sorted { $0.lastActivity < $1.lastActivity }
@@ -1410,9 +1427,8 @@ struct NotchView: View {
             pendingSessionDeliveryState.acknowledge(undeliveredIds)
             cancelPendingSessionRetry()
             return
-        }
-
-        if !undeliveredIds.isEmpty {
+        case .expand:
+            guard !undeliveredIds.isEmpty else { return }
             viewModel.presentSessionList(reason: .notification)
             pendingSessionDeliveryState.acknowledge(undeliveredIds)
             cancelPendingSessionRetry()
@@ -1492,34 +1508,24 @@ struct NotchView: View {
             return
         }
 
-        if areReminderNotificationsSuppressed {
+        switch automaticNotificationPresentationDecision {
+        case .discard:
             acknowledgeAllManualAttention(in: instances)
             cancelManualAttentionRetry()
             return
-        }
-
-        clearCompletionNotifications(keepPanelOpen: true)
-
-        let shouldSuppressAutoOpen = settings.notificationPresentationMode == .active
-            && settings.smartSuppression
-            && TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace()
-        if viewModel.shouldSuppressAutomaticPresentation || shouldSuppressAutoOpen {
-            if settings.notificationPresentationMode == .active {
-                scheduleManualAttentionRetry()
-            } else {
-                acknowledgeAllManualAttention(in: instances)
-                cancelManualAttentionRetry()
-            }
+        case .defer:
+            scheduleManualAttentionRetry()
             return
-        }
-
-        if settings.notificationPresentationMode == .quiet,
-           viewModel.status == .closed {
+        case .broadcast:
             enqueueSessionBroadcast(for: targetSession, fallback: "需要你的操作")
             manualAttentionTracker.acknowledge(targetSession)
             scheduleRetryForRemainingManualAttention(in: instances)
             return
+        case .expand:
+            break
         }
+
+        clearCompletionNotifications(keepPanelOpen: true)
 
         if targetSession.needsPromptNotification {
             viewModel.presentNotificationAttention(for: targetSession)
@@ -1597,7 +1603,7 @@ struct NotchView: View {
             // Spec: 任务完成后自动展开任务列表（会话列表），保持 flow Island始终显示。
             // 完成自动展开现为默认行为（旧 autoOpenCompletionPanel 设置已移除），无条件展开。
             // 不在用户正在交互（hover/inline input/settings popover）时强制切换，避免打断输入。
-            if settings.notificationPresentationMode == .active,
+            if automaticNotificationPresentationDecision == .expand,
                !shouldPresentCompletionQuickReplyNotification {
                 presentSessionListOnCompletionIfNeeded()
             }
@@ -1677,7 +1683,7 @@ struct NotchView: View {
         guard !newlyCompletedSessions.isEmpty else { return }
 
         // 任务从活跃→完成：展开任务列表，保持 flow Island始终显示
-        if settings.notificationPresentationMode == .active,
+        if automaticNotificationPresentationDecision == .expand,
            !shouldPresentCompletionQuickReplyNotification {
             presentSessionListOnCompletionIfNeeded()
         }
@@ -1718,7 +1724,7 @@ struct NotchView: View {
             return wasActive && isNowComplete
         }
 
-        if settings.notificationPresentationMode == .active,
+        if automaticNotificationPresentationDecision == .expand,
            hasNewCompletion && !shouldPresentCompletionQuickReplyNotification {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
@@ -1734,7 +1740,8 @@ struct NotchView: View {
                   case .instances = viewModel.contentType else { return false }
             return true
         }()
-        if viewModel.status == .opened,
+        if automaticNotificationPresentationDecision == .expand,
+           viewModel.status == .opened,
            activeCompletionNotification == nil,
            !canReplaceOpenSessionListWithQuickReplyNotification {
             previousCompletionNotificationPhases = currentPhases
@@ -1842,11 +1849,15 @@ struct NotchView: View {
     }
 
     private func maybePresentNextCompletionNotification() {
-        guard !areReminderNotificationsSuppressed else { return }
         guard activeCompletionNotification == nil else { return }
         guard !completionNotificationQueue.isEmpty else { return }
-        guard !viewModel.shouldSuppressAutomaticPresentation else { return }
-        if settings.notificationPresentationMode == .quiet {
+        switch automaticNotificationPresentationDecision {
+        case .discard:
+            completionNotificationQueue.removeAll()
+            return
+        case .defer:
+            return
+        case .broadcast:
             while !completionNotificationQueue.isEmpty {
                 let notification = completionNotificationQueue.removeFirst()
                 enqueueSessionBroadcast(
@@ -1856,6 +1867,8 @@ struct NotchView: View {
                 )
             }
             return
+        case .expand:
+            break
         }
         guard !hasPendingPermission && !hasHumanIntervention else { return }
 
@@ -2085,6 +2098,41 @@ struct NotchView: View {
             iconName: iconName,
             summary: summary
         ))
+    }
+
+    private func handleActiveCustomAreaHints() {
+        let activeIDs = Set(hintStore.activeHints.map(\.id))
+        deliveredCustomAreaHintIDs.formIntersection(activeIDs)
+        for hint in hintStore.activeHints where !deliveredCustomAreaHintIDs.contains(hint.id) {
+            handleCustomAreaHint(hint)
+        }
+    }
+
+    private func handleCustomAreaHint(_ hint: CustomAreaHint) {
+        guard !deliveredCustomAreaHintIDs.contains(hint.id),
+              let feature = leftFeatureStore.features.first(where: {
+                  guard case .customArea(let areaID) = $0.kind else { return false }
+                  return areaID == hint.areaID && $0.isEnabled
+              }) else { return }
+
+        switch automaticNotificationPresentationDecision {
+        case .discard:
+            deliveredCustomAreaHintIDs.insert(hint.id)
+        case .defer:
+            return
+        case .broadcast:
+            enqueueLeftFeatureBroadcast(
+                featureID: feature.id,
+                iconName: "bell.badge.fill",
+                summary: hint.text
+            )
+            deliveredCustomAreaHintIDs.insert(hint.id)
+        case .expand:
+            leftFeatureStore.setExpandedActiveFeature(id: feature.id)
+            if viewModel.presentCustomExpanded(reason: .notification) {
+                deliveredCustomAreaHintIDs.insert(hint.id)
+            }
+        }
     }
 
     private func productivityIconName(for kind: ProductivityProactiveEventKind) -> String {
