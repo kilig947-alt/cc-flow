@@ -14,6 +14,20 @@ private final class AccessibilityStatusProbe {
 }
 
 final class SettingsPanelViewModelTests: XCTestCase {
+    func testClaudeAndCodexHookProfilesPreferBundledBrandAssets() throws {
+        let claude = try XCTUnwrap(
+            ClientProfileRegistry.managedHookProfiles.first { $0.brand == .claude }
+        )
+        let codex = try XCTUnwrap(
+            ClientProfileRegistry.managedHookProfiles.first { $0.brand == .codex }
+        )
+
+        XCTAssertEqual(claude.logoAssetName, "ClaudeCodeLogo")
+        XCTAssertTrue(claude.prefersBundledLogoOverAppIcon)
+        XCTAssertEqual(codex.logoAssetName, "OpenAILogo")
+        XCTAssertTrue(codex.prefersBundledLogoOverAppIcon)
+    }
+
     func testCodexHookPresentationStatusRequiresTrustUntilEventArrives() throws {
         let profile = try XCTUnwrap(
             ClientProfileRegistry.managedHookProfiles.first { $0.brand == .codex }

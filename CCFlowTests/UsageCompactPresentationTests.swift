@@ -98,6 +98,36 @@ final class UsageCompactPresentationTests: XCTestCase {
         )
     }
 
+    func testBrandPresentationShowsSelectedProviderRemainingPercentage() {
+        XCTAssertEqual(
+            UsageCompactBrandPresentationResolver.resolve(metric: .providerRemaining(.claude, 51.6)),
+            UsageCompactBrandPresentation(provider: .claude, remainingPercentage: 52)
+        )
+        XCTAssertEqual(
+            UsageCompactBrandPresentationResolver.resolve(metric: .providerRemaining(.codex, 48.2)),
+            UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 48)
+        )
+    }
+
+    func testBrandPresentationHidesEveryNonPercentageState() {
+        let hiddenMetrics: [UsageCompactMetric] = [
+            .providerTodayTokens(.claude, 12_345),
+            .providerOnly(.codex),
+            .aggregateRemaining(48),
+            .aggregateTodayTokens(12_345),
+            .generic
+        ]
+
+        for metric in hiddenMetrics {
+            XCTAssertNil(UsageCompactBrandPresentationResolver.resolve(metric: metric))
+        }
+    }
+
+    func testUsageProvidersUseBundledBrandAssets() {
+        XCTAssertEqual(UsageProviderID.claude.logoAssetName, "ClaudeCodeLogo")
+        XCTAssertEqual(UsageProviderID.codex.logoAssetName, "OpenAILogo")
+    }
+
     private func makeSession(
         id: String,
         provider: SessionProvider,

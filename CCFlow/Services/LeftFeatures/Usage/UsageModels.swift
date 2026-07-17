@@ -12,6 +12,13 @@ nonisolated enum UsageProviderID: String, Codable, CaseIterable, Identifiable, S
         case .codex: return "Codex"
         }
     }
+
+    var logoAssetName: String {
+        switch self {
+        case .claude: return "ClaudeCodeLogo"
+        case .codex: return "OpenAILogo"
+        }
+    }
 }
 
 nonisolated struct UsageWindow: Codable, Equatable, Identifiable, Sendable {
