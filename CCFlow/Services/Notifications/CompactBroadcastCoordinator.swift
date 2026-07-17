@@ -45,8 +45,6 @@ struct CompactBroadcast: Equatable, Identifiable, Sendable {
 struct CompactBroadcastQueueState: Equatable, Sendable {
     private(set) var activeLeftFeature: CompactBroadcast?
     private(set) var activeSession: CompactBroadcast?
-    private var leftQueue: [CompactBroadcast] = []
-    private var sessionQueue: [CompactBroadcast] = []
 
     mutating func enqueue(
         _ broadcast: CompactBroadcast,
@@ -56,64 +54,24 @@ struct CompactBroadcastQueueState: Equatable, Sendable {
         guard broadcast.expiresAt > now, isValid(broadcast.target) else { return }
         switch broadcast.side {
         case .leftFeature:
-            if activeLeftFeature?.deduplicationKey == broadcast.deduplicationKey {
-                activeLeftFeature = broadcast
-            } else if let index = leftQueue.firstIndex(where: { $0.deduplicationKey == broadcast.deduplicationKey }) {
-                leftQueue[index] = broadcast
-            } else if activeLeftFeature == nil {
-                activeLeftFeature = broadcast
-            } else {
-                leftQueue.append(broadcast)
-            }
+            activeLeftFeature = broadcast
         case .session:
-            if activeSession?.deduplicationKey == broadcast.deduplicationKey {
-                activeSession = broadcast
-            } else if let index = sessionQueue.firstIndex(where: { $0.deduplicationKey == broadcast.deduplicationKey }) {
-                sessionQueue[index] = broadcast
-            } else if activeSession == nil {
-                activeSession = broadcast
-            } else {
-                sessionQueue.append(broadcast)
-            }
+            activeSession = broadcast
         }
     }
 
-    mutating func consume(
-        _ side: CompactBroadcastSide,
-        now: Date = Date(),
-        isValid: (CompactBroadcastTarget) -> Bool = { _ in true }
-    ) {
+    mutating func consume(_ side: CompactBroadcastSide) {
         switch side {
         case .leftFeature:
-            activeLeftFeature = nextValid(from: &leftQueue, now: now, isValid: isValid)
+            activeLeftFeature = nil
         case .session:
-            activeSession = nextValid(from: &sessionQueue, now: now, isValid: isValid)
+            activeSession = nil
         }
-    }
-
-    private func nextValid(
-        from queue: inout [CompactBroadcast],
-        now: Date,
-        isValid: (CompactBroadcastTarget) -> Bool
-    ) -> CompactBroadcast? {
-        while !queue.isEmpty {
-            let candidate = queue.removeFirst()
-            if candidate.expiresAt > now, isValid(candidate.target) {
-                return candidate
-            }
-        }
-        return nil
     }
 
     mutating func clear() {
         activeLeftFeature = nil
         activeSession = nil
-        leftQueue.removeAll()
-        sessionQueue.removeAll()
-    }
-
-    func queuedCount(for side: CompactBroadcastSide) -> Int {
-        side == .leftFeature ? leftQueue.count : sessionQueue.count
     }
 }
 
@@ -145,11 +103,8 @@ final class CompactBroadcastCoordinator: ObservableObject {
     func consume(_ side: CompactBroadcastSide) {
         dismissalTasks[side]?.cancel()
         dismissalTasks[side] = nil
-        state.consume(side, isValid: targetValidator)
+        state.consume(side)
         publishState()
-        if let active = side == .leftFeature ? activeLeftFeature : activeSession {
-            scheduleDismissal(for: side, id: active.id)
-        }
     }
 
     func clear() {
@@ -157,10 +112,6 @@ final class CompactBroadcastCoordinator: ObservableObject {
         dismissalTasks.removeAll()
         state.clear()
         publishState()
-    }
-
-    func queuedCount(for side: CompactBroadcastSide) -> Int {
-        state.queuedCount(for: side)
     }
 
     func setTargetValidator(_ validator: @escaping (CompactBroadcastTarget) -> Bool) {
