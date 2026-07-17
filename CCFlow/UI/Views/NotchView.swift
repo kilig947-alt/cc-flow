@@ -77,7 +77,6 @@ struct NotchView: View {
     @State private var activeCompletionNotification: SessionCompletionNotification?
     @State private var completionNotificationDismissWorkItem: DispatchWorkItem?
     @State private var productivityNotificationRetryWorkItem: DispatchWorkItem?
-    @State private var productivityNotificationCooldownUntil: Date?
     @State private var shouldDismissCompletionNotificationOnHoverExit: Bool = false
     @State private var isShowingDetachmentHint: Bool = false
     @State private var detachmentHintDismissWorkItem: DispatchWorkItem?
@@ -1279,12 +1278,6 @@ struct NotchView: View {
             return
         }
 
-        if let cooldownUntil = productivityNotificationCooldownUntil,
-           cooldownUntil > Date() {
-            scheduleProductivityNotificationRetry(after: cooldownUntil.timeIntervalSinceNow)
-            return
-        }
-
         guard !viewModel.isInlineTextInputActive,
               !viewModel.isSettingsPopoverPresented else {
             scheduleProductivityNotificationRetry()
@@ -1295,7 +1288,6 @@ struct NotchView: View {
         if viewModel.presentCustomExpanded(reason: .notification) {
             productivityNotificationRetryWorkItem?.cancel()
             productivityNotificationRetryWorkItem = nil
-            productivityNotificationCooldownUntil = Date().addingTimeInterval(5)
             _ = center.consume(event.sequence)
         } else {
             scheduleProductivityNotificationRetry()
