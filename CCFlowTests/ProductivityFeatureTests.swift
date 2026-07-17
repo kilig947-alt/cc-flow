@@ -19,45 +19,37 @@ final class ProductivityFeatureTests: XCTestCase {
     }
 
     @MainActor
-    func testProactiveEventsAggregateAndConsumeOnce() async throws {
-        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01, shouldAcceptEvent: { _ in true })
+    func testProactiveEventsPublishImmediatelyAndConsumeOnce() async throws {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
         center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "A")
-        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadCompleted, summary: "B")
-        try await Task.sleep(for: .milliseconds(50))
         let event = try XCTUnwrap(center.latestEvent)
         XCTAssertEqual(event.targetFeatureID, LeftFeature.downloadMonitorID)
-        XCTAssertEqual(event.kind, .downloadCompleted)
-        XCTAssertEqual(event.summary, "B")
-        XCTAssertEqual(event.count, 2)
+        XCTAssertEqual(event.kind, .downloadStarted)
+        XCTAssertEqual(event.summary, "A")
+        XCTAssertEqual(event.count, 1)
         XCTAssertTrue(center.consume(event.sequence))
         XCTAssertFalse(center.consume(event.sequence))
     }
 
     @MainActor
-    func testProactiveEventsRemainQueuedUntilExplicitlyConsumed() async throws {
-        let center = ProductivityProactiveEventCenter(aggregationInterval: 0.01, shouldAcceptEvent: { _ in true })
-        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "download")
-        try await Task.sleep(for: .milliseconds(30))
-        center.publish(targetFeatureID: LeftFeature.mailAssistantID, kind: .mailReceived, summary: "mail")
-        try await Task.sleep(for: .milliseconds(30))
+    func testSameFeatureEventsRemainSeparateAndOrdered() async throws {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "A")
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadCompleted, summary: "B")
 
-        XCTAssertEqual(center.pendingEvents.map(\.targetFeatureID), [
-            LeftFeature.downloadMonitorID,
-            LeftFeature.mailAssistantID
-        ])
+        XCTAssertEqual(center.pendingEvents.map(\.kind), [.downloadStarted, .downloadCompleted])
+        XCTAssertEqual(center.pendingEvents.map(\.summary), ["A", "B"])
+        XCTAssertEqual(center.pendingEvents.map(\.count), [1, 1])
+        XCTAssertLessThan(center.pendingEvents[0].sequence, center.pendingEvents[1].sequence)
         let first = try XCTUnwrap(center.nextEvent)
         XCTAssertTrue(center.consume(first.sequence))
-        XCTAssertEqual(center.nextEvent?.targetFeatureID, LeftFeature.mailAssistantID)
+        XCTAssertEqual(center.nextEvent?.kind, .downloadCompleted)
     }
 
     @MainActor
-    func testProactiveEventsAreRejectedAtPublishTimeWhenPolicyBlocksThem() async throws {
-        let center = ProductivityProactiveEventCenter(
-            aggregationInterval: 0.01,
-            shouldAcceptEvent: { $0 != LeftFeature.mailAssistantID }
-        )
+    func testProactiveEventsAreRejectedAtPublishTimeWhenPolicyBlocksThem() async {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { $0 != LeftFeature.mailAssistantID })
         center.publish(targetFeatureID: LeftFeature.mailAssistantID, kind: .mailReceived, summary: "muted")
-        try await Task.sleep(for: .milliseconds(30))
         XCTAssertTrue(center.pendingEvents.isEmpty)
     }
 

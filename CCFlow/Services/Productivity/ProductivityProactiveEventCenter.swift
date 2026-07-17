@@ -28,24 +28,11 @@ final class ProductivityProactiveEventCenter: ObservableObject {
     var latestEvent: ProductivityProactiveEvent? { pendingEvents.last }
     var nextEvent: ProductivityProactiveEvent? { pendingEvents.first }
 
-    private struct PendingEvent {
-        var kind: ProductivityProactiveEventKind
-        var summary: String
-        var count: Int
-    }
-
-    private let aggregationInterval: TimeInterval
     private let shouldAcceptEvent: (String) -> Bool
-    private var pendingByFeature: [String: PendingEvent] = [:]
-    private var emissionTasks: [String: Task<Void, Never>] = [:]
     private var nextSequence = 0
     private var consumedSequences: Set<Int> = []
 
-    init(
-        aggregationInterval: TimeInterval = 5,
-        shouldAcceptEvent: ((String) -> Bool)? = nil
-    ) {
-        self.aggregationInterval = aggregationInterval
+    init(shouldAcceptEvent: ((String) -> Bool)? = nil) {
         self.shouldAcceptEvent = shouldAcceptEvent ?? { featureID in
             !AppSettings.areReminderNotificationsSuppressed
                 && LeftFeatureStore.shared.features.contains { $0.id == featureID && $0.isEnabled }
@@ -54,20 +41,16 @@ final class ProductivityProactiveEventCenter: ObservableObject {
 
     func publish(targetFeatureID: String, kind: ProductivityProactiveEventKind, summary: String, count: Int = 1) {
         guard shouldAcceptEvent(targetFeatureID) else { return }
-        if var pending = pendingByFeature[targetFeatureID] {
-            pending.kind = kind
-            pending.summary = summary
-            pending.count += max(1, count)
-            pendingByFeature[targetFeatureID] = pending
-            return
-        }
-        pendingByFeature[targetFeatureID] = PendingEvent(kind: kind, summary: summary, count: max(1, count))
-        emissionTasks[targetFeatureID] = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(for: .seconds(aggregationInterval))
-            guard !Task.isCancelled else { return }
-            emit(targetFeatureID: targetFeatureID)
-        }
+        nextSequence &+= 1
+        pendingEvents.append(ProductivityProactiveEvent(
+            sequence: nextSequence,
+            targetFeatureID: targetFeatureID,
+            kind: kind,
+            summary: summary,
+            count: max(1, count),
+            createdAt: Date()
+        ))
+        trimOverflowIfNeeded()
     }
 
     func consume(_ sequence: Int) -> Bool {
@@ -78,18 +61,7 @@ final class ProductivityProactiveEventCenter: ObservableObject {
         return true
     }
 
-    private func emit(targetFeatureID: String) {
-        guard let pending = pendingByFeature.removeValue(forKey: targetFeatureID) else { return }
-        emissionTasks[targetFeatureID] = nil
-        nextSequence &+= 1
-        pendingEvents.append(ProductivityProactiveEvent(
-            sequence: nextSequence,
-            targetFeatureID: targetFeatureID,
-            kind: pending.kind,
-            summary: pending.summary,
-            count: pending.count,
-            createdAt: Date()
-        ))
+    private func trimOverflowIfNeeded() {
         if pendingEvents.count > 100 {
             let overflowCount = pendingEvents.count - 100
             let removed = Array(pendingEvents.prefix(overflowCount))
