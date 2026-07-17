@@ -50,8 +50,10 @@ struct NotchView: View {
     // Spec: 观察 NowPlayingProvider —— `compactFeature` 自动规则依赖 `nowPlaying.isPlaying`，
     // 播放状态变化时需重新渲染紧凑态左半区（决定是否切到音乐视图）
     @ObservedObject private var nowPlayingProvider = NowPlayingProvider.shared
-    @State private var previousPendingIds: Set<String> = []
+    @State private var pendingSessionDeliveryState = SessionPendingDeliveryState()
     @State private var manualAttentionTracker = SessionManualAttentionTracker()
+    @State private var pendingSessionRetryWorkItem: DispatchWorkItem?
+    @State private var manualAttentionRetryWorkItem: DispatchWorkItem?
     @State private var previousCompletedReadyIds: Set<String> = []
     @State private var completionReadyTimestamps: [String: Date] = [:]
     @State private var taskErrorTimestamps: [String: Date] = [:]
@@ -390,6 +392,8 @@ struct NotchView: View {
                 cancelScheduledDetachmentHintPresentation()
                 productivityNotificationRetryWorkItem?.cancel()
                 productivityNotificationRetryWorkItem = nil
+                cancelPendingSessionRetry()
+                cancelManualAttentionRetry()
                 unregisterAppActiveNotifications()
             }
             .onChange(of: viewModel.status) { oldStatus, newStatus in
@@ -443,6 +447,8 @@ struct NotchView: View {
             .onChange(of: settings.notificationPresentationMode) { _, mode in
                 if mode == .active {
                     compactBroadcasts.clear()
+                    handlePendingSessionsChange(sessionMonitor.pendingInstances)
+                    handleManualAttentionChange(sessionMonitor.instances)
                 }
             }
             .onReceive(hintStore.hintPosted) { hint in
@@ -1257,9 +1263,7 @@ struct NotchView: View {
         }
 
         guard !viewModel.isInlineTextInputActive,
-              !viewModel.isSettingsPopoverPresented,
-              !hasPendingPermission,
-              !hasHumanIntervention else {
+              !viewModel.isSettingsPopoverPresented else {
             scheduleProductivityNotificationRetry()
             return
         }
@@ -1379,43 +1383,48 @@ struct NotchView: View {
 
     private func handlePendingSessionsChange(_ sessions: [SessionState]) {
         let currentIds = Set(sessions.map { $0.stableId })
-        let newPendingIds = currentIds.subtracting(previousPendingIds)
+        let undeliveredIds = pendingSessionDeliveryState.undelivered(currentIDs: currentIds)
 
         if areReminderNotificationsSuppressed {
-            previousPendingIds = currentIds
+            pendingSessionDeliveryState.discard(currentIds)
+            cancelPendingSessionRetry()
             return
         }
 
         let shouldSuppressAutoOpen = settings.smartSuppression &&
             TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace()
 
-        if viewModel.shouldSuppressAutomaticPresentation {
-            previousPendingIds = currentIds
+        if viewModel.shouldSuppressAutomaticPresentation || shouldSuppressAutoOpen {
+            if settings.notificationPresentationMode == .active,
+               !undeliveredIds.isEmpty {
+                schedulePendingSessionRetry()
+            } else if settings.notificationPresentationMode == .quiet {
+                pendingSessionDeliveryState.discard(currentIds)
+                cancelPendingSessionRetry()
+            }
             return
         }
 
         if settings.notificationPresentationMode == .quiet,
-           !shouldSuppressAutoOpen,
-           !newPendingIds.isEmpty {
+           !undeliveredIds.isEmpty {
             sessions
-                .filter { newPendingIds.contains($0.stableId) }
+                .filter { undeliveredIds.contains($0.stableId) }
                 .sorted { $0.lastActivity < $1.lastActivity }
                 .forEach { enqueueSessionBroadcast(for: $0, fallback: "需要处理") }
-            previousPendingIds = currentIds
+            pendingSessionDeliveryState.acknowledge(undeliveredIds)
+            cancelPendingSessionRetry()
             return
         }
 
-        if !newPendingIds.isEmpty &&
-           viewModel.status == .closed &&
-           !shouldSuppressAutoOpen {
-            viewModel.notchOpen(reason: .notification)
+        if !undeliveredIds.isEmpty {
+            viewModel.presentSessionList(reason: .notification)
+            pendingSessionDeliveryState.acknowledge(undeliveredIds)
+            cancelPendingSessionRetry()
         }
-
-        previousPendingIds = currentIds
     }
 
     private func primeStartupPresentationState(_ instances: [SessionState]) {
-        previousPendingIds = Set(instances.filter(\.needsAttention).map(\.stableId))
+        pendingSessionDeliveryState.discard(Set(instances.filter(\.needsAttention).map(\.stableId)))
         previousCompletedReadyIds = Set(
             instances
                 .filter { SessionCompletionStateEvaluator.isCompletedReadySession($0) }
@@ -1424,7 +1433,7 @@ struct NotchView: View {
         previousSessionPhases = Dictionary(
             uniqueKeysWithValues: instances.map { ($0.stableId, $0.phase) }
         )
-        _ = manualAttentionTracker.consumeNewAttentionSession(from: instances)
+        acknowledgeAllManualAttention(in: instances)
         primeCompletionNotificationTracking(instances)
     }
 
@@ -1482,32 +1491,94 @@ struct NotchView: View {
     }
 
     private func handleManualAttentionChange(_ instances: [SessionState]) {
-        guard let targetSession = manualAttentionTracker.consumeNewAttentionSession(from: instances) else {
+        guard let targetSession = manualAttentionTracker.nextAttentionSession(from: instances) else {
+            cancelManualAttentionRetry()
             return
         }
 
         if areReminderNotificationsSuppressed {
+            acknowledgeAllManualAttention(in: instances)
+            cancelManualAttentionRetry()
             return
         }
 
         clearCompletionNotifications(keepPanelOpen: true)
 
-        if viewModel.shouldSuppressAutomaticPresentation {
+        let shouldSuppressAutoOpen = settings.notificationPresentationMode == .active
+            && settings.smartSuppression
+            && TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace()
+        if viewModel.shouldSuppressAutomaticPresentation || shouldSuppressAutoOpen {
+            if settings.notificationPresentationMode == .active {
+                scheduleManualAttentionRetry()
+            } else {
+                acknowledgeAllManualAttention(in: instances)
+                cancelManualAttentionRetry()
+            }
             return
         }
 
         if settings.notificationPresentationMode == .quiet,
            viewModel.status == .closed {
             enqueueSessionBroadcast(for: targetSession, fallback: "需要你的操作")
+            manualAttentionTracker.acknowledge(targetSession)
+            scheduleRetryForRemainingManualAttention(in: instances)
             return
         }
 
         if targetSession.needsPromptNotification {
-            viewModel.presentNotificationAttention()
+            viewModel.presentNotificationAttention(for: targetSession)
+            manualAttentionTracker.acknowledge(targetSession)
+            scheduleRetryForRemainingManualAttention(in: instances)
             return
         }
 
         viewModel.presentNotificationChat(for: targetSession)
+        manualAttentionTracker.acknowledge(targetSession)
+        scheduleRetryForRemainingManualAttention(in: instances)
+    }
+
+    private func scheduleRetryForRemainingManualAttention(in instances: [SessionState]) {
+        if manualAttentionTracker.nextAttentionSession(from: instances) != nil {
+            scheduleManualAttentionRetry()
+        } else {
+            cancelManualAttentionRetry()
+        }
+    }
+
+    private func acknowledgeAllManualAttention(in instances: [SessionState]) {
+        while let session = manualAttentionTracker.nextAttentionSession(from: instances) {
+            manualAttentionTracker.acknowledge(session)
+        }
+    }
+
+    private func schedulePendingSessionRetry(after delay: TimeInterval = 1) {
+        guard pendingSessionRetryWorkItem == nil else { return }
+        let workItem = DispatchWorkItem {
+            pendingSessionRetryWorkItem = nil
+            handlePendingSessionsChange(sessionMonitor.pendingInstances)
+        }
+        pendingSessionRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, delay), execute: workItem)
+    }
+
+    private func cancelPendingSessionRetry() {
+        pendingSessionRetryWorkItem?.cancel()
+        pendingSessionRetryWorkItem = nil
+    }
+
+    private func scheduleManualAttentionRetry(after delay: TimeInterval = 1) {
+        guard manualAttentionRetryWorkItem == nil else { return }
+        let workItem = DispatchWorkItem {
+            manualAttentionRetryWorkItem = nil
+            handleManualAttentionChange(sessionMonitor.instances)
+        }
+        manualAttentionRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0.1, delay), execute: workItem)
+    }
+
+    private func cancelManualAttentionRetry() {
+        manualAttentionRetryWorkItem?.cancel()
+        manualAttentionRetryWorkItem = nil
     }
 
     private func handleCompletedReadyChange(_ instances: [SessionState]) {
