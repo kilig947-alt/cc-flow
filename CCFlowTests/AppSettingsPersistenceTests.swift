@@ -31,6 +31,19 @@ final class AppSettingsPersistenceTests: XCTestCase {
         return store
     }
 
+    func testNotificationPresentationModeDefaultsToActiveAndPersists() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+
+        XCTAssertEqual(store.notificationPresentationMode, .active)
+
+        store.notificationPresentationMode = .quiet
+        XCTAssertEqual(defaults.string(forKey: "notificationPresentationMode"), "quiet")
+
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(reloadedStore.notificationPresentationMode, .quiet)
+    }
+
     func testShortcutsUseDefaultsWhenNoPreferenceExists() {
         let defaults = makeDefaults()
         let store = makeStore(defaults: defaults)
