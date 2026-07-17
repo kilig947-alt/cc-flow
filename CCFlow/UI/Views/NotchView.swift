@@ -477,7 +477,7 @@ struct NotchView: View {
             .onReceive(sessionMonitor.$pendingInstances) { sessions in
                 handlePendingSessionsChange(sessions)
             }
-            .onReceive(ProductivityProactiveEventCenter.shared.$pendingEvents) { _ in
+            .onReceive(ProductivityProactiveEventCenter.shared.queueDidChange.prepend(())) { _ in
                 presentNextProductivityNotificationIfPossible()
             }
             .onReceive(sessionMonitor.$instances) { instances in

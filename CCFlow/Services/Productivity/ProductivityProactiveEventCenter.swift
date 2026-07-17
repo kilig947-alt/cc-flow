@@ -24,6 +24,7 @@ final class ProductivityProactiveEventCenter: ObservableObject {
     static let shared = ProductivityProactiveEventCenter()
 
     @Published private(set) var pendingEvents: [ProductivityProactiveEvent] = []
+    let queueDidChange = PassthroughSubject<Void, Never>()
 
     var latestEvent: ProductivityProactiveEvent? { pendingEvents.last }
     var nextEvent: ProductivityProactiveEvent? { pendingEvents.first }
@@ -51,6 +52,7 @@ final class ProductivityProactiveEventCenter: ObservableObject {
             createdAt: Date()
         ))
         trimOverflowIfNeeded()
+        queueDidChange.send()
     }
 
     func consume(_ sequence: Int) -> Bool {
@@ -58,6 +60,7 @@ final class ProductivityProactiveEventCenter: ObservableObject {
               pendingEvents.contains(where: { $0.sequence == sequence }) else { return false }
         consumedSequences.insert(sequence)
         pendingEvents.removeAll { $0.sequence == sequence }
+        queueDidChange.send()
         return true
     }
 

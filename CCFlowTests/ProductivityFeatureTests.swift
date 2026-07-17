@@ -1,5 +1,6 @@
 import XCTest
 import Network
+import Combine
 @testable import CC_FLOW
 
 final class ProductivityFeatureTests: XCTestCase {
@@ -51,6 +52,79 @@ final class ProductivityFeatureTests: XCTestCase {
         let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { $0 != LeftFeature.mailAssistantID })
         center.publish(targetFeatureID: LeftFeature.mailAssistantID, kind: .mailReceived, summary: "muted")
         XCTAssertTrue(center.pendingEvents.isEmpty)
+    }
+
+    @MainActor
+    func testQueueChangeSignalObservesCommittedEvent() async {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
+        var observedEvent: ProductivityProactiveEvent?
+        let cancellable = center.queueDidChange.sink {
+            observedEvent = center.nextEvent
+        }
+
+        center.publish(
+            targetFeatureID: LeftFeature.browserResourcesID,
+            kind: .browserResourceSaved,
+            summary: "saved"
+        )
+
+        XCTAssertEqual(observedEvent?.kind, .browserResourceSaved)
+        XCTAssertEqual(observedEvent?.summary, "saved")
+        withExtendedLifetime(cancellable) {}
+    }
+
+    @MainActor
+    func testQueueSubscriptionImmediatelyObservesEventPublishedBeforeSubscription() async {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
+        center.publish(
+            targetFeatureID: LeftFeature.browserResourcesID,
+            kind: .browserResourceSaved,
+            summary: "saved-before-subscription"
+        )
+
+        var observedEvent: ProductivityProactiveEvent?
+        let cancellable = center.queueDidChange.prepend(()).sink {
+            observedEvent = center.nextEvent
+        }
+
+        XCTAssertEqual(observedEvent?.summary, "saved-before-subscription")
+        withExtendedLifetime(cancellable) {}
+    }
+
+    @MainActor
+    func testQueueSignalCanDrainConsecutiveDownloadEventsWithoutRevival() async {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
+        var deliveredKinds: [ProductivityProactiveEventKind] = []
+        let cancellable = center.queueDidChange.sink {
+            guard let event = center.nextEvent else { return }
+            deliveredKinds.append(event.kind)
+            XCTAssertTrue(center.consume(event.sequence))
+        }
+
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadStarted, summary: "start")
+        center.publish(targetFeatureID: LeftFeature.downloadMonitorID, kind: .downloadCompleted, summary: "complete")
+
+        XCTAssertEqual(deliveredKinds, [.downloadStarted, .downloadCompleted])
+        XCTAssertTrue(center.pendingEvents.isEmpty)
+        withExtendedLifetime(cancellable) {}
+    }
+
+    @MainActor
+    func testImmediateQueueRetainsNewestHundredEventsInFIFOOrder() async {
+        let center = ProductivityProactiveEventCenter(shouldAcceptEvent: { _ in true })
+
+        for index in 0..<105 {
+            center.publish(
+                targetFeatureID: LeftFeature.browserResourcesID,
+                kind: .browserResourceSaved,
+                summary: "event-\(index)"
+            )
+        }
+
+        XCTAssertEqual(center.pendingEvents.count, 100)
+        XCTAssertEqual(center.pendingEvents.first?.summary, "event-5")
+        XCTAssertEqual(center.pendingEvents.last?.summary, "event-104")
+        XCTAssertEqual(center.pendingEvents.map(\.sequence), Array(6...105))
     }
 
     func testBrowserResourceDecodesLegacyRecordWithoutFavicon() throws {
