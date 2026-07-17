@@ -9,7 +9,11 @@ struct UsageCompactView: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+
             if let presentation = compactPresentation {
                 HStack(spacing: 5) {
                     Image(presentation.provider.logoAssetName)
