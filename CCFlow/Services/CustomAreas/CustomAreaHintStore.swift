@@ -33,6 +33,8 @@ final class CustomAreaHintStore: ObservableObject {
 
     /// 当 areaID 对应的提示过期或被清除时触发，供订阅者刷新
     let hintDidChange = PassthroughSubject<String, Never>()
+    /// 仅在真正发布新提示时触发，避免移除提示时把旧提示误判为新通知。
+    let hintPosted = PassthroughSubject<CustomAreaHint, Never>()
 
     private var dismissWorkItems: [UUID: DispatchWorkItem] = [:]
     private let queue = DispatchQueue.main
@@ -54,6 +56,7 @@ final class CustomAreaHintStore: ObservableObject {
         clearHint(for: areaID)
 
         activeHints.append(hint)
+        hintPosted.send(hint)
         hintDidChange.send(areaID)
 
         NSLog("[ccFlowHint] postHint 完成，当前活跃提示数=\(activeHints.count)")

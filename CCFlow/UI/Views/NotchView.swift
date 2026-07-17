@@ -44,6 +44,7 @@ struct NotchView: View {
     // Spec: 观察 CustomAreaHintStore —— 自定义 HTML 通过 JS Bridge 推送提示时
     // 紧凑态左半区需立即切换到提示视图，提示到期后回退到 WebView
     @ObservedObject private var hintStore = CustomAreaHintStore.shared
+    @ObservedObject private var compactBroadcasts = CompactBroadcastCoordinator.shared
     // Spec: 紧凑态左半区根据 LeftFeatureStore.compactFeature 分发到对应功能视图
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
     // Spec: 观察 NowPlayingProvider —— `compactFeature` 自动规则依赖 `nowPlaying.isPlaying`，
@@ -90,6 +91,7 @@ struct NotchView: View {
     @State private var isMouseInResizeEdgeZone: Bool = false
 
     @Namespace private var activityNamespace
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let petIconSize: CGFloat = 22
 
@@ -368,6 +370,10 @@ struct NotchView: View {
     private var lifecycleBody: some View {
         presentedBody
             .onAppear {
+                compactBroadcasts.setTargetValidator(isValidCompactBroadcastTarget)
+                if settings.notificationPresentationMode == .active {
+                    compactBroadcasts.clear()
+                }
                 if !SessionMonitor.isRunningUnderXCTest {
                     sessionMonitor.startMonitoring()
                 }
@@ -433,6 +439,24 @@ struct NotchView: View {
                 if viewModel.openReason == .notification {
                     viewModel.exitChat()
                 }
+            }
+            .onChange(of: settings.notificationPresentationMode) { _, mode in
+                if mode == .active {
+                    compactBroadcasts.clear()
+                }
+            }
+            .onReceive(hintStore.hintPosted) { hint in
+                guard settings.notificationPresentationMode == .quiet,
+                      viewModel.status == .closed,
+                      let feature = leftFeatureStore.features.first(where: {
+                          guard case .customArea(let areaID) = $0.kind else { return false }
+                          return areaID == hint.areaID && $0.isEnabled
+                      }) else { return }
+                enqueueLeftFeatureBroadcast(
+                    featureID: feature.id,
+                    iconName: "bell.badge.fill",
+                    summary: hint.text
+                )
             }
             .onChange(of: settings.autoHideWhenIdle) { _, _ in
                 handleProcessingChange()
@@ -762,7 +786,8 @@ struct NotchView: View {
                 closedIconOnlyContent
                     .frame(width: closedInnerWidth, height: closedNotchSize.height)
             } else {
-                HStack(spacing: 0) {
+                ZStack {
+                    HStack(spacing: 0) {
                     // Spec: 紧凑态左半区根据 LeftFeatureStore.compactFeature 分发到对应功能视图
                     // （音乐 / 中转站 / 自定义 HTML）；无功能时显示最小占位。
                     // 展开态不渲染左半区，由 contentView 中的 LeftFeatureContainerView 接管。
@@ -785,6 +810,9 @@ struct NotchView: View {
                         closedRightMascotRegion
                             .frame(width: closedTrailingWidth, alignment: .trailing)
                     }
+                    }
+
+                    compactBroadcastOverlay
                 }
             }
         }
@@ -1001,6 +1029,53 @@ struct NotchView: View {
         .frame(width: closedCenterWidth, alignment: .center)
     }
 
+    @ViewBuilder
+    private var compactBroadcastOverlay: some View {
+        if settings.notificationPresentationMode == .quiet,
+           viewModel.status == .closed,
+           compactBroadcasts.activeLeftFeature != nil || compactBroadcasts.activeSession != nil {
+            HStack(spacing: 0) {
+                Group {
+                    if let broadcast = compactBroadcasts.activeLeftFeature {
+                        CompactBroadcastView(broadcast: broadcast, alignment: .leading) {
+                            openCompactBroadcast(broadcast)
+                        }
+                        .transition(compactBroadcastTransition(fromLeading: true))
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(width: closedInnerWidth / 2, height: settings.compactLeftHeight, alignment: .leading)
+
+                Group {
+                    if let broadcast = compactBroadcasts.activeSession {
+                        CompactBroadcastView(broadcast: broadcast, alignment: .trailing) {
+                            openCompactBroadcast(broadcast)
+                        }
+                        .transition(compactBroadcastTransition(fromLeading: false))
+                    } else {
+                        Color.clear
+                    }
+                }
+                .frame(
+                    width: max(0, closedInnerWidth / 2 - closedTrailingWidth),
+                    height: settings.compactLeftHeight,
+                    alignment: .trailing
+                )
+
+                Color.clear.frame(width: closedTrailingWidth)
+            }
+            .frame(width: closedInnerWidth, alignment: .leading)
+            .animation(.easeOut(duration: accessibilityReduceMotion ? 0.12 : 0.2), value: compactBroadcasts.activeLeftFeature?.id)
+            .animation(.easeOut(duration: accessibilityReduceMotion ? 0.12 : 0.2), value: compactBroadcasts.activeSession?.id)
+        }
+    }
+
+    private func compactBroadcastTransition(fromLeading: Bool) -> AnyTransition {
+        guard !accessibilityReduceMotion else { return .opacity }
+        return .opacity.combined(with: .move(edge: fromLeading ? .leading : .trailing))
+    }
+
     // MARK: - Opened Header Content
 
     @ViewBuilder
@@ -1032,6 +1107,14 @@ struct NotchView: View {
                 NotchPanelPinButton(
                     isPinned: currentPanelPinned,
                     action: toggleKeepIslandOpen
+                )
+
+                NotchNotificationPresentationModeButton(
+                    mode: settings.notificationPresentationMode,
+                    action: {
+                        settings.notificationPresentationMode =
+                            settings.notificationPresentationMode == .active ? .quiet : .active
+                    }
                 )
 
                 NotchSoundToggleButton(
@@ -1145,6 +1228,19 @@ struct NotchView: View {
             $0.id == event.targetFeatureID && $0.isEnabled
         }
         if AppSettings.areReminderNotificationsSuppressed || !featureEnabled {
+            _ = center.consume(event.sequence)
+            return
+        }
+
+        if settings.notificationPresentationMode == .quiet,
+           viewModel.status == .closed {
+            enqueueLeftFeatureBroadcast(
+                featureID: event.targetFeatureID,
+                iconName: productivityIconName(for: event.kind),
+                summary: event.count > 1 ? "\(event.summary) ×\(event.count)" : event.summary
+            )
+            productivityNotificationRetryWorkItem?.cancel()
+            productivityNotificationRetryWorkItem = nil
             _ = center.consume(event.sequence)
             return
         }
@@ -1298,6 +1394,17 @@ struct NotchView: View {
             return
         }
 
+        if settings.notificationPresentationMode == .quiet,
+           !shouldSuppressAutoOpen,
+           !newPendingIds.isEmpty {
+            sessions
+                .filter { newPendingIds.contains($0.stableId) }
+                .sorted { $0.lastActivity < $1.lastActivity }
+                .forEach { enqueueSessionBroadcast(for: $0, fallback: "需要处理") }
+            previousPendingIds = currentIds
+            return
+        }
+
         if !newPendingIds.isEmpty &&
            viewModel.status == .closed &&
            !shouldSuppressAutoOpen {
@@ -1389,6 +1496,12 @@ struct NotchView: View {
             return
         }
 
+        if settings.notificationPresentationMode == .quiet,
+           viewModel.status == .closed {
+            enqueueSessionBroadcast(for: targetSession, fallback: "需要你的操作")
+            return
+        }
+
         if targetSession.needsPromptNotification {
             viewModel.presentNotificationAttention()
             return
@@ -1417,7 +1530,8 @@ struct NotchView: View {
             // Spec: 任务完成后自动展开任务列表（会话列表），保持 flow Island始终显示。
             // 完成自动展开现为默认行为（旧 autoOpenCompletionPanel 设置已移除），无条件展开。
             // 不在用户正在交互（hover/inline input/settings popover）时强制切换，避免打断输入。
-            if !shouldPresentCompletionQuickReplyNotification {
+            if settings.notificationPresentationMode == .active,
+               !shouldPresentCompletionQuickReplyNotification {
                 presentSessionListOnCompletionIfNeeded()
             }
 
@@ -1496,7 +1610,8 @@ struct NotchView: View {
         guard !newlyCompletedSessions.isEmpty else { return }
 
         // 任务从活跃→完成：展开任务列表，保持 flow Island始终显示
-        if !shouldPresentCompletionQuickReplyNotification {
+        if settings.notificationPresentationMode == .active,
+           !shouldPresentCompletionQuickReplyNotification {
             presentSessionListOnCompletionIfNeeded()
         }
     }
@@ -1536,7 +1651,8 @@ struct NotchView: View {
             return wasActive && isNowComplete
         }
 
-        if hasNewCompletion && !shouldPresentCompletionQuickReplyNotification {
+        if settings.notificationPresentationMode == .active,
+           hasNewCompletion && !shouldPresentCompletionQuickReplyNotification {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
             presentSessionListOnCompletionIfNeeded()
@@ -1663,6 +1779,17 @@ struct NotchView: View {
         guard activeCompletionNotification == nil else { return }
         guard !completionNotificationQueue.isEmpty else { return }
         guard !viewModel.shouldSuppressAutomaticPresentation else { return }
+        if settings.notificationPresentationMode == .quiet {
+            while !completionNotificationQueue.isEmpty {
+                let notification = completionNotificationQueue.removeFirst()
+                enqueueSessionBroadcast(
+                    for: notification.session,
+                    fallback: notification.kind.statusLabelKey,
+                    iconName: notification.kind == .compacted ? "arrow.triangle.2.circlepath" : "checkmark.circle.fill"
+                )
+            }
+            return
+        }
         guard !hasPendingPermission && !hasHumanIntervention else { return }
 
         let nextNotification = completionNotificationQueue.removeFirst()
@@ -1862,6 +1989,73 @@ struct NotchView: View {
                     AppSettings.playSound(for: event)
                 }
             }
+        }
+    }
+
+    private func enqueueSessionBroadcast(
+        for session: SessionState,
+        fallback: String,
+        iconName: String = "bubble.left.and.exclamationmark.bubble.right.fill"
+    ) {
+        let summary = SessionCompletionPreviewBuilder.latestAssistantText(for: session)
+            ?? session.intervention?.summaryText
+            ?? session.compactHookMessage
+            ?? fallback
+        compactBroadcasts.enqueue(CompactBroadcast(
+            deduplicationKey: "session:\(session.stableId)",
+            side: .session,
+            target: .session(stableID: session.stableId),
+            iconName: iconName,
+            summary: summary
+        ))
+    }
+
+    private func enqueueLeftFeatureBroadcast(featureID: String, iconName: String, summary: String) {
+        compactBroadcasts.enqueue(CompactBroadcast(
+            deduplicationKey: "feature:\(featureID)",
+            side: .leftFeature,
+            target: .leftFeature(id: featureID),
+            iconName: iconName,
+            summary: summary
+        ))
+    }
+
+    private func productivityIconName(for kind: ProductivityProactiveEventKind) -> String {
+        switch kind {
+        case .downloadStarted: "arrow.down.circle"
+        case .downloadCompleted: "checkmark.circle.fill"
+        case .browserResourceSaved: "bookmark.fill"
+        case .mailReceived: "envelope.badge.fill"
+        case .calendarReminderDue: "calendar.badge.clock"
+        }
+    }
+
+    private func openCompactBroadcast(_ broadcast: CompactBroadcast) {
+        switch broadcast.target {
+        case .session(let stableID):
+            guard let session = sessionMonitor.instances.first(where: { $0.stableId == stableID }) else {
+                compactBroadcasts.consume(.session)
+                return
+            }
+            compactBroadcasts.consume(.session)
+            viewModel.presentChat(for: session, reason: .hover)
+        case .leftFeature(let id):
+            guard leftFeatureStore.features.contains(where: { $0.id == id && $0.isEnabled }) else {
+                compactBroadcasts.consume(.leftFeature)
+                return
+            }
+            compactBroadcasts.consume(.leftFeature)
+            leftFeatureStore.setExpandedActiveFeature(id: id)
+            _ = viewModel.presentCustomExpanded(reason: .hover)
+        }
+    }
+
+    private func isValidCompactBroadcastTarget(_ target: CompactBroadcastTarget) -> Bool {
+        switch target {
+        case .session(let stableID):
+            sessionMonitor.instances.contains { $0.stableId == stableID }
+        case .leftFeature(let id):
+            leftFeatureStore.features.contains { $0.id == id && $0.isEnabled }
         }
     }
 
@@ -2169,6 +2363,95 @@ private struct NotchSoundToggleButton: View {
             return isHovering ? Color.white.opacity(0.95) : Color.white.opacity(0.1)
         }
         return Color.white.opacity(isHovering ? 0.12 : 0.06)
+    }
+}
+
+private struct NotchNotificationPresentationModeButton: View {
+    let mode: NotificationPresentationMode
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: mode == .active ? "bell.fill" : "bell.slash.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isHovering ? Color.black : Color.white.opacity(mode == .active ? 0.92 : 0.64))
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isHovering ? Color.white.opacity(0.95) : Color.white.opacity(mode == .active ? 0.1 : 0.06))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(mode == .active ? "切换到静默模式" : "切换到活跃模式")
+        .accessibilityLabel(mode == .active ? "切换到静默模式" : "切换到活跃模式")
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.12)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
+private struct CompactBroadcastView: View {
+    let broadcast: CompactBroadcast
+    let alignment: HorizontalEdge
+    let onHoverOpen: () -> Void
+
+    @State private var didOpen = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if alignment == .trailing {
+                Spacer(minLength: 0)
+            }
+
+            if alignment == .trailing {
+                message
+                icon
+            } else {
+                icon
+                message
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.black.opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.22), lineWidth: 0.75)
+                )
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            guard hovering, !didOpen else { return }
+            didOpen = true
+            onHoverOpen()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(broadcast.summary)
+        .accessibilityHint("悬浮以打开详情")
+    }
+
+    private var icon: some View {
+        Image(systemName: broadcast.iconName)
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(Color.accentColor)
+            .fixedSize()
+    }
+
+    private var message: some View {
+        Text(broadcast.summary)
+            .font(.system(size: 10, weight: .medium, design: .rounded))
+            .foregroundStyle(Color.white.opacity(0.94))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
     }
 }
 

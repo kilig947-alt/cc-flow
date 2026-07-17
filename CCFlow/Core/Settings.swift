@@ -331,6 +331,11 @@ enum SubagentVisibilityMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum NotificationPresentationMode: String, CaseIterable, Codable, Sendable {
+    case active
+    case quiet
+}
+
 @MainActor
 final class AppSettingsStore: ObservableObject {
     static let shared = AppSettingsStore()
@@ -352,6 +357,7 @@ final class AppSettingsStore: ObservableObject {
         static let appLanguage = "appLanguage"
         static let notificationSound = "notificationSound"
         static let soundEnabled = "soundEnabled"
+        static let notificationPresentationMode = "notificationPresentationMode"
         static let soundVolume = "soundVolume"
         static let temporarilyMuteNotificationsUntil = "temporarilyMuteNotificationsUntil"
         static let processingStartSound = "processingStartSound"
@@ -447,6 +453,13 @@ final class AppSettingsStore: ObservableObject {
         didSet {
             guard !isBootstrapping else { return }
             defaults.set(soundEnabled, forKey: Keys.soundEnabled)
+        }
+    }
+
+    @Published var notificationPresentationMode: NotificationPresentationMode {
+        didSet {
+            guard !isBootstrapping else { return }
+            defaults.set(notificationPresentationMode.rawValue, forKey: Keys.notificationPresentationMode)
         }
     }
 
@@ -1454,6 +1467,9 @@ final class AppSettingsStore: ObservableObject {
             exists: persistedKeys.contains(Keys.soundEnabled),
             default: true
         ))
+        _notificationPresentationMode = Published(initialValue: NotificationPresentationMode(
+            rawValue: defaults.string(forKey: Keys.notificationPresentationMode) ?? ""
+        ) ?? .active)
         _soundVolume = Published(initialValue: Self.doubleValue(
             from: defaults,
             key: Keys.soundVolume,
@@ -1786,6 +1802,11 @@ enum AppSettings {
     static var soundEnabled: Bool {
         get { shared.soundEnabled }
         set { shared.soundEnabled = newValue }
+    }
+
+    static var notificationPresentationMode: NotificationPresentationMode {
+        get { shared.notificationPresentationMode }
+        set { shared.notificationPresentationMode = newValue }
     }
 
     static var soundVolume: Double {
