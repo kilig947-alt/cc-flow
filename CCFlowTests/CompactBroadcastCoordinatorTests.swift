@@ -2,19 +2,18 @@ import XCTest
 @testable import CC_FLOW
 
 final class CompactBroadcastCoordinatorTests: XCTestCase {
-    func testSidesAdvanceIndependently() {
+    func testLatestSameSideBroadcastReplacesImmediatelyAndConsumeClears() {
         var state = CompactBroadcastQueueState()
         state.enqueue(makeBroadcast(key: "feature-a", side: .leftFeature))
         state.enqueue(makeBroadcast(key: "session-a", side: .session))
         state.enqueue(makeBroadcast(key: "feature-b", side: .leftFeature))
 
-        XCTAssertEqual(state.activeLeftFeature?.deduplicationKey, "feature-a")
+        XCTAssertEqual(state.activeLeftFeature?.deduplicationKey, "feature-b")
         XCTAssertEqual(state.activeSession?.deduplicationKey, "session-a")
-        XCTAssertEqual(state.queuedCount(for: .leftFeature), 1)
 
         state.consume(.leftFeature)
 
-        XCTAssertEqual(state.activeLeftFeature?.deduplicationKey, "feature-b")
+        XCTAssertNil(state.activeLeftFeature)
         XCTAssertEqual(state.activeSession?.deduplicationKey, "session-a")
     }
 
@@ -24,10 +23,9 @@ final class CompactBroadcastCoordinatorTests: XCTestCase {
         state.enqueue(makeBroadcast(key: "session-a", side: .session, summary: "new"))
 
         XCTAssertEqual(state.activeSession?.summary, "new")
-        XCTAssertEqual(state.queuedCount(for: .session), 0)
     }
 
-    func testClearDropsBothActiveItemsAndQueues() {
+    func testClearDropsBothActiveSlots() {
         var state = CompactBroadcastQueueState()
         state.enqueue(makeBroadcast(key: "feature-a", side: .leftFeature))
         state.enqueue(makeBroadcast(key: "feature-b", side: .leftFeature))
@@ -37,25 +35,34 @@ final class CompactBroadcastCoordinatorTests: XCTestCase {
 
         XCTAssertNil(state.activeLeftFeature)
         XCTAssertNil(state.activeSession)
-        XCTAssertEqual(state.queuedCount(for: .leftFeature), 0)
-        XCTAssertEqual(state.queuedCount(for: .session), 0)
     }
 
-    func testExpiredAndInvalidQueuedItemsAreSkippedWhenAdvancing() {
+    func testExpiredAndInvalidNewBroadcastsDoNotReplaceCurrentSlot() {
         let now = Date()
         var state = CompactBroadcastQueueState()
         let active = makeBroadcast(key: "active", side: .session, createdAt: now)
         let expired = makeBroadcast(key: "expired", side: .session, createdAt: now.addingTimeInterval(-10))
         let invalid = makeBroadcast(key: "invalid", side: .session, createdAt: now)
-        let valid = makeBroadcast(key: "valid", side: .session, createdAt: now)
 
         state.enqueue(active, now: now)
-        state.enqueue(expired, now: now.addingTimeInterval(-10))
-        state.enqueue(invalid, now: now)
-        state.enqueue(valid, now: now)
-        state.consume(.session, now: now) { $0 != invalid.target }
+        state.enqueue(expired, now: now)
+        state.enqueue(invalid, now: now) { $0 != invalid.target }
 
-        XCTAssertEqual(state.activeSession?.deduplicationKey, "valid")
+        XCTAssertEqual(state.activeSession?.deduplicationKey, "active")
+    }
+
+    @MainActor
+    func testReplacementGetsItsOwnDismissalLifetimeAndHasNoSuccessor() async throws {
+        let coordinator = CompactBroadcastCoordinator(displayDuration: 0.1)
+        coordinator.enqueue(makeBroadcast(key: "old", side: .session))
+        try await Task.sleep(for: .milliseconds(60))
+
+        coordinator.enqueue(makeBroadcast(key: "new", side: .session))
+        try await Task.sleep(for: .milliseconds(60))
+        XCTAssertEqual(coordinator.activeSession?.deduplicationKey, "new")
+
+        try await Task.sleep(for: .milliseconds(70))
+        XCTAssertNil(coordinator.activeSession)
     }
 
     private func makeBroadcast(
