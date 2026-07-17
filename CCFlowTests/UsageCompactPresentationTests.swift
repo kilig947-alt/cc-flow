@@ -2,125 +2,71 @@ import XCTest
 @testable import CC_FLOW
 
 final class UsageCompactPresentationTests: XCTestCase {
-    func testSelectsMostRecentActiveEligibleProvider() {
-        let now = Date()
-        let sessions = [
-            makeSession(id: "claude", provider: .claude, phase: .processing, activity: now.addingTimeInterval(-30)),
-            makeSession(id: "codex", provider: .codex, phase: .compacting, activity: now)
-        ]
-
-        XCTAssertEqual(UsageCompactProviderSelector.select(from: sessions), .codex)
-    }
-
-    func testActiveEligibleSessionWinsOverNewerIdleSession() {
-        let now = Date()
-        let sessions = [
-            makeSession(id: "claude", provider: .claude, phase: .processing, activity: now.addingTimeInterval(-30)),
-            makeSession(id: "codex", provider: .codex, phase: .idle, activity: now)
-        ]
-
-        XCTAssertEqual(UsageCompactProviderSelector.select(from: sessions), .claude)
-    }
-
-    func testFallsBackToMostRecentEligibleSessionWhenNoneAreActive() {
-        let now = Date()
-        let sessions = [
-            makeSession(id: "claude", provider: .claude, phase: .ended, activity: now.addingTimeInterval(-30)),
-            makeSession(id: "codex", provider: .codex, phase: .waitingForInput, activity: now)
-        ]
-
-        XCTAssertEqual(UsageCompactProviderSelector.select(from: sessions), .codex)
-    }
-
-    func testIgnoresTraeProvider() {
-        let sessions = [
-            makeSession(id: "trae", provider: .trae, phase: .processing, activity: Date())
-        ]
-
-        XCTAssertNil(UsageCompactProviderSelector.select(from: sessions))
-    }
-
-    func testSelectedProviderRemainingIgnoresOtherProvider() {
+    func testResolvesBothProvidersWithoutSessionSelection() {
         let snapshot = makeSnapshot(
-            claudeWindows: [makeWindow(id: "claude", used: 20)],
-            codexWindows: [makeWindow(id: "codex", used: 95)]
+            claudeWindows: [makeWindow(id: "claude", used: 28.4)],
+            codexWindows: [makeWindow(id: "codex", used: 56)]
         )
 
         XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: .claude),
-            .providerRemaining(.claude, 80)
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            [
+                UsageCompactBrandPresentation(provider: .claude, remainingPercentage: 72),
+                UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 44)
+            ]
         )
     }
 
-    func testSelectedProviderFallsBackToItsTodayTokens() {
-        let snapshot = makeSnapshot(claudeToday: 12_345, codexToday: 99_999)
-
-        XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: .claude),
-            .providerTodayTokens(.claude, 12_345)
-        )
-    }
-
-    func testSelectedProviderFallsBackToProviderOnlyWhenDataIsMissing() {
-        let snapshot = UsageSnapshot(providers: [], capturedAt: Date())
-
-        XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: .codex),
-            .providerOnly(.codex)
-        )
-    }
-
-    func testNoSelectedProviderRetainsAggregateFallback() {
+    func testResolvesOnlyProviderWithPercentageData() {
         let snapshot = makeSnapshot(
-            claudeWindows: [makeWindow(id: "claude", used: 20)],
-            codexWindows: [makeWindow(id: "codex", used: 95)]
+            claudeWindows: [],
+            codexWindows: [makeWindow(id: "codex", used: 56)]
         )
 
         XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: nil),
-            .aggregateRemaining(5)
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            [UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 44)]
         )
     }
 
-    func testNoSelectedProviderFallsBackToAggregateTodayTokens() {
-        let snapshot = makeSnapshot(claudeToday: 12_000, codexToday: 3_000)
-
+    func testHidesProvidersWithoutUsageWindows() {
         XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: snapshot, selectedProvider: nil),
-            .aggregateTodayTokens(15_000)
+            UsageCompactBrandPresentationResolver.resolve(snapshot: makeSnapshot()),
+            []
+        )
+        XCTAssertEqual(
+            UsageCompactBrandPresentationResolver.resolve(snapshot: nil),
+            []
         )
     }
 
-    func testNoSelectedProviderFallsBackToGenericWithoutUsageData() {
+    func testUsesLowestRemainingWindowForEachProvider() {
+        let snapshot = makeSnapshot(
+            claudeWindows: [
+                makeWindow(id: "five-hour", used: 10),
+                makeWindow(id: "weekly", used: 55.6)
+            ]
+        )
+
         XCTAssertEqual(
-            UsageCompactMetricResolver.resolve(snapshot: nil, selectedProvider: nil),
-            .generic
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            [UsageCompactBrandPresentation(provider: .claude, remainingPercentage: 44)]
         )
     }
 
-    func testBrandPresentationShowsSelectedProviderRemainingPercentage() {
-        XCTAssertEqual(
-            UsageCompactBrandPresentationResolver.resolve(metric: .providerRemaining(.claude, 51.6)),
-            UsageCompactBrandPresentation(provider: .claude, remainingPercentage: 52)
+    func testClampsPercentagesBeforeDisplay() {
+        let snapshot = makeSnapshot(
+            claudeWindows: [makeWindow(id: "claude", used: -20)],
+            codexWindows: [makeWindow(id: "codex", used: 150)]
         )
+
         XCTAssertEqual(
-            UsageCompactBrandPresentationResolver.resolve(metric: .providerRemaining(.codex, 48.2)),
-            UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 48)
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            [
+                UsageCompactBrandPresentation(provider: .claude, remainingPercentage: 100),
+                UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 0)
+            ]
         )
-    }
-
-    func testBrandPresentationHidesEveryNonPercentageState() {
-        let hiddenMetrics: [UsageCompactMetric] = [
-            .providerTodayTokens(.claude, 12_345),
-            .providerOnly(.codex),
-            .aggregateRemaining(48),
-            .aggregateTodayTokens(12_345),
-            .generic
-        ]
-
-        for metric in hiddenMetrics {
-            XCTAssertNil(UsageCompactBrandPresentationResolver.resolve(metric: metric))
-        }
     }
 
     func testUsageProvidersUseBundledBrandAssets() {
@@ -128,31 +74,14 @@ final class UsageCompactPresentationTests: XCTestCase {
         XCTAssertEqual(UsageProviderID.codex.logoAssetName, "OpenAILogo")
     }
 
-    private func makeSession(
-        id: String,
-        provider: SessionProvider,
-        phase: SessionPhase,
-        activity: Date
-    ) -> SessionState {
-        SessionState(
-            sessionId: id,
-            cwd: "/tmp/\(id)",
-            provider: provider,
-            phase: phase,
-            lastActivity: activity
-        )
-    }
-
     private func makeSnapshot(
         claudeWindows: [UsageWindow] = [],
-        codexWindows: [UsageWindow] = [],
-        claudeToday: Int = 0,
-        codexToday: Int = 0
+        codexWindows: [UsageWindow] = []
     ) -> UsageSnapshot {
         UsageSnapshot(
             providers: [
-                makeProvider(.claude, windows: claudeWindows, today: claudeToday),
-                makeProvider(.codex, windows: codexWindows, today: codexToday)
+                makeProvider(.claude, windows: claudeWindows),
+                makeProvider(.codex, windows: codexWindows)
             ],
             capturedAt: Date()
         )
@@ -160,18 +89,13 @@ final class UsageCompactPresentationTests: XCTestCase {
 
     private func makeProvider(
         _ provider: UsageProviderID,
-        windows: [UsageWindow],
-        today: Int
+        windows: [UsageWindow]
     ) -> ProviderUsageSnapshot {
         ProviderUsageSnapshot(
             provider: provider,
             accountState: .available,
             windows: windows,
-            tokenSummary: TokenUsageSummary(
-                today: TokenUsageTotal(input: today),
-                sevenDays: TokenUsageTotal(),
-                currentSession: nil
-            ),
+            tokenSummary: nil,
             capturedAt: Date(),
             errorMessage: nil
         )

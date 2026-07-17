@@ -121,10 +121,6 @@ struct NotchView: View {
         sessionMonitor.instances.filter(\.phase.isActive)
     }
 
-    private var compactUsageProvider: UsageProviderID? {
-        UsageCompactProviderSelector.select(from: sessionMonitor.instances)
-    }
-
     private var countedClosedSessions: [SessionState] {
         sessionMonitor.instances.filter { session in
             session.phase.isActive || session.phase.needsAttention
@@ -915,7 +911,7 @@ struct NotchView: View {
     private func compactFeatureView(for feature: LeftFeature) -> some View {
         switch feature.kind {
         case .usage:
-            UsageCompactView(selectedProvider: compactUsageProvider)
+            UsageCompactView()
         case .systemMonitor:
             SystemMonitorFeatureView(compact: true)
         case .calendar:

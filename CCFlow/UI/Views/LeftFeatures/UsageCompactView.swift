@@ -2,11 +2,6 @@ import SwiftUI
 
 struct UsageCompactView: View {
     @ObservedObject private var service = UsageService.shared
-    let selectedProvider: UsageProviderID?
-
-    init(selectedProvider: UsageProviderID? = nil) {
-        self.selectedProvider = selectedProvider
-    }
 
     var body: some View {
         ZStack {
@@ -14,43 +9,40 @@ struct UsageCompactView: View {
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
 
-            if let presentation = compactPresentation {
-                HStack(spacing: 5) {
-                    Image(presentation.provider.logoAssetName)
-                        .resizable()
-                        .renderingMode(.original)
-                        .interpolation(.high)
-                        .scaledToFit()
-                        .frame(width: 14, height: 14)
-                        .accessibilityHidden(true)
+            if !compactPresentations.isEmpty {
+                HStack(spacing: 12) {
+                    ForEach(compactPresentations, id: \.provider.rawValue) { presentation in
+                        HStack(spacing: 5) {
+                            Image(presentation.provider.logoAssetName)
+                                .resizable()
+                                .renderingMode(.original)
+                                .interpolation(.high)
+                                .scaledToFit()
+                                .frame(width: 14, height: 14)
+                                .accessibilityHidden(true)
 
-                    Text(verbatim: "\(presentation.remainingPercentage)%")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .foregroundColor(.white.opacity(0.86))
+                            Text(verbatim: "\(presentation.remainingPercentage)%")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .foregroundColor(.white.opacity(0.86))
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text(accessibilityText(for: presentation)))
+                    }
 
                     if service.isRefreshing {
                         ProgressView()
                             .controlSize(.mini)
                     }
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(accessibilityText(for: presentation)))
             }
         }
         .onAppear { service.start() }
     }
 
-    private var compactMetric: UsageCompactMetric {
-        UsageCompactMetricResolver.resolve(
-            snapshot: service.snapshot,
-            selectedProvider: selectedProvider
-        )
-    }
-
-    private var compactPresentation: UsageCompactBrandPresentation? {
-        UsageCompactBrandPresentationResolver.resolve(metric: compactMetric)
+    private var compactPresentations: [UsageCompactBrandPresentation] {
+        UsageCompactBrandPresentationResolver.resolve(snapshot: service.snapshot)
     }
 
     private func accessibilityText(for presentation: UsageCompactBrandPresentation) -> String {
