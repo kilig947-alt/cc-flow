@@ -32,6 +32,12 @@ enum IslandExpandedRouteResolver {
     ) -> IslandExpandedRoute {
         switch trigger {
         case .notification:
+            if case .chat(let requestedSession) = contentType,
+               let targetedAttention = sessions.first(where: {
+                   $0.stableId == requestedSession.stableId && $0.needsPromptNotification
+               }) {
+                return .attentionNotification(targetedAttention)
+            }
             if let session = highestPriorityAttentionSession(from: sessions) {
                 return .attentionNotification(session)
             }

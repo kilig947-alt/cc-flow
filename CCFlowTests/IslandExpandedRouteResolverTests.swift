@@ -150,6 +150,28 @@ final class IslandExpandedRouteResolverTests: XCTestCase {
         XCTAssertEqual(route, .attentionNotification(attention))
     }
 
+    func testNotificationTargetsRequestedAttentionSessionBeforeHigherPriorityCandidate() {
+        let first = makeSession(
+            id: "first",
+            phase: .waitingForInput,
+            intervention: makeIntervention(id: "question-1", kind: .question, message: "First")
+        )
+        let target = makeSession(
+            id: "target",
+            phase: .waitingForInput,
+            intervention: makeIntervention(id: "question-2", kind: .question, message: "Target")
+        )
+
+        let route = IslandExpandedRouteResolver.resolve(
+            surface: .docked,
+            trigger: .notification,
+            contentType: .chat(target),
+            sessions: [first, target]
+        )
+
+        XCTAssertEqual(route, .attentionNotification(target))
+    }
+
     func testFloatingNotificationWithApprovalResolvesToAttentionNotification() {
         let attention = makeSession(
             id: "approval",

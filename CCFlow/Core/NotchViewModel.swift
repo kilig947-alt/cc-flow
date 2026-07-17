@@ -1131,6 +1131,13 @@ class NotchViewModel: ObservableObject {
         notchOpen(reason: .notification)
     }
 
+    /// Presents the attention card for a specific session instead of allowing
+    /// the route resolver to repeatedly choose the global highest-priority item.
+    func presentNotificationAttention(for session: SessionState) {
+        notchOpen(reason: .notification)
+        showChat(for: session)
+    }
+
     /// Go back to instances list and clear saved chat state
     func exitChat() {
         currentChatSession = nil
