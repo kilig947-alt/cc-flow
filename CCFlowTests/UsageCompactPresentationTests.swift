@@ -69,6 +69,34 @@ final class UsageCompactPresentationTests: XCTestCase {
         )
     }
 
+    func testHidesProviderWhenEveryPercentageIsNonFinite() {
+        let snapshot = makeSnapshot(
+            codexWindows: [
+                makeWindow(id: "nan", used: .nan),
+                makeWindow(id: "infinity", used: .infinity)
+            ]
+        )
+
+        XCTAssertEqual(
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            []
+        )
+    }
+
+    func testIgnoresNonFiniteWindowsWhenValidPercentageExists() {
+        let snapshot = makeSnapshot(
+            codexWindows: [
+                makeWindow(id: "nan", used: .nan),
+                makeWindow(id: "valid", used: 62)
+            ]
+        )
+
+        XCTAssertEqual(
+            UsageCompactBrandPresentationResolver.resolve(snapshot: snapshot),
+            [UsageCompactBrandPresentation(provider: .codex, remainingPercentage: 38)]
+        )
+    }
+
     func testUsageProvidersUseBundledBrandAssets() {
         XCTAssertEqual(UsageProviderID.claude.logoAssetName, "ClaudeCodeLogo")
         XCTAssertEqual(UsageProviderID.codex.logoAssetName, "OpenAILogo")
