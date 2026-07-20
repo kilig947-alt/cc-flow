@@ -99,7 +99,11 @@ private struct FeatureSwitcherButton: View {
 
     var body: some View {
         Button {
-            store.setExpandedActiveFeature(id: feature.id)
+            if showAllUnselected {
+                store.setExpandedActiveFeature(id: feature.id)
+            } else {
+                store.selectOrReenterExpandedFeature(id: feature.id)
+            }
             onSelect?(feature.id)
         } label: {
             FeatureIconView(feature: feature, size: 14, color: foregroundColor)
