@@ -3068,16 +3068,16 @@ private struct SettingsPanelContentView: View {
 
     // MARK: - Left Content: Flow Island Display
 
-    /// Flow岛显示卡片：
-    /// - Picker 选择 Flow岛 紧凑态展示的功能（「自动」或任一已启用功能）
+    /// Flow Island显示卡片：
+    /// - Picker 选择 Flow Island 紧凑态展示的功能（「自动」或任一已启用功能）
     /// - 选择非「自动」功能时显示「显示提示」开关（控制自定义 HTML JS Bridge 提示是否在紧凑态显示）
     private var flowIslandDisplayCard: some View {
-        SettingsSectionCard(title: "Flow岛显示") {
+        SettingsSectionCard(title: "Flow Island显示") {
             SettingsInfoLine(
-                title: "Flow岛显示功能",
-                subtitle: "选择Flow岛紧凑态展示的功能；选择「自动」时按规则解析"
+                title: "Flow Island显示功能",
+                subtitle: "选择Flow Island紧凑态展示的功能；选择「自动」时按规则解析"
             ) {
-                Picker("Flow岛显示功能", selection: Binding(
+                Picker("Flow Island显示功能", selection: Binding(
                     get: { leftFeatureStore.compactFeatureID ?? "" },
                     set: { leftFeatureStore.setCompactFeature(id: $0.isEmpty ? nil : $0) }
                 )) {
@@ -3096,7 +3096,7 @@ private struct SettingsPanelContentView: View {
             if leftFeatureStore.compactFeatureID != nil {
                 SettingsInfoLine(
                     title: "显示提示",
-                    subtitle: "开启后，自定义HTML通过JS Bridge推送的提醒会显示在Flow岛紧凑态"
+                    subtitle: "开启后，自定义HTML通过JS Bridge推送的提醒会显示在Flow Island紧凑态"
                 ) {
                     Toggle("", isOn: $settings.showCompactHintEnabled)
                         .labelsHidden()
@@ -3109,7 +3109,7 @@ private struct SettingsPanelContentView: View {
             // Spec: 远程 URL 功能收起后保活开关
             SettingsInfoLine(
                 title: "收起后保持运行",
-                subtitle: "开启后，URL功能在Flow岛收起时继续运行（音频/JS/网络不中断）"
+                subtitle: "开启后，URL功能在Flow Island收起时继续运行（音频/JS/网络不中断）"
             ) {
                 Toggle("", isOn: $settings.keepWebURLAliveWhenCollapsed)
                     .labelsHidden()

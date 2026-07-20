@@ -50,14 +50,19 @@ struct GitHubFeatureView: View {
                         GeometryReader { proxy in
                             let days = visibleContributionDays(for: proxy.size.width)
                             let weeks = max(1, Int(ceil(Double(days.count) / 7.0)))
-                            let spacing: CGFloat = 3
-                            let cell = max(4, min(11, (proxy.size.width - CGFloat(weeks - 1) * spacing) / CGFloat(weeks)))
-                            LazyHGrid(rows: Array(repeating: GridItem(.fixed(cell), spacing: spacing), count: 7), spacing: spacing) {
+                            let rowSpacing: CGFloat = 3
+                            let cell = weeks == 1
+                                ? max(0, min(11, proxy.size.width))
+                                : max(4, min(11, (proxy.size.width - CGFloat(weeks - 1) * rowSpacing) / CGFloat(weeks)))
+                            let columnSpacing = weeks > 1
+                                ? max(rowSpacing, (proxy.size.width - CGFloat(weeks) * cell) / CGFloat(weeks - 1))
+                                : rowSpacing
+                            LazyHGrid(rows: Array(repeating: GridItem(.fixed(cell), spacing: rowSpacing), count: 7), spacing: columnSpacing) {
                                 ForEach(days) { day in
                                     RoundedRectangle(cornerRadius: max(1, cell * 0.2)).fill(contributionColor(day.count)).frame(width: cell, height: cell)
                                         .accessibilityLabel("\(day.date)，\(day.count) 次贡献")
                                 }
-                            }.frame(maxWidth: .infinity, alignment: .trailing)
+                            }.frame(maxWidth: .infinity, alignment: .leading)
                         }.frame(height: 95)
                     }.padding(10).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
                 }
@@ -86,7 +91,11 @@ struct GitHubFeatureView: View {
     }
 
     private func visibleContributionDays(for width: CGFloat) -> [GitHubContributionDay] {
-        let weeks = max(1, min(53, Int((width + 3) / 7)))
+        let spacing: CGFloat = 3
+        let minimumCell: CGFloat = 7
+        let availableWeeks = max(1, Int(ceil(Double(service.contributions.count) / 7.0)))
+        let fittingWeeks = max(1, Int((width + spacing) / (minimumCell + spacing)))
+        let weeks = min(53, min(availableWeeks, fittingWeeks))
         return Array(service.contributions.suffix(weeks * 7))
     }
 

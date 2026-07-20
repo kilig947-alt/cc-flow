@@ -87,10 +87,6 @@ struct NotchView: View {
     @State private var hasHandledSlideIn = false
     /// Spec: 左侧展开面板拖拽调整尺寸时记录的起始尺寸，拖拽结束后复位为 nil
     @State private var leftExpandedResizeStartSize: CGSize?
-    /// Spec: 当前是否悬停在某个调整尺寸手柄上（用于手柄高亮）
-    @State private var resizeHandleHovered: Bool = false
-    /// Spec: 鼠标是否在展开面板的左右下角边缘热区（用于仅此时显示 resize handle）
-    @State private var isMouseInResizeEdgeZone: Bool = false
 
     @Namespace private var activityNamespace
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -279,15 +275,13 @@ struct NotchView: View {
         }
     }
 
-    /// Spec: 仅在 docked 展开态 + customExpanded（左侧功能面板）且有激活功能，
-    /// 且鼠标在面板左右下角边缘热区时才显示拖拽手柄。
-    /// 鼠标在 handle 上、拖拽进行中也保持显示。
+    /// Spec: docked 展开态 + customExpanded（左侧功能面板）有激活功能时，
+    /// 始终显示低对比度拖拽手柄。避免用全面板连续 hover 追踪鼠标位置。
     private var shouldShowLeftExpandedResizeHandles: Bool {
         viewModel.status == .opened
             && viewModel.contentType == .customExpanded
             && viewModel.presentationMode == .docked
             && leftFeatureStore.expandedActiveFeature != nil
-            && (isMouseInResizeEdgeZone || resizeHandleHovered || viewModel.isLeftExpandedResizeDragActive)
     }
 
     /// Spec: 左侧展开面板拖拽手柄的实时回调 —— 根据拖拽位移计算新的尺寸并写入 openedSizeOverride。
@@ -673,45 +667,12 @@ struct NotchView: View {
                 withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
                     isHovering = hovering
                 }
-                // Spec: 鼠标离开整个面板时清除边缘热区标志
-                if !hovering {
-                    isMouseInResizeEdgeZone = false
-                    resizeHandleHovered = false
-                }
-            }
-            // Spec: 通过 onContinuousHover 追踪面板内鼠标位置，进入底部边缘热区时显示 resize handle。
-            // 用 continuous hover + 坐标判断替代独立 overlay 的 onHover，避免 handle 显隐与
-            // overlay hover 互相触发导致闪烁。
-            .onContinuousHover { phase in
-                guard viewModel.contentType == .customExpanded,
-                      viewModel.presentationMode == .docked,
-                      viewModel.status == .opened else {
-                    if isMouseInResizeEdgeZone { isMouseInResizeEdgeZone = false }
-                    return
-                }
-                switch phase {
-                case .active(let location):
-                    // location 是相对此视图的本地坐标；底部 28pt 且左右各 70pt 内算边缘热区
-                    let panelHeight = notchSize.height
-                    let panelWidth = notchSize.width
-                    let inBottomEdge = location.y >= panelHeight - 28
-                    let inLeftEdge = location.x <= 70
-                    let inRightEdge = location.x >= panelWidth - 70
-                    let inEdgeZone = inBottomEdge && (inLeftEdge || inRightEdge)
-                    if inEdgeZone != isMouseInResizeEdgeZone {
-                        isMouseInResizeEdgeZone = inEdgeZone
-                    }
-                case .ended:
-                    if isMouseInResizeEdgeZone { isMouseInResizeEdgeZone = false }
-                }
             }
             // Spec: 左侧展开面板左右下角可拖拽调整尺寸的手柄（仅 customExpanded + docked 展开态 + 边缘热区）
             .overlay(alignment: .bottomLeading) {
                 if shouldShowLeftExpandedResizeHandles {
                     LeftExpandedResizeHandle(
                         corner: .bottomLeft,
-                        isHovering: resizeHandleHovered,
-                        onHoverChange: { resizeHandleHovered = $0 },
                         onDrag: { handleLeftExpandedResizeDrag(translation: $0, isLeftCorner: true) },
                         onEnd: handleLeftExpandedResizeEnd
                     )
@@ -723,8 +684,6 @@ struct NotchView: View {
                 if shouldShowLeftExpandedResizeHandles {
                     LeftExpandedResizeHandle(
                         corner: .bottomRight,
-                        isHovering: resizeHandleHovered,
-                        onHoverChange: { resizeHandleHovered = $0 },
                         onDrag: { handleLeftExpandedResizeDrag(translation: $0, isLeftCorner: false) },
                         onEnd: handleLeftExpandedResizeEnd
                     )
@@ -897,6 +856,7 @@ struct NotchView: View {
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .monospacedDigit()
+                    .fixedSize(horizontal: true, vertical: false)
                     .accessibilityLabel("活跃会话 \(activeCount)")
             }
         }
@@ -1005,7 +965,14 @@ struct NotchView: View {
     }
 
     private var closedTrailingWidth: CGFloat {
-        sideWidth
+        let activeCount = countedClosedSessions.count
+        guard activeCount > 0 else { return sideWidth }
+
+        let digitWidth: CGFloat = 7
+        let countWidth = CGFloat(String(activeCount).count) * digitWidth
+        let countSpacing: CGFloat = 3
+        let trailingPadding: CGFloat = 4
+        return max(sideWidth, petIconSize + countSpacing + countWidth + trailingPadding)
     }
 
     private var closedCenterWidth: CGFloat {
@@ -2589,10 +2556,10 @@ private struct LeftExpandedResizeHandle: View {
     }
 
     let corner: Corner
-    let isHovering: Bool
-    let onHoverChange: (Bool) -> Void
     let onDrag: (CGSize) -> Void
     let onEnd: () -> Void
+
+    @State private var isHovering = false
 
     private var isLeftCorner: Bool { corner == .bottomLeft }
 
@@ -2649,7 +2616,7 @@ private struct LeftExpandedResizeHandle: View {
         .frame(width: 18, height: 18)
         .contentShape(Rectangle())
         .onHover { hovering in
-            onHoverChange(hovering)
+            isHovering = hovering
             if hovering {
                 // Spec: 自定义斜向光标，与图标方向一致
                 LeftExpandedResizeHandle.diagonalResizeCursor(isLeftCorner: isLeftCorner).push()

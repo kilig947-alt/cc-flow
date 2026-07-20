@@ -1,22 +1,23 @@
-# Hide Closed Session Count
+# Keep Closed Session Count Visible
 
 ## Goal
 
-Remove the active/attention session count displayed immediately to the right of the mascot in the closed Flow Island.
+Keep the active/attention session count displayed immediately to the right of the mascot and ensure it is not clipped.
 
 ## Scope
 
-- Remove the numeric `Text` from `closedRightMascotRegion`.
-- Remove spacing that existed only to separate the mascot from that number.
+- Preserve the numeric `Text` in `closedRightMascotRegion`.
+- Grow the trailing region based on the number of digits in the count.
+- Prevent SwiftUI from compressing the count text horizontally.
 - Preserve session counting for all non-visual behavior.
 - Preserve the manual-attention bell overlay.
 - Do not change mascot rendering, animation, sizing, or session lifecycle behavior.
 
 ## Implementation
 
-Keep `closedRightMascotRegion` as the existing mascot-and-bell container, but eliminate the surrounding count-oriented `HStack` and its local `activeCount`. Retain the existing trailing padding so the mascot remains inset from the Flow Island edge.
+Keep `closedRightMascotRegion` unchanged visually. Calculate `closedTrailingWidth` from the mascot width, spacing, digit count, and trailing padding whenever the count is nonzero, while retaining the existing fallback width when there is no count.
 
 ## Verification
 
 - Build the app target to catch SwiftUI compilation errors.
-- Confirm by code inspection that no numeric session count remains in `closedRightMascotRegion` and that `BellIndicatorIcon` remains intact.
+- Confirm by code inspection that the numeric session count and `BellIndicatorIcon` remain intact.
