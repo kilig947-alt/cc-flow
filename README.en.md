@@ -76,6 +76,12 @@ TRAE and TRAE CN expose official hooks. Current TRAE WORK clients do not, so the
 
 ![CC FLOW compact view](docs/images/trae-flow-top-demo.gif)
 
+<p align="center">
+  <img src="docs/images/flow-island-compact-usage.png" alt="CC FLOW compact view showing Codex quota and pending task count" width="498">
+</p>
+
+Compact mode can show the remaining Codex quota on the left while keeping the pending task count visible on the right.
+
 - **Left:** the selected compact feature. Music can take priority while media is playing.
 - **Right:** the CC FLOW mascot and total attention count across clients.
 
@@ -131,6 +137,22 @@ Pets can stay on the Flow Island or detach to the desktop, where the mouse wheel
 ## Productivity features
 
 Every productivity feature can be enabled, disabled, selected, and ordered independently in Settings.
+
+### Productivity Feature Preview
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>Account Usage</strong><br><img src="docs/images/productivity-account-usage.png" alt="Claude Code and Codex account usage dashboard" width="100%"></td>
+    <td width="50%" align="center"><strong>System Monitor</strong><br><img src="docs/images/productivity-system-monitor.png" alt="CPU, memory, disk, network, and app usage monitor" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><strong>Calendar and Reminders</strong><br><img src="docs/images/productivity-calendar.png" alt="Two-column calendar, events, and reminders dashboard" width="100%"></td>
+    <td width="50%" align="center"><strong>GitHub</strong><br><img src="docs/images/productivity-github.png" alt="GitHub profile, contribution heatmap, and repository list" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>File Watch</strong><br><img src="docs/images/productivity-file-watch.png" alt="File Watch authorized folders, file cards, and search dashboard" width="100%"></td>
+  </tr>
+</table>
 
 ### File Watch
 
