@@ -155,14 +155,48 @@ struct MusicExpandedView: View {
         }
     }
 
+    @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "music.note")
-                .font(.system(size: 32))
-                .foregroundColor(.secondary)
+        let application = provider.preferredPlayerApplication
+
+        VStack(spacing: 12) {
+            Group {
+                if let icon = provider.preferredPlayerIcon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    Image(systemName: "music.note")
+                        .resizable()
+                        .scaledToFit()
+                        .padding(10)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(width: 52, height: 52)
+            .accessibilityHidden(true)
+
             Text("未在播放")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.secondary)
+
+            Button(action: provider.openPreferredPlayer) {
+                Label(
+                    application.map { AppLocalization.format("打开 %@", $0.displayName) }
+                        ?? AppLocalization.string("未找到音乐应用"),
+                    systemImage: "arrow.up.forward.app.fill"
+                )
+                .font(.system(size: 12, weight: .semibold))
+                .frame(minWidth: 128, minHeight: 28)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(application == nil)
+            .accessibilityHint(AppLocalization.string("启动最近使用的音乐播放器"))
+            .help(
+                application.map { AppLocalization.format("启动 %@", $0.displayName) }
+                    ?? AppLocalization.string("未找到可启动的音乐应用")
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))

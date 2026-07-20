@@ -320,6 +320,11 @@
 "提交所有回答" = "Submit all answers";
 "打开 %@" = "Open %@";
 "打开 %@ 回答" = "Open %@ to answer";
+"未在播放" = "Not Playing";
+"未找到音乐应用" = "No Music App Found";
+"未找到可启动的音乐应用" = "No music app is available to open";
+"启动 %@" = "Launch %@";
+"启动最近使用的音乐播放器" = "Launch the most recently used music player";
 "已中断" = "Interrupted";
 
 "Loading messages..." = "Loading messages...";

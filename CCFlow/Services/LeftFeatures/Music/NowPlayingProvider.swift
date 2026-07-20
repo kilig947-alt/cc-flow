@@ -22,6 +22,8 @@ final class NowPlayingProvider: ObservableObject {
     private lazy var boringNotchSource = BoringNotchMediaRemoteAdapter()
     /// 备用数据源：AppleScript
     private lazy var appleScriptSource = AppleScriptPlayerSource()
+    /// 最近一次识别到的播放器，用于展开态空状态快速唤起。
+    private let playerApplicationStore = MusicPlayerApplicationStore()
 
     /// 轮询 Timer —— 每 2 秒从主数据源同步一次 Now Playing 信息
     private var pollTimer: AnyCancellable?
@@ -96,6 +98,8 @@ final class NowPlayingProvider: ObservableObject {
             return
         }
 
+        playerApplicationStore.record(source: info.source)
+
         // `NowPlayingInfo.==` 已忽略 `elapsed`，这里判断的是曲目元数据或播放状态变化。
         // 轮询结果只在内容变化时更新；同曲目的 elapsed 由流式回调和进度 Timer 负责，
         // 避免用轮询快照重置 Timer 导致进度条来回跳动。
@@ -116,6 +120,7 @@ final class NowPlayingProvider: ObservableObject {
     /// 处理流式数据源主动推送的更新。
     /// 流式数据是最新的权威时间，因此总是更新 `nowPlaying` 并同步 Timer 基准。
     private func handleStreamUpdate(_ info: NowPlayingInfo) {
+        playerApplicationStore.record(source: info.source)
         let contentChanged = nowPlaying != info
         nowPlaying = info
         if contentChanged {
@@ -175,6 +180,38 @@ final class NowPlayingProvider: ObservableObject {
 
     func togglePlayPause() {
         _ = (boringNotchSource?.sendCommand(.togglePlayPause) ?? false) || appleScriptSource.sendCommand(.togglePlayPause)
+    }
+
+    /// 展开态空状态应显示的播放器。最近播放器不可用时回退到 Apple Music。
+    var preferredPlayerApplication: MusicPlayerApplication? {
+        playerApplicationStore.preferredApplication { application in
+            ClientAppLocator.isInstalled(bundleIdentifiers: application.bundleIdentifiers)
+        }
+    }
+
+    var preferredPlayerIcon: NSImage? {
+        guard let application = preferredPlayerApplication else { return nil }
+        return ClientAppLocator.icon(bundleIdentifiers: application.bundleIdentifiers)
+    }
+
+    /// 启动或激活最近一次使用的音乐播放器。
+    func openPreferredPlayer() {
+        guard
+            let application = preferredPlayerApplication,
+            let applicationURL = ClientAppLocator.applicationURL(
+                bundleIdentifiers: application.bundleIdentifiers
+            )
+        else {
+            return
+        }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: applicationURL, configuration: configuration) { _, error in
+            if let error {
+                NSLog("[NowPlayingProvider] 唤起 \(application.displayName) 失败: \(error.localizedDescription)")
+            }
+        }
     }
 
     /// 跳转到指定时间（秒），优先使用 boring.notch 适配器，失败则回退到 AppleScript。
