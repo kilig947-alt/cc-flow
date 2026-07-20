@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import WebKit
 
-/// Spec: 远程 URL 功能 WKWebView 保活缓存。
+/// 展开态网站功能的 WKWebView 页面状态缓存。
 ///
 /// 当 `Settings.keepWebURLAliveWhenCollapsed` 开启时，`CustomAreaWebView`（展开态）
 /// 在 `makeNSView` 中将创建的 WKWebView 存入此缓存；SwiftUI 移除宿主视图时，
@@ -16,14 +16,31 @@ import WebKit
 /// web process 继续正常运行 JS。下次展开时 `makeNSView` 的 `removeFromSuperview()`
 /// 会将其从离屏窗口移出。
 ///
-/// 缓存键为 URL 的 `absoluteString`，仅 `.remoteURL` / `.mineradio` 源使用。
-/// `.localArea` 源不经过缓存。
+/// 缓存键以功能实例 ID 为边界，避免相同 URL 的两个功能互相争用 WebView。
 @MainActor
 final class CustomAreaWebViewCache {
     static let shared = CustomAreaWebViewCache()
 
-    /// 缓存的 WKWebView，键为 URL absoluteString
-    private var cache: [String: WKWebView] = [:]
+    struct Key: Hashable, Sendable {
+        let rawValue: String
+
+        static func expanded(featureID: String) -> Key {
+            Key(rawValue: "expanded:\(featureID)")
+        }
+
+        /// 兼容旧的仅按 URL 保活调用；展开态功能应优先使用 `expanded(featureID:)`。
+        static func legacy(url: URL) -> Key {
+            Key(rawValue: "legacy:\(url.absoluteString)")
+        }
+    }
+
+    private struct Entry {
+        let webView: WKWebView
+        let entryURL: URL?
+    }
+
+    private var cache: [Key: Entry] = [:]
+    private var appliedEntryReloadGenerations: [Key: UInt64] = [:]
 
     /// Spec: 离屏宿主窗口 —— 持有收起后的保活 WebView，使其仍在窗口层级中，
     /// 避免 macOS 挂起 WKWebView 的 JS 执行。
@@ -31,29 +48,66 @@ final class CustomAreaWebViewCache {
 
     private init() {}
 
-    /// 返回指定 URL 的缓存 WKWebView（若存在）。
+    func webView(for key: Key) -> WKWebView? {
+        cache[key]?.webView
+    }
+
+    func storeWebView(_ webView: WKWebView, for key: Key, entryURL: URL?) {
+        if let replaced = cache.updateValue(Entry(webView: webView, entryURL: entryURL), forKey: key),
+           replaced.webView !== webView {
+            replaced.webView.removeFromSuperview()
+        }
+    }
+
+    func evict(for key: Key) {
+        if let entry = cache.removeValue(forKey: key) {
+            entry.webView.removeFromSuperview()
+        }
+    }
+
+    /// 兼容旧调用：查找 URL 对应的 legacy 缓存。
     func webView(for url: URL) -> WKWebView? {
-        cache[url.absoluteString]
+        webView(for: .legacy(url: url))
     }
 
-    /// 将 WKWebView 存入缓存。若已有同键实例则被替换（旧实例释放）。
     func storeWebView(_ webView: WKWebView, for url: URL) {
-        cache[url.absoluteString] = webView
+        storeWebView(webView, for: .legacy(url: url), entryURL: url)
     }
 
-    /// 驱逐并释放指定 URL 的缓存 WKWebView。
+    /// 兼容 URL 更新路径：清理所有入口 URL 匹配的缓存。
     func evict(for url: URL) {
-        if let webView = cache.removeValue(forKey: url.absoluteString) {
-            webView.removeFromSuperview()
+        let keys = cache.compactMap { key, entry in
+            entry.entryURL?.absoluteString == url.absoluteString ? key : nil
+        }
+        for key in keys {
+            evict(for: key)
         }
     }
 
     /// 清空所有缓存 WKWebView。关闭保活设置或应用退出时调用。
     func clearAll() {
-        for webView in cache.values {
-            webView.removeFromSuperview()
+        for entry in cache.values {
+            entry.webView.removeFromSuperview()
         }
         cache.removeAll()
+        appliedEntryReloadGenerations.removeAll()
+        offscreenHostWindow?.orderOut(nil)
+        offscreenHostWindow = nil
+    }
+
+    /// 每个 feature key 的同一代重新进入请求只消费一次，不受 SwiftUI Coordinator 重建影响。
+    func consumeEntryReload(for key: Key?, generation: UInt64?) -> Bool {
+        guard let key, let generation else { return false }
+        guard appliedEntryReloadGenerations[key] != generation else { return false }
+        appliedEntryReloadGenerations[key] = generation
+        return true
+    }
+
+    /// 停止隐藏页面的持续运行，但保留 WKWebView 实例以便下次恢复页面状态。
+    func stopKeepingViewsRunning() {
+        for entry in cache.values where entry.webView.window === offscreenHostWindow {
+            entry.webView.removeFromSuperview()
+        }
         offscreenHostWindow?.orderOut(nil)
         offscreenHostWindow = nil
     }

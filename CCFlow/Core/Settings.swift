@@ -688,15 +688,14 @@ final class AppSettingsStore: ObservableObject {
     }
 
     /// Spec: 远程 URL 功能收起后保活开关（默认 true）。
-    /// 开启后，flow Island收起时远程 URL（`.webURL` / `.newsnow`）/ Mineradio 功能的 WKWebView 不会被销毁，
-    /// 音频播放、JS 执行、网络请求继续运行；下次展开时复用同一实例。
+    /// 开启后，flow Island收起时网站功能的音频、JS 和网络继续运行。
+    /// 无论开关状态，展开态页面实例都会缓存并在下次展开时恢复。
     @Published var keepWebURLAliveWhenCollapsed: Bool = true {
         didSet {
             guard !isBootstrapping else { return }
             defaults.set(keepWebURLAliveWhenCollapsed, forKey: Keys.keepWebURLAliveWhenCollapsed)
-            // 关闭保活时清空缓存，释放已保活的 WKWebView
             if !keepWebURLAliveWhenCollapsed {
-                CustomAreaWebViewCache.shared.clearAll()
+                CustomAreaWebViewCache.shared.stopKeepingViewsRunning()
             }
         }
     }

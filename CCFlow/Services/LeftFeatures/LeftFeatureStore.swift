@@ -2,6 +2,15 @@ import Combine
 import Foundation
 import SwiftUI
 
+struct LeftFeatureReentryRequest: Equatable {
+    let featureID: String
+    let generation: UInt64
+
+    static func shouldReenter(selectedFeatureID: String, activeFeatureID: String?) -> Bool {
+        selectedFeatureID == activeFeatureID
+    }
+}
+
 /// 左侧 flow Island"功能系统"注册中心
 /// 管理内置功能（音乐 / 中转站）与自定义 HTML 区域功能的启用/禁用、排序、
 /// 紧凑态与展开态各自的选择（`compactFeatureID` / `expandedActiveFeatureID`）。
@@ -35,6 +44,9 @@ final class LeftFeatureStore: ObservableObject {
             defaults.set(expandedActiveFeatureID, forKey: Keys.expandedActiveFeatureID)
         }
     }
+
+    @Published private(set) var expandedReentryRequest: LeftFeatureReentryRequest?
+    private var expandedReentryGeneration: UInt64 = 0
 
     private let defaults: UserDefaults
 
@@ -452,15 +464,8 @@ final class LeftFeatureStore: ObservableObject {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         // Spec: 禁用远程 URL / Mineradio 功能时驱逐保活缓存，避免 WKWebView 残留占用资源
         if !isEnabled {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
             switch features[index].kind {
-            case .webURL(let urlString):
-                if let url = URL(string: urlString) {
-                    CustomAreaWebViewCache.shared.evict(for: url)
-                }
-            case .mineradio(let pageURL):
-                if let url = URL(string: pageURL) {
-                    CustomAreaWebViewCache.shared.evict(for: url)
-                }
             case .usage:
                 UsageService.shared.stop()
             case .systemMonitor:
@@ -557,6 +562,22 @@ final class LeftFeatureStore: ObservableObject {
         }
     }
 
+    /// 切换到未激活功能；若再次点击当前功能，则请求其重新加载配置入口。
+    func selectOrReenterExpandedFeature(id: String) {
+        guard LeftFeatureReentryRequest.shouldReenter(
+            selectedFeatureID: id,
+            activeFeatureID: expandedActiveFeature?.id
+        ) else {
+            setExpandedActiveFeature(id: id)
+            return
+        }
+        expandedReentryGeneration &+= 1
+        expandedReentryRequest = LeftFeatureReentryRequest(
+            featureID: id,
+            generation: expandedReentryGeneration
+        )
+    }
+
     /// 为自定义 HTML 区域追加对应功能（由 CustomAreaStore.addArea 联动调用）。
     /// `isEnabled` 默认 true；预设注入时（如「TRAE Flow 演示」）可传 false 使其默认不启用。
     func appendCustomAreaFeature(areaID: String, isEnabled: Bool = true) {
@@ -567,6 +588,13 @@ final class LeftFeatureStore: ObservableObject {
             sortOrder: maxSortOrder + 1
         ))
         persist()
+    }
+
+    func invalidateCustomAreaCache(areaID: String) {
+        for feature in features {
+            guard case .customArea(let candidateID) = feature.kind, candidateID == areaID else { continue }
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: feature.id))
+        }
     }
 
     /// 移除自定义 HTML 区域对应功能（由 CustomAreaStore.removeArea 联动调用）
@@ -582,6 +610,10 @@ final class LeftFeatureStore: ObservableObject {
             }
         )
         guard !removedFeatureIDs.isEmpty else { return }
+
+        for featureID in removedFeatureIDs {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: featureID))
+        }
 
         // 移除
         features.removeAll { removedFeatureIDs.contains($0.id) }
@@ -646,13 +678,13 @@ final class LeftFeatureStore: ObservableObject {
                 if oldURLString != url {
                     urlChanged = true
                 }
-                // Spec: URL 变化时驱逐旧 URL 的保活缓存，避免残留 WKWebView
-                if let oldURL = URL(string: oldURLString) {
-                    CustomAreaWebViewCache.shared.evict(for: oldURL)
-                }
             }
             copy.kind = .webURL(url: url)
             newURLString = url
+        }
+
+        if urlChanged {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
         }
 
         // iconName 显式传入（非 nil）才覆盖；nil 表示用户未在表单修改图标字段
@@ -680,11 +712,7 @@ final class LeftFeatureStore: ObservableObject {
     /// 删除 URL 功能项；若 `compactFeatureID` / `expandedActiveFeatureID` 指向被删功能则置 nil
     func removeWebURLFeature(id: String) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
-        // Spec: 驱逐该 URL 的保活缓存，释放 WKWebView
-        if case .webURL(let urlString) = features[index].kind,
-           let url = URL(string: urlString) {
-            CustomAreaWebViewCache.shared.evict(for: url)
-        }
+        CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
         features.remove(at: index)
         if compactFeatureID == id { compactFeatureID = nil }
         if expandedActiveFeatureID == id { expandedActiveFeatureID = nil }
@@ -715,7 +743,10 @@ final class LeftFeatureStore: ObservableObject {
     /// 仅当该 feature 为 `.newsnow` 时重写 kind 并 persist；非 `.newsnow` 调用无效。
     func updateNewsNowBaseURL(id: String, baseURL: String) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
-        guard case .newsnow = features[index].kind else { return }
+        guard case .newsnow(let oldBaseURL) = features[index].kind else { return }
+        if oldBaseURL != baseURL {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
+        }
         features[index].kind = .newsnow(baseURL: baseURL)
         persist()
     }
@@ -728,9 +759,8 @@ final class LeftFeatureStore: ObservableObject {
     func updateMineradioPageURL(id: String, pageURL: String) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         guard case .mineradio(let oldPageURL) = features[index].kind else { return }
-        // Spec: pageURL 变化时驱逐旧 URL 的保活缓存，避免残留 WKWebView
-        if let oldURL = URL(string: oldPageURL) {
-            CustomAreaWebViewCache.shared.evict(for: oldURL)
+        if oldPageURL != pageURL {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
         }
         features[index].kind = .mineradio(pageURL: pageURL)
         persist()

@@ -57,35 +57,52 @@ struct CustomAreaWebView: NSViewRepresentable {
     }
 
     let source: ContentSource
-    /// Spec: 远程 URL 功能收起后保活开关 —— 仅展开态传 true 时启用缓存复用。
-    /// 开启后 SwiftUI 移除宿主视图时 WKWebView 由 `CustomAreaWebViewCache` 持有强引用继续存活；
-    /// 下次 `makeNSView` 从缓存取回同一实例并重新绑定 Coordinator（message handler / delegate）。
+    /// 展开态网站功能按 feature ID 传入；紧凑态保持 nil。
+    let cacheKey: CustomAreaWebViewCache.Key?
+    /// 是否在隐藏时放入离屏窗口，让 JS、音频和网络继续运行。
     let keepsAlive: Bool
+    /// 再次点击当前功能图标时递增；变化时重新加载配置入口。
+    let entryReloadGeneration: UInt64?
 
-    init(source: ContentSource, keepsAlive: Bool = false) {
+    init(
+        source: ContentSource,
+        cacheKey: CustomAreaWebViewCache.Key? = nil,
+        keepsAlive: Bool = false,
+        entryReloadGeneration: UInt64? = nil
+    ) {
         self.source = source
+        self.cacheKey = cacheKey
         self.keepsAlive = keepsAlive
+        self.entryReloadGeneration = entryReloadGeneration
     }
 
-    /// Spec: 缓存复用 —— `.remoteURL` / `.mineradio` 源 + `keepsAlive == true` 时查缓存。
-    /// 命中缓存时复用 WKWebView（重新绑定 Coordinator），否则新建并存入缓存。
-    /// `.localArea` 源不经过缓存（本地文件资源开销低，无需保活）。
-    private func cachedURL() -> URL? {
-        guard keepsAlive else { return nil }
+    private var entryURL: URL? {
         switch source {
-        case .remoteURL(let url): return url
-        case .mineradio(let url): return url
-        case .localArea: return nil
+        case .localArea(let area): return area.loadableFileURL
+        case .remoteURL(let url), .mineradio(let url): return url
         }
+    }
+
+    /// 旧调用在开启保活时继续使用 URL key；展开态功能显式传 feature-scoped key。
+    private var resolvedCacheKey: CustomAreaWebViewCache.Key? {
+        if let cacheKey { return cacheKey }
+        guard keepsAlive, let entryURL else { return nil }
+        return .legacy(url: entryURL)
     }
 
     func makeNSView(context: Context) -> WKWebView {
         // Spec: 保活缓存命中 —— 复用已存在的 WKWebView，重新绑定 Coordinator 后返回
-        if let cachedURL = cachedURL(),
-           let cached = CustomAreaWebViewCache.shared.webView(for: cachedURL) {
+        if let resolvedCacheKey,
+           let cached = CustomAreaWebViewCache.shared.webView(for: resolvedCacheKey) {
             rebindCoordinator(to: cached, context: context)
             cached.removeFromSuperview()
             loadAreaIfNeeded(into: cached, context: context)
+            if CustomAreaWebViewCache.shared.consumeEntryReload(
+                for: resolvedCacheKey,
+                generation: entryReloadGeneration
+            ) {
+                loadArea(into: cached, context: context)
+            }
             return cached
         }
 
@@ -159,7 +176,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
-        context.coordinator.cachedURLString = cachedURL()?.absoluteString
+        context.coordinator.cacheKey = resolvedCacheKey
         // 同步源类型 —— decidePolicyFor 据此区分跳转策略：
         // - `.remoteURL`：同 host 在 WebView 内导航，不同 host 转系统浏览器
         // - `.mineradio`：所有 http/https 主框架导航在 WebView 内（允许跨 host）
@@ -180,12 +197,15 @@ struct CustomAreaWebView: NSViewRepresentable {
             MineradioBridgeCoordinator.shared.attach(to: webView)
         }
 
-        // Spec: 保活缓存存入 —— `.remoteURL` / `.mineradio` 源 + `keepsAlive == true` 时存
-        if let cachedURL = cachedURL() {
-            CustomAreaWebViewCache.shared.storeWebView(webView, for: cachedURL)
+        if let resolvedCacheKey {
+            CustomAreaWebViewCache.shared.storeWebView(webView, for: resolvedCacheKey, entryURL: entryURL)
         }
 
         loadArea(into: webView, context: context)
+        _ = CustomAreaWebViewCache.shared.consumeEntryReload(
+            for: resolvedCacheKey,
+            generation: entryReloadGeneration
+        )
         return webView
     }
 
@@ -226,7 +246,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
-        context.coordinator.cachedURLString = cachedURL()?.absoluteString
+        context.coordinator.cacheKey = resolvedCacheKey
         if case .remoteURL = source {
             context.coordinator.isRemoteSource = true
             context.coordinator.isMineradioSource = false
@@ -239,6 +259,9 @@ struct CustomAreaWebView: NSViewRepresentable {
         } else {
             context.coordinator.isRemoteSource = false
             context.coordinator.isMineradioSource = false
+            if case .localArea(let area) = source {
+                _ = context.coordinator.beginSecurityScopedAccess(for: area)
+            }
         }
     }
 
@@ -246,26 +269,20 @@ struct CustomAreaWebView: NSViewRepresentable {
     /// 新 Coordinator 无 `lastRemoteURLString` 状态，直接比对 WebView 当前 URL。
     private func loadAreaIfNeeded(into webView: WKWebView, context: Context) {
         switch source {
-        case .localArea:
-            // 本地源不经过保活缓存（cachedRemoteURL 只返回 .remoteURL），此分支不会命中
-            loadArea(into: webView, context: context)
+        case .localArea(let area):
+            _ = context.coordinator.beginSecurityScopedAccess(for: area)
+            context.coordinator.lastAreaID = area.id
+            context.coordinator.lastEntryPointURL = area.entryPointURL
+            context.coordinator.lastRemoteURLString = nil
         case .remoteURL(let url):
-            if webView.url?.absoluteString != url.absoluteString {
-                loadArea(into: webView, context: context)
-            } else {
-                // URL 一致：同步 Coordinator 状态，避免 updateNSView 误判需要 reload
-                context.coordinator.lastRemoteURLString = url.absoluteString
-                context.coordinator.lastAreaID = nil
-                context.coordinator.lastEntryPointURL = nil
-            }
+            // 当前 URL 可能是站内二级路由；缓存按 feature ID 命中时必须保留它。
+            context.coordinator.lastRemoteURLString = url.absoluteString
+            context.coordinator.lastAreaID = nil
+            context.coordinator.lastEntryPointURL = nil
         case .mineradio(let url):
-            if webView.url?.absoluteString != url.absoluteString {
-                loadArea(into: webView, context: context)
-            } else {
-                context.coordinator.lastRemoteURLString = url.absoluteString
-                context.coordinator.lastAreaID = nil
-                context.coordinator.lastEntryPointURL = nil
-            }
+            context.coordinator.lastRemoteURLString = url.absoluteString
+            context.coordinator.lastAreaID = nil
+            context.coordinator.lastEntryPointURL = nil
         }
     }
 
@@ -277,7 +294,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
-        context.coordinator.cachedURLString = cachedURL()?.absoluteString
+        context.coordinator.cacheKey = resolvedCacheKey
         // 同步源类型 —— decidePolicyFor 据此区分跳转策略
         if case .remoteURL = source {
             context.coordinator.isRemoteSource = true
@@ -313,6 +330,18 @@ struct CustomAreaWebView: NSViewRepresentable {
             if needsReload {
                 loadArea(into: webView, context: context)
             }
+        }
+
+        if CustomAreaWebViewCache.shared.consumeEntryReload(
+            for: resolvedCacheKey,
+            generation: entryReloadGeneration
+        ) {
+            loadArea(into: webView, context: context)
+        }
+
+        // 入口编辑会先驱逐旧缓存；当前仍挂载的实例完成更新后需重新登记。
+        if let resolvedCacheKey {
+            CustomAreaWebViewCache.shared.storeWebView(webView, for: resolvedCacheKey, entryURL: entryURL)
         }
     }
 
@@ -356,12 +385,14 @@ struct CustomAreaWebView: NSViewRepresentable {
     ///（自动切歌逻辑依赖 JS timer/event 回调，JS 挂起后需重新展开页面才恢复）。
     static func dismantleNSView(_ nsView: WKWebView, coordinator: Coordinator) {
         coordinator.endSecurityScopedAccess()
-        guard coordinator.keepsAlive,
-              let urlString = coordinator.cachedURLString,
-              let url = URL(string: urlString) else { return }
+        guard let cacheKey = coordinator.cacheKey else { return }
         // 仅处理仍是缓存实例的 WebView（避免 evict 后操作已释放的 view）
-        guard CustomAreaWebViewCache.shared.webView(for: url) === nsView else { return }
-        CustomAreaWebViewCache.shared.hostInOffscreenWindow(nsView)
+        guard CustomAreaWebViewCache.shared.webView(for: cacheKey) === nsView else { return }
+        if coordinator.keepsAlive {
+            CustomAreaWebViewCache.shared.hostInOffscreenWindow(nsView)
+        } else {
+            nsView.removeFromSuperview()
+        }
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
@@ -390,9 +421,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         /// Spec: 保活标记 —— `dismantleNSView` 据此决定是否将 WebView 移入离屏窗口。
         /// 在 makeNSView / updateNSView 中由 keepsAlive 同步。
         var keepsAlive: Bool = false
-        /// Spec: 缓存键 URL（absoluteString）—— `dismantleNSView` 据此查找缓存实例。
-        /// 仅 `.remoteURL` / `.mineradio` 源有值，`.localArea` 为 nil。
-        var cachedURLString: String?
+        var cacheKey: CustomAreaWebViewCache.Key?
         private var securityScopedURL: URL?
         private var securityScopedAccessStarted = false
 

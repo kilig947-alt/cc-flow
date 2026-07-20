@@ -865,6 +865,11 @@ final class CustomAreaStore: ObservableObject {
     /// Spec: 用户编辑目录条目（重命名、更换入口、改默认变体等）
     func updateArea(_ updated: CustomArea) {
         guard let index = areas.firstIndex(where: { $0.id == updated.id }) else { return }
+        let previous = areas[index]
+        if previous.directoryURL != updated.directoryURL
+            || previous.entryPointRelativePath != updated.entryPointRelativePath {
+            LeftFeatureStore.shared.invalidateCustomAreaCache(areaID: updated.id)
+        }
         var copy = updated
         copy.updatedAt = Date()
         areas[index] = copy
@@ -895,6 +900,9 @@ final class CustomAreaStore: ObservableObject {
     /// 不再随文件变化自动切换
     func lockEntryPoint(areaID: String, entryPointRelativePath: String) {
         guard let index = areas.firstIndex(where: { $0.id == areaID }) else { return }
+        if areas[index].entryPointRelativePath != entryPointRelativePath {
+            LeftFeatureStore.shared.invalidateCustomAreaCache(areaID: areaID)
+        }
         var copy = areas[index]
         copy.entryPointRelativePath = entryPointRelativePath
         copy.autoDetectEntryPoint = false
@@ -914,6 +922,7 @@ final class CustomAreaStore: ObservableObject {
         let candidate = dir.appendingPathComponent("index.html")
         if FileManager.default.fileExists(atPath: candidate.path),
            candidate.path != copy.entryPointURL.path {
+            LeftFeatureStore.shared.invalidateCustomAreaCache(areaID: areaID)
             copy.entryPointRelativePath = "index.html"
             copy.updatedAt = Date()
             areas[index] = copy

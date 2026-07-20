@@ -54,7 +54,7 @@ struct LeftFeatureContainerView: View {
             ShelfExpandedView()
         case .customArea(let areaID):
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
-                CustomAreaWebView(source: .localArea(area))
+                expandedWebView(source: .localArea(area), feature: feature)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
@@ -65,7 +65,7 @@ struct LeftFeatureContainerView: View {
             // Spec: 远程 URL 功能 —— 构造 .remoteURL 源传入 CustomAreaWebView
             // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 flow Island时 WebView 保活
             if let url = URL(string: urlString) {
-                CustomAreaWebView(source: .remoteURL(url), keepsAlive: settings.keepWebURLAliveWhenCollapsed)
+                expandedWebView(source: .remoteURL(url), feature: feature)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
@@ -76,7 +76,7 @@ struct LeftFeatureContainerView: View {
             // Spec: 内置 NewsNow 功能 —— 构造 .remoteURL 源传入 CustomAreaWebView，与 .webURL 一致
             // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed
             if let url = URL(string: baseURL) {
-                CustomAreaWebView(source: .remoteURL(url), keepsAlive: settings.keepWebURLAliveWhenCollapsed)
+                expandedWebView(source: .remoteURL(url), feature: feature)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
@@ -87,13 +87,27 @@ struct LeftFeatureContainerView: View {
             //（注入 Bridge user script + 注册 message handler + 共享 cookie store）
             // keepsAlive 跟随 Settings.keepWebURLAliveWhenCollapsed，开启后收起 flow Island时 WebView 保活
             if let url = URL(string: pageURL) {
-                CustomAreaWebView(source: .mineradio(url), keepsAlive: settings.keepWebURLAliveWhenCollapsed)
+                expandedWebView(source: .mineradio(url), feature: feature)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 webURLInvalidState
             }
         }
+    }
+
+    private func expandedWebView(
+        source: CustomAreaWebView.ContentSource,
+        feature: LeftFeature
+    ) -> CustomAreaWebView {
+        let request = featureStore.expandedReentryRequest
+        let generation = request?.featureID == feature.id ? request?.generation : nil
+        return CustomAreaWebView(
+            source: source,
+            cacheKey: .expanded(featureID: feature.id),
+            keepsAlive: settings.keepWebURLAliveWhenCollapsed,
+            entryReloadGeneration: generation
+        )
     }
 
     private var emptyState: some View {
