@@ -82,6 +82,12 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 ![CC FLOW 紧凑态](docs/images/trae-flow-top-demo.gif)
 
+<p align="center">
+  <img src="docs/images/flow-island-compact-usage.png" alt="CC FLOW 紧凑态同时显示 Codex 剩余额度与任务计数" width="498">
+</p>
+
+紧凑态可以在左侧显示 Codex 剩余额度，并在右侧同步呈现待处理任务数。
+
 - **左侧**：当前选中的功能视图（音乐 / 中转站 / AI HOT / Mineradio / 自定义区域 / 网页），正在播放音乐时自动切换到音乐。
 - **右侧**：CC 图标与全部客户端待处理总数。
 
@@ -148,6 +154,22 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 ## 生产力功能
 
 生产力功能位于 Flow Island 左侧功能栏，可在设置中逐项启用、停用、排序，并分别选择紧凑态与展开态内容。
+
+### 生产力功能预览
+
+<table>
+  <tr>
+    <td width="50%" align="center"><strong>账号用量</strong><br><img src="docs/images/productivity-account-usage.png" alt="Claude Code 与 Codex 账号用量面板" width="100%"></td>
+    <td width="50%" align="center"><strong>系统监控</strong><br><img src="docs/images/productivity-system-monitor.png" alt="CPU、内存、磁盘、网络和应用使用时间监控面板" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><strong>日历与提醒事项</strong><br><img src="docs/images/productivity-calendar.png" alt="月历、日程与提醒事项双栏面板" width="100%"></td>
+    <td width="50%" align="center"><strong>GitHub</strong><br><img src="docs/images/productivity-github.png" alt="GitHub 个人资料、贡献热力图与仓库列表" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>File Watch</strong><br><img src="docs/images/productivity-file-watch.png" alt="File Watch 授权目录、文件卡片与搜索面板" width="100%"></td>
+  </tr>
+</table>
 
 ### 🔎 File Watch
 
