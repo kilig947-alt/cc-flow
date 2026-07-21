@@ -83,6 +83,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
     var customIconName: String?
     /// 自定义显示名称；仅 `.webURL` 使用，其他 kind 当前忽略
     var customDisplayName: String?
+    /// 跨域登录是否继续留在当前 WebView；仅 `.webURL` 使用，默认关闭。
+    var keepsCrossDomainLoginInWebView: Bool
     /// 自定义展开宽度（pt）；nil = 使用左侧功能默认宽度
     var expandedWidth: Double?
     /// 自定义展开高度（pt）；nil = 使用左侧功能默认高度
@@ -99,6 +101,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
          createdAt: Date = Date(),
          customIconName: String? = nil,
          customDisplayName: String? = nil,
+         keepsCrossDomainLoginInWebView: Bool = false,
          expandedWidth: Double? = nil,
          expandedHeight: Double? = nil,
          expandedPinned: Bool = false,
@@ -110,6 +113,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.createdAt = createdAt
         self.customIconName = customIconName
         self.customDisplayName = customDisplayName
+        self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         self.expandedWidth = expandedWidth
         self.expandedHeight = expandedHeight
         self.expandedPinned = expandedPinned
@@ -126,6 +130,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         case createdAt
         case customIconName
         case customDisplayName
+        case keepsCrossDomainLoginInWebView
         case expandedWidth
         case expandedHeight
         case expandedPinned
@@ -143,6 +148,10 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.createdAt = try c.decode(Date.self, forKey: .createdAt)
         self.customIconName = try c.decodeIfPresent(String.self, forKey: .customIconName)
         self.customDisplayName = try c.decodeIfPresent(String.self, forKey: .customDisplayName)
+        self.keepsCrossDomainLoginInWebView = try c.decodeIfPresent(
+            Bool.self,
+            forKey: .keepsCrossDomainLoginInWebView
+        ) ?? false
         self.expandedWidth = try c.decodeIfPresent(Double.self, forKey: .expandedWidth)
         self.expandedHeight = try c.decodeIfPresent(Double.self, forKey: .expandedHeight)
         self.expandedPinned = try c.decodeIfPresent(Bool.self, forKey: .expandedPinned) ?? false
@@ -158,6 +167,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         try c.encode(createdAt, forKey: .createdAt)
         try c.encodeIfPresent(customIconName, forKey: .customIconName)
         try c.encodeIfPresent(customDisplayName, forKey: .customDisplayName)
+        try c.encode(keepsCrossDomainLoginInWebView, forKey: .keepsCrossDomainLoginInWebView)
         try c.encodeIfPresent(expandedWidth, forKey: .expandedWidth)
         try c.encodeIfPresent(expandedHeight, forKey: .expandedHeight)
         try c.encode(expandedPinned, forKey: .expandedPinned)

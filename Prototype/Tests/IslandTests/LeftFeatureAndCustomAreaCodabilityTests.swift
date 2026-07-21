@@ -22,7 +22,7 @@ import Testing
         case newsnow(baseURL: String)
     }
 
-    /// 镜像 `LeftFeature`：新增 `customIconName` / `customDisplayName` 可选字段，
+    /// 镜像 `LeftFeature`：包含网站显示信息与跨域登录开关，
     /// 自定义 `init(from:)` 用 `decodeIfPresent` 容忍缺字段。
     struct TestLeftFeature: Codable, Equatable {
         let id: String
@@ -32,11 +32,13 @@ import Testing
         var createdAt: Date
         var customIconName: String?
         var customDisplayName: String?
+        var keepsCrossDomainLoginInWebView: Bool
 
         enum CodingKeys: String, CodingKey {
             case id, kind, isEnabled, sortOrder, createdAt
             case customIconName
             case customDisplayName
+            case keepsCrossDomainLoginInWebView
         }
 
         init(id: String = UUID().uuidString,
@@ -45,7 +47,8 @@ import Testing
              sortOrder: Int = 0,
              createdAt: Date = Date(),
              customIconName: String? = nil,
-             customDisplayName: String? = nil) {
+             customDisplayName: String? = nil,
+             keepsCrossDomainLoginInWebView: Bool = false) {
             self.id = id
             self.kind = kind
             self.isEnabled = isEnabled
@@ -53,6 +56,7 @@ import Testing
             self.createdAt = createdAt
             self.customIconName = customIconName
             self.customDisplayName = customDisplayName
+            self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         }
 
         init(from decoder: Decoder) throws {
@@ -64,6 +68,10 @@ import Testing
             self.createdAt = try c.decode(Date.self, forKey: .createdAt)
             self.customIconName = try c.decodeIfPresent(String.self, forKey: .customIconName)
             self.customDisplayName = try c.decodeIfPresent(String.self, forKey: .customDisplayName)
+            self.keepsCrossDomainLoginInWebView = try c.decodeIfPresent(
+                Bool.self,
+                forKey: .keepsCrossDomainLoginInWebView
+            ) ?? false
         }
 
         func encode(to encoder: Encoder) throws {
@@ -75,6 +83,7 @@ import Testing
             try c.encode(createdAt, forKey: .createdAt)
             try c.encodeIfPresent(customIconName, forKey: .customIconName)
             try c.encodeIfPresent(customDisplayName, forKey: .customDisplayName)
+            try c.encode(keepsCrossDomainLoginInWebView, forKey: .keepsCrossDomainLoginInWebView)
         }
     }
 
@@ -202,6 +211,7 @@ import Testing
         XCTAssertEqual(feature.sortOrder, 0)
         XCTAssertNil(feature.customIconName, "老数据缺 customIconName 应回退 nil")
         XCTAssertNil(feature.customDisplayName, "老数据缺 customDisplayName 应回退 nil")
+        XCTAssertFalse(feature.keepsCrossDomainLoginInWebView, "老数据缺跨域登录开关应回退 false")
     }
 
 
@@ -215,13 +225,15 @@ import Testing
           "sortOrder": 3,
           "createdAt": 100,
           "customIconName": "star.fill",
-          "customDisplayName": "示例站"
+          "customDisplayName": "示例站",
+          "keepsCrossDomainLoginInWebView": true
         }
         """
         let feature = try decode(TestLeftFeature.self, from: json)
         XCTAssertEqual(feature.kind, .webURL(url: "https://example.com"))
         XCTAssertEqual(feature.customIconName, "star.fill")
         XCTAssertEqual(feature.customDisplayName, "示例站")
+        XCTAssertTrue(feature.keepsCrossDomainLoginInWebView)
     }
 
     // MARK: - webURL kind 编解码往返
@@ -235,13 +247,15 @@ import Testing
             isEnabled: true,
             sortOrder: 2,
             customIconName: "globe",
-            customDisplayName: "TRAE Flow 官网"
+            customDisplayName: "TRAE Flow 官网",
+            keepsCrossDomainLoginInWebView: true
         )
         let json = try encode(original)
         let decoded = try decode(TestLeftFeature.self, from: json)
         XCTAssertEqual(decoded, original, "webURL kind 经 encode → decode 应保持相等")
         XCTAssertEqual(decoded.kind, .webURL(url: "https://trae.flow"))
         XCTAssertEqual(decoded.customDisplayName, "TRAE Flow 官网")
+        XCTAssertTrue(decoded.keepsCrossDomainLoginInWebView)
     }
 
 

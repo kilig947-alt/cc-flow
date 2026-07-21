@@ -638,14 +638,19 @@ final class LeftFeatureStore: ObservableObject {
     /// Spec: 若 `iconName` 为 nil（用户未指定自定义图标），则异步获取网站 favicon 并写入 `customIconName`。
     /// 失败时不写入，回退到 `systemImage` 默认文字图标「U」。
     @discardableResult
-    func appendWebURLFeature(name: String, url: String, iconName: String?, variant: TraeVariant) -> LeftFeature {
+    func appendWebURLFeature(name: String,
+                             url: String,
+                             iconName: String?,
+                             keepsCrossDomainLoginInWebView: Bool,
+                             variant: TraeVariant) -> LeftFeature {
         let maxSortOrder = features.map(\.sortOrder).max() ?? -1
         let feature = LeftFeature(
             kind: .webURL(url: url),
             isEnabled: true,
             sortOrder: maxSortOrder + 1,
             customIconName: iconName,
-            customDisplayName: name
+            customDisplayName: name,
+            keepsCrossDomainLoginInWebView: keepsCrossDomainLoginInWebView
         )
         features.append(feature)
         persist()
@@ -666,10 +671,14 @@ final class LeftFeatureStore: ObservableObject {
                              name: String?,
                              url: String?,
                              iconName: String?,
+                             keepsCrossDomainLoginInWebView: Bool?,
                              variant: TraeVariant?) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         var copy = features[index]
         if let name { copy.customDisplayName = name }
+        if let keepsCrossDomainLoginInWebView {
+            copy.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+        }
 
         var urlChanged = false
         var newURLString: String?

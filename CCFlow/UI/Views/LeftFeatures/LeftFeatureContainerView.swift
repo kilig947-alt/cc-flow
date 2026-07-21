@@ -106,6 +106,7 @@ struct LeftFeatureContainerView: View {
             source: source,
             cacheKey: .expanded(featureID: feature.id),
             keepsAlive: settings.keepWebURLAliveWhenCollapsed,
+            keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView,
             entryReloadGeneration: generation
         )
     }

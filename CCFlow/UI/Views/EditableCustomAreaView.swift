@@ -34,6 +34,7 @@ struct EditableCustomAreaView: View {
 
     // webURL 模式专用
     @State private var url: String
+    @State private var keepsCrossDomainLoginInWebView: Bool
 
     // 展开尺寸 + 固定开关（两模式共用）
     @State private var expandedPinned: Bool
@@ -61,6 +62,7 @@ struct EditableCustomAreaView: View {
         _iconImage = State(initialValue: parsed.image)
         _allowsNetwork = State(initialValue: area.allowsNetworkAccess)
         _url = State(initialValue: "")
+        _keepsCrossDomainLoginInWebView = State(initialValue: false)
         // 从 LeftFeatureStore 查 areaID 对应 feature 的展开尺寸/固定字段
         let feature = LeftFeatureStore.shared.features.first {
             if case .customArea(let areaID) = $0.kind { return areaID == area.id }
@@ -88,6 +90,7 @@ struct EditableCustomAreaView: View {
             if case .webURL(let u) = feature.kind { return u }
             return ""
         }())
+        _keepsCrossDomainLoginInWebView = State(initialValue: feature.keepsCrossDomainLoginInWebView)
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
         _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
@@ -125,6 +128,7 @@ struct EditableCustomAreaView: View {
         _iconImage = State(initialValue: parsed.image)
         _allowsNetwork = State(initialValue: false)
         _url = State(initialValue: "")
+        _keepsCrossDomainLoginInWebView = State(initialValue: false)
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
         _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
@@ -168,10 +172,13 @@ struct EditableCustomAreaView: View {
                     .font(.caption)
 
             case .webURL:
-                // Spec: webURL 模式 URL 放第一位 → 名称 → 图标
+                // Spec: webURL 模式 URL 放第一位 → 名称 → 图标 → 跨域登录开关
                 urlRow
                 nameRow
                 iconRow
+                Toggle("跨域登录留在 WebView", isOn: $keepsCrossDomainLoginInWebView)
+                    .font(.caption)
+                    .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
 
             case .builtin:
                 // 内置功能：图标 → 名称
@@ -443,6 +450,7 @@ struct EditableCustomAreaView: View {
             updated.customDisplayName = trimmedName
             updated.customIconName = iconName
             updated.kind = .webURL(url: url)
+            updated.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
             onSaveWebURL(updated)
             LeftFeatureStore.shared.setExpandedSize(id: feature.id, width: resolvedWidth, height: resolvedHeight)
             LeftFeatureStore.shared.setExpandedPinned(id: feature.id, pinned: expandedPinned)

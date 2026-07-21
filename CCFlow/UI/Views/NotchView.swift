@@ -945,7 +945,10 @@ struct NotchView: View {
             // Spec: 远程 URL 功能紧凑态 —— 构造 .remoteURL 源传入 CustomAreaWebView，
             // frame/clip 与 .customArea 分支保持一致（高度由父级 compactLeftHeight 约束）
             if let url = URL(string: urlString) {
-                CustomAreaWebView(source: .remoteURL(url))
+                CustomAreaWebView(
+                    source: .remoteURL(url),
+                    keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView
+                )
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 placeholderContent

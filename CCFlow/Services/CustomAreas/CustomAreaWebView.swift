@@ -3,6 +3,65 @@ import Combine
 import SwiftUI
 import WebKit
 
+enum CustomAreaWebNavigationSource: Equatable {
+    case localArea
+    case remoteURL
+    case mineradio
+}
+
+enum CustomAreaWebNavigationDecision: Equatable {
+    case allowInWebView
+    case openExternally
+    case cancel
+}
+
+/// 将 WebView 导航安全策略保持为纯逻辑，便于覆盖跨域登录与既有行为的回归测试。
+struct CustomAreaWebNavigationPolicy {
+    static func decision(
+        scheme: String,
+        isMainFrame: Bool,
+        isSameHost: Bool,
+        source: CustomAreaWebNavigationSource,
+        allowsNetworkAccess: Bool,
+        keepsCrossDomainLoginInWebView: Bool
+    ) -> CustomAreaWebNavigationDecision {
+        if scheme == "file" || scheme == "cc-flow-local" {
+            return .allowInWebView
+        }
+
+        guard scheme == "http" || scheme == "https" else {
+            return .cancel
+        }
+
+        guard isMainFrame else {
+            return allowsNetworkAccess ? .allowInWebView : .cancel
+        }
+
+        switch source {
+        case .mineradio:
+            return .allowInWebView
+        case .remoteURL:
+            if keepsCrossDomainLoginInWebView || isSameHost {
+                return .allowInWebView
+            }
+            return .openExternally
+        case .localArea:
+            return .openExternally
+        }
+    }
+
+    static func shouldLoadPopupInCurrentWebView(
+        scheme: String?,
+        source: CustomAreaWebNavigationSource,
+        keepsCrossDomainLoginInWebView: Bool
+    ) -> Bool {
+        guard source == .remoteURL,
+              keepsCrossDomainLoginInWebView,
+              let scheme else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+}
+
 /// Spec: 实现 WKWebView 包装组件，支持加载本地文件目录并正确处理相对路径资源
 /// Spec: 实现安全策略：限制 WebView 网络/JS 能力，防止加载外部资源带来的风险
 /// Spec: 支持 JS Bridge —— HTML 通过 `window.webkit.messageHandlers.ccFlowHint.postMessage(...)`
@@ -61,6 +120,8 @@ struct CustomAreaWebView: NSViewRepresentable {
     let cacheKey: CustomAreaWebViewCache.Key?
     /// 是否在隐藏时放入离屏窗口，让 JS、音频和网络继续运行。
     let keepsAlive: Bool
+    /// 远程网站跨域登录是否继续留在当前 WebView，并复用同一 Cookie 环境。
+    let keepsCrossDomainLoginInWebView: Bool
     /// 再次点击当前功能图标时递增；变化时重新加载配置入口。
     let entryReloadGeneration: UInt64?
 
@@ -68,11 +129,13 @@ struct CustomAreaWebView: NSViewRepresentable {
         source: ContentSource,
         cacheKey: CustomAreaWebViewCache.Key? = nil,
         keepsAlive: Bool = false,
+        keepsCrossDomainLoginInWebView: Bool = false,
         entryReloadGeneration: UInt64? = nil
     ) {
         self.source = source
         self.cacheKey = cacheKey
         self.keepsAlive = keepsAlive
+        self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         self.entryReloadGeneration = entryReloadGeneration
     }
 
@@ -174,6 +237,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.currentAreaID = source.areaID
         context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
+        context.coordinator.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
         context.coordinator.cacheKey = resolvedCacheKey
@@ -244,6 +308,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.currentAreaID = source.areaID
         context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
+        context.coordinator.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
         context.coordinator.cacheKey = resolvedCacheKey
@@ -292,6 +357,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         context.coordinator.currentAreaID = source.areaID
         context.coordinator.pluginBridgeHandler.area = source.area
         context.coordinator.allowsNetworkAccess = source.allowsNetworkAccess
+        context.coordinator.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
         // Spec: 同步保活标记与缓存键 —— dismantleNSView 据此决定是否移入离屏窗口
         context.coordinator.keepsAlive = keepsAlive
         context.coordinator.cacheKey = resolvedCacheKey
@@ -414,6 +480,8 @@ struct CustomAreaWebView: NSViewRepresentable {
         /// `.remoteURL` 源同 host 链接在 WebView 内导航、不同 host 转系统浏览器；
         /// `.localArea` 源所有 http/https 主框架导航一律转系统浏览器。在 makeNSView / updateNSView 中同步。
         var isRemoteSource: Bool = false
+        /// `.remoteURL` 是否允许跨 host 主框架导航及新窗口请求留在当前 WebView。
+        var keepsCrossDomainLoginInWebView: Bool = false
         /// 当前内容源是否为 Mineradio —— `decidePolicyFor` 据此放行跨 host 主框架导航
         ///（mineradio.art 可能跳转 OAuth 回调或其他 host）。
         /// Spec: mineradio-bridge-compat-layer
@@ -424,6 +492,12 @@ struct CustomAreaWebView: NSViewRepresentable {
         var cacheKey: CustomAreaWebViewCache.Key?
         private var securityScopedURL: URL?
         private var securityScopedAccessStarted = false
+
+        private var navigationSource: CustomAreaWebNavigationSource {
+            if isMineradioSource { return .mineradio }
+            if isRemoteSource { return .remoteURL }
+            return .localArea
+        }
 
         deinit {
             endSecurityScopedAccess()
@@ -478,44 +552,23 @@ struct CustomAreaWebView: NSViewRepresentable {
             let isMainFrameNavigation = navigationAction.targetFrame == nil
                 || navigationAction.targetFrame?.isMainFrame == true
 
-            // file / cc-flow-local scheme → 始终放行（本地资源）
-            if scheme == "file" || scheme == "cc-flow-local" {
+            let decision = CustomAreaWebNavigationPolicy.decision(
+                scheme: scheme,
+                isMainFrame: isMainFrameNavigation,
+                isSameHost: isSameHost(currentURL, url),
+                source: navigationSource,
+                allowsNetworkAccess: allowsNetworkAccess,
+                keepsCrossDomainLoginInWebView: keepsCrossDomainLoginInWebView
+            )
+            switch decision {
+            case .allowInWebView:
                 decisionHandler(.allow)
-                return
+            case .openExternally:
+                NSWorkspace.shared.open(url)
+                decisionHandler(.cancel)
+            case .cancel:
+                decisionHandler(.cancel)
             }
-
-            // http / https 处理
-            if scheme == "http" || scheme == "https" {
-                if isMainFrameNavigation {
-                    if isMineradioSource {
-                        // mineradio 源：跨 host 主框架导航一律放行（OAuth 回调 / 第三方登录可能跳转其他 host）
-                        decisionHandler(.allow)
-                    } else if isRemoteSource {
-                        // 远程 URL 源：同 host 在 WebView 内导航，不同 host 转系统浏览器
-                        if isSameHost(currentURL, url) {
-                            decisionHandler(.allow)
-                        } else {
-                            NSWorkspace.shared.open(url)
-                            decisionHandler(.cancel)
-                        }
-                    } else {
-                        // 本地区域源：本地 HTML 不会与 http/https 同源，主框架导航一律转系统浏览器
-                        NSWorkspace.shared.open(url)
-                        decisionHandler(.cancel)
-                    }
-                } else {
-                    // 子框架/资源请求（图片/JS/css/fetch 等，非链接点击）按 allowsNetworkAccess 决定
-                    if allowsNetworkAccess {
-                        decisionHandler(.allow)
-                    } else {
-                        decisionHandler(.cancel)
-                    }
-                }
-                return
-            }
-
-            // 其他 scheme（tel/mailto 等）→ 取消
-            decisionHandler(.cancel)
         }
 
         /// Spec: 判断两个 URL 是否同 host —— 用于 `decidePolicyFor` 区分远程源同站跳转与外部链接。
@@ -525,14 +578,23 @@ struct CustomAreaWebView: NSViewRepresentable {
             return h1 == h2
         }
 
-        /// Spec: 阻止新窗口打开
+        /// 跨域登录开关开启时，将 `target="_blank"` / `window.open` 请求加载进当前 WebView，
+        /// 使认证流程继续复用同一个 Cookie Store；其他网站保持阻止新窗口的既有行为。
         func webView(
             _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            nil
+            if navigationAction.targetFrame == nil,
+               CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
+                   scheme: navigationAction.request.url?.scheme?.lowercased(),
+                   source: navigationSource,
+                   keepsCrossDomainLoginInWebView: keepsCrossDomainLoginInWebView
+               ) {
+                webView.load(navigationAction.request)
+            }
+            return nil
         }
 
         /// Spec: 响应网页 `<input type="file">` 点击 —— 默认 WKUIDelegate 不实现此方法时

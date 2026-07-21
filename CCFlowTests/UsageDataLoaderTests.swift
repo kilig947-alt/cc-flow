@@ -50,6 +50,139 @@ final class UsageDataLoaderTests: XCTestCase {
         XCTAssertEqual(decoded.globalShortcut, shortcut)
     }
 
+    func testLeftFeatureCrossDomainLoginDefaultsOffForLegacyDataAndRoundTrips() throws {
+        let feature = LeftFeature(kind: .webURL(url: "https://example.com"))
+        let encoded = try JSONEncoder().encode(feature)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "keepsCrossDomainLoginInWebView")
+
+        let legacyDecoded = try JSONDecoder().decode(
+            LeftFeature.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+        XCTAssertFalse(legacyDecoded.keepsCrossDomainLoginInWebView)
+
+        let enabled = LeftFeature(
+            kind: .webURL(url: "https://chatgpt.com"),
+            keepsCrossDomainLoginInWebView: true
+        )
+        let roundTripped = try JSONDecoder().decode(
+            LeftFeature.self,
+            from: JSONEncoder().encode(enabled)
+        )
+        XCTAssertTrue(roundTripped.keepsCrossDomainLoginInWebView)
+    }
+
+    func testCustomAreaWebNavigationPolicyKeepsOnlyEnabledWebsiteCrossDomainNavigationEmbedded() {
+        let common = (
+            scheme: "https",
+            isMainFrame: true,
+            isSameHost: false,
+            allowsNetworkAccess: true
+        )
+
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: common.scheme,
+                isMainFrame: common.isMainFrame,
+                isSameHost: common.isSameHost,
+                source: .remoteURL,
+                allowsNetworkAccess: common.allowsNetworkAccess,
+                keepsCrossDomainLoginInWebView: false
+            ),
+            .openExternally
+        )
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: common.scheme,
+                isMainFrame: common.isMainFrame,
+                isSameHost: common.isSameHost,
+                source: .remoteURL,
+                allowsNetworkAccess: common.allowsNetworkAccess,
+                keepsCrossDomainLoginInWebView: true
+            ),
+            .allowInWebView
+        )
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: "https",
+                isMainFrame: true,
+                isSameHost: true,
+                source: .remoteURL,
+                allowsNetworkAccess: true,
+                keepsCrossDomainLoginInWebView: false
+            ),
+            .allowInWebView
+        )
+    }
+
+    func testCustomAreaWebNavigationPolicyPreservesLocalAndBuiltinBehavior() {
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: "https",
+                isMainFrame: true,
+                isSameHost: false,
+                source: .localArea,
+                allowsNetworkAccess: true,
+                keepsCrossDomainLoginInWebView: true
+            ),
+            .openExternally
+        )
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: "https",
+                isMainFrame: true,
+                isSameHost: false,
+                source: .mineradio,
+                allowsNetworkAccess: true,
+                keepsCrossDomainLoginInWebView: false
+            ),
+            .allowInWebView
+        )
+        XCTAssertEqual(
+            CustomAreaWebNavigationPolicy.decision(
+                scheme: "https",
+                isMainFrame: false,
+                isSameHost: false,
+                source: .localArea,
+                allowsNetworkAccess: false,
+                keepsCrossDomainLoginInWebView: true
+            ),
+            .cancel
+        )
+    }
+
+    func testCustomAreaWebNavigationPolicyLoadsOnlyEnabledWebsiteHTTPPopups() {
+        XCTAssertTrue(
+            CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
+                scheme: "https",
+                source: .remoteURL,
+                keepsCrossDomainLoginInWebView: true
+            )
+        )
+        XCTAssertFalse(
+            CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
+                scheme: "https",
+                source: .remoteURL,
+                keepsCrossDomainLoginInWebView: false
+            )
+        )
+        XCTAssertFalse(
+            CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
+                scheme: "https",
+                source: .mineradio,
+                keepsCrossDomainLoginInWebView: true
+            )
+        )
+        XCTAssertFalse(
+            CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
+                scheme: "mailto",
+                source: .remoteURL,
+                keepsCrossDomainLoginInWebView: true
+            )
+        )
+    }
+
     @MainActor
     func testShortcutConflictChecksFixedAndDisabledFeatureOwners() throws {
         let shortcut = try XCTUnwrap(GlobalShortcut(keyCode: 40, modifierFlags: [.option, .command]))

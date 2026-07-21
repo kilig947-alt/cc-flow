@@ -906,6 +906,8 @@ private struct SettingsPanelContentView: View {
     @State private var iconImageError: String?
     // 新建表单：是否允许请求外部接口（仅本地目录类型显示）
     @State private var newCustomAreaAllowsNetwork = false
+    // 新建表单：跨域登录是否留在 WebView（仅网站 URL 类型显示）
+    @State private var newWebURLKeepsCrossDomainLoginInWebView = false
     // Spec: webURL 模式自动获取图标/名称的 debounce token + 上次自动填入的名称（用于判断是否覆盖用户输入）
     @State private var metadataFetchToken: UUID?
     @State private var autoFilledName: String?
@@ -1086,6 +1088,7 @@ private struct SettingsPanelContentView: View {
                         return nil
                     }(),
                     iconName: updated.customIconName,
+                    keepsCrossDomainLoginInWebView: updated.keepsCrossDomainLoginInWebView,
                     variant: nil
                 )
                 editingWebURLFeature = nil
@@ -2816,10 +2819,13 @@ private struct SettingsPanelContentView: View {
                     .font(.caption)
 
             case .webURL:
-                // Spec: webURL 模式 URL 放第一位 → 名称 → 图标
+                // Spec: webURL 模式 URL 放第一位 → 名称 → 图标 → 跨域登录开关
                 newFeatureURLRow
                 newFeatureNameRow
                 newFeatureIconRow
+                Toggle("跨域登录留在 WebView", isOn: $newWebURLKeepsCrossDomainLoginInWebView)
+                    .font(.caption)
+                    .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
             }
 
             HStack {
@@ -3044,6 +3050,7 @@ private struct SettingsPanelContentView: View {
                 name: trimmedName,
                 url: newFeatureURLString,
                 iconName: iconName,
+                keepsCrossDomainLoginInWebView: newWebURLKeepsCrossDomainLoginInWebView,
                 variant: .traeWorkCN
             )
         }
@@ -3059,6 +3066,7 @@ private struct SettingsPanelContentView: View {
         newCustomAreaIconImage = nil
         iconImageError = nil
         newCustomAreaAllowsNetwork = false
+        newWebURLKeepsCrossDomainLoginInWebView = false
         // Spec: 重置自动获取相关 state
         metadataFetchToken = nil
         autoFilledName = nil
