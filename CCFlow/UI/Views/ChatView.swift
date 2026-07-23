@@ -462,32 +462,17 @@ struct ChatView: View {
                 return
             }
 
-            if CompletionQuickReplyDeliveryRoute.resolve(for: liveSession) == .direct {
-                do {
-                    try await sessionMonitor.sendSessionMessage(sessionId: sessionId, text: reply)
-                    await MainActor.run {
-                        quickReplyFeedback = "已发送“\(reply)”。"
-                        quickReplyInFlight = nil
-                    }
-                } catch {
-                    await MainActor.run {
-                        quickReplyFeedback = "发送失败：\(error.localizedDescription)"
-                        quickReplyInFlight = nil
-                    }
+            do {
+                _ = try await sessionMonitor.deliverQuickReply(reply, to: liveSession)
+                await MainActor.run {
+                    quickReplyFeedback = "已发送“\(reply)”。"
+                    quickReplyInFlight = nil
                 }
-                return
-            }
-
-            await MainActor.run {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(reply, forType: .string)
-            }
-            let activated = await SessionLauncher.shared.activate(liveSession)
-            await MainActor.run {
-                quickReplyFeedback = activated
-                    ? "已复制“\(reply)”，请粘贴发送。"
-                    : "已复制“\(reply)”，但无法打开原客户端。"
-                quickReplyInFlight = nil
+            } catch {
+                await MainActor.run {
+                    quickReplyFeedback = "发送失败：\(error.localizedDescription)"
+                    quickReplyInFlight = nil
+                }
             }
         }
     }

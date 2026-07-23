@@ -77,6 +77,7 @@ actor SessionStore {
         switch provider {
         case .claude: return "Claude Code Session"
         case .codex: return "Codex Session"
+        case .antigravity: return "Antigravity Session"
         case .trae: return "TRAE Session"
         }
     }

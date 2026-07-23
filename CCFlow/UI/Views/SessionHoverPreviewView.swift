@@ -1167,7 +1167,7 @@ struct HoverEmptyPreviewView: View {
     @ObservedObject private var settings = AppSettings.shared
 
     private var visibleShortcutActions: [(GlobalShortcutAction, GlobalShortcut)] {
-        let actions: [GlobalShortcutAction] = [.openActiveSession, .openSessionList]
+        let actions: [GlobalShortcutAction] = [.openActiveSession, .openLeftFeature, .openSessionList]
         return actions.compactMap { action in
             guard let shortcut = settings.shortcut(for: action) else { return nil }
             return (action, shortcut)
@@ -1362,6 +1362,8 @@ private struct HoverEmptyShortcutHint: View {
         switch action {
         case .openActiveSession:
             return "bolt.fill"
+        case .openLeftFeature:
+            return "sidebar.left"
         case .openSessionList:
             return "list.bullet"
         }

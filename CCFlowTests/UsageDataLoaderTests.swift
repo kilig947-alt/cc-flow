@@ -322,6 +322,27 @@ final class UsageDataLoaderTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testSelectOrReenterExpandedFeatureClearsReentryRequestOnSwitch() {
+        let store = LeftFeatureStore.shared
+        guard store.enabledFeatures.count >= 2 else { return }
+        let featureA = store.enabledFeatures[0].id
+        let featureB = store.enabledFeatures[1].id
+
+        store.setExpandedActiveFeature(id: featureA)
+        XCTAssertNil(store.expandedReentryRequest)
+
+        // 点击当前激活页面（featureA）触发重新加载请求
+        store.selectOrReenterExpandedFeature(id: featureA)
+        XCTAssertEqual(store.expandedReentryRequest?.featureID, featureA)
+        XCTAssertNotNil(store.expandedReentryRequest?.generation)
+
+        // 切换到不同页面（featureB），重新加载请求应被清除，仅切换激活功能
+        store.selectOrReenterExpandedFeature(id: featureB)
+        XCTAssertEqual(store.expandedActiveFeature?.id, featureB)
+        XCTAssertNil(store.expandedReentryRequest)
+    }
+
 
     func testLoaderDeduplicatesClaudeMessagesAndUsesCodexCumulativeDeltas() throws {
         UsageDataLoader.resetFileCacheForTesting()

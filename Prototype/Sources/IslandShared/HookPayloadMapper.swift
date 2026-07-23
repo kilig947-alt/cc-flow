@@ -146,6 +146,23 @@ public enum HookPayloadMapper {
             case .answer:
                 return "{}"
             }
+        case .antigravity:
+            switch decision {
+            case .approve, .approveForSession:
+                return #"{"decision":"allow"}"#
+            case .deny, .cancel:
+                let reason = response.reason ?? "Denied from CC FLOW"
+                guard let data = try? JSONSerialization.data(withJSONObject: [
+                    "decision": "deny",
+                    "reason": reason
+                ], options: [.sortedKeys]),
+                let json = String(data: data, encoding: .utf8) else {
+                    return #"{"decision":"deny","reason":"Denied from CC FLOW"}"#
+                }
+                return json
+            case .answer:
+                return "{}"
+            }
         }
     }
 
@@ -205,6 +222,7 @@ public enum HookPayloadMapper {
             payload["sessionId"] as? String,
             payload["thread_id"] as? String,
             payload["threadId"] as? String,
+            payload["conversationId"] as? String,
             environment["CLAUDE_SESSION_ID"],
             environment["CODEX_THREAD_ID"],
             environment["ITERM_SESSION_ID"],
@@ -275,7 +293,9 @@ public enum HookPayloadMapper {
             case "sessionend":
                 return SessionStatus(kind: .completed)
             case "stop", "stopfailure":
-                return SessionStatus(kind: provider == .trae ? .completed : .waitingForInput)
+                return SessionStatus(
+                    kind: provider == .trae || provider == .antigravity ? .completed : .waitingForInput
+                )
             default:
                 // Unknown stop/end variant from a future client we have not
                 // audited: stay conservative so we don't accumulate ghost
@@ -346,6 +366,7 @@ public enum HookPayloadMapper {
             payload["title"] as? String,
             payload["session_title"] as? String,
             payload["tool_name"] as? String,
+            (payload["toolCall"] as? [String: Any])?["name"] as? String,
             payload["hook_event_name"] as? String,
             payload["event"] as? String
         ].compactMap { $0 }.first
@@ -354,6 +375,13 @@ public enum HookPayloadMapper {
     private static func detectPreview(payload: [String: Any]) -> String? {
         if let toolName = payload["tool_name"] as? String {
             if let input = summarizeValue(payload["tool_input"]) {
+                return "\(toolName) \(input)"
+            }
+            return toolName
+        }
+        if let toolCall = payload["toolCall"] as? [String: Any],
+           let toolName = toolCall["name"] as? String {
+            if let input = summarizeValue(toolCall["args"]) {
                 return "\(toolName) \(input)"
             }
             return toolName
@@ -369,15 +397,20 @@ public enum HookPayloadMapper {
     }
 
     private static func detectCWD(payload: [String: Any], environment: [String: String]) -> String? {
+        let antigravityWorkspace = (payload["workspacePaths"] as? [String])?
+            .compactMap { nonEmpty($0) }
+            .first
         let candidateCWD = [
             payload["cwd"] as? String,
             payload["workspace"] as? String,
+            antigravityWorkspace,
             environment["PWD"]
         ].compactMap { nonEmpty($0) }.first
         let sessionFileWorkspace = workspacePathFromSessionFilePath(firstNonEmptyString(
             payload["session_file_path"],
             payload["rollout_path"],
-            payload["transcript_path"]
+            payload["transcript_path"],
+            payload["transcriptPath"]
         ))
 
         if shouldPreferSessionFileWorkspace(sessionFileWorkspace, over: candidateCWD) {
@@ -1018,6 +1051,8 @@ private extension AgentProvider {
             return "Codex"
         case .trae:
             return "TRAE"
+        case .antigravity:
+            return "Antigravity"
         }
     }
 }

@@ -81,13 +81,21 @@ final class UsageService: ObservableObject {
             let currentSessions = sessions
                 .filter {
                     if case .ended = $0.phase { return false }
-                    return $0.provider == .claude || $0.provider == .codex
+                    return $0.provider == .claude
+                        || $0.provider == .codex
+                        || $0.provider == .antigravity
                 }
                 .sorted { $0.lastActivity > $1.lastActivity }
             var currentSessionIDs: [UsageProviderID: String] = [:]
             var currentSessionPaths: [UsageProviderID: String] = [:]
             for session in currentSessions {
-                let provider: UsageProviderID = session.provider == .claude ? .claude : .codex
+                let provider: UsageProviderID
+                switch session.provider {
+                case .claude: provider = .claude
+                case .codex: provider = .codex
+                case .antigravity: provider = .antigravity
+                case .trae: continue
+                }
                 guard currentSessionIDs[provider] == nil else { continue }
                 currentSessionIDs[provider] = session.sessionId
                 currentSessionPaths[provider] = session.clientInfo.sessionFilePath
@@ -95,6 +103,7 @@ final class UsageService: ObservableObject {
             guard !Task.isCancelled, self.refreshGeneration == generation else { return }
             let loader = Task.detached(priority: reason == .passive ? .utility : .userInitiated) {
                 UsageDataLoader.load(
+                    queryAntigravityAccount: true,
                     currentSessionIDs: currentSessionIDs,
                     currentSessionPaths: currentSessionPaths
                 )

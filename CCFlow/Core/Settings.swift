@@ -419,6 +419,8 @@ final class AppSettingsStore: ObservableObject {
         static let deletedBuiltinMascotThemeIDs = "deletedBuiltinMascotThemeIDs"
         static let openActiveSessionShortcut = "openActiveSessionShortcut"
         static let openActiveSessionShortcutDisabled = "openActiveSessionShortcutDisabled"
+        static let openLeftFeatureShortcut = "openLeftFeatureShortcut"
+        static let openLeftFeatureShortcutDisabled = "openLeftFeatureShortcutDisabled"
         static let openSessionListShortcut = "openSessionListShortcut"
         static let openSessionListShortcutDisabled = "openSessionListShortcutDisabled"
         static let routePromptsToTerminal = "routePromptsToTerminal"
@@ -955,6 +957,18 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    @Published var openLeftFeatureShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                openLeftFeatureShortcut,
+                defaults: defaults,
+                key: Keys.openLeftFeatureShortcut,
+                disabledKey: Keys.openLeftFeatureShortcutDisabled
+            )
+        }
+    }
+
     @Published var openSessionListShortcut: GlobalShortcut? {
         didSet {
             guard !isBootstrapping else { return }
@@ -1157,6 +1171,8 @@ final class AppSettingsStore: ObservableObject {
         switch action {
         case .openActiveSession:
             return openActiveSessionShortcut
+        case .openLeftFeature:
+            return openLeftFeatureShortcut
         case .openSessionList:
             return openSessionListShortcut
         }
@@ -1168,13 +1184,21 @@ final class AppSettingsStore: ObservableObject {
         switch action {
         case .openActiveSession:
             openActiveSessionShortcut = normalized
-            if normalized != nil, normalized == openSessionListShortcut {
-                openSessionListShortcut = nil
+            if normalized != nil {
+                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
+                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+            }
+        case .openLeftFeature:
+            openLeftFeatureShortcut = normalized
+            if normalized != nil {
+                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
+                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
             }
         case .openSessionList:
             openSessionListShortcut = normalized
-            if normalized != nil, normalized == openActiveSessionShortcut {
-                openActiveSessionShortcut = nil
+            if normalized != nil {
+                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
+                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
             }
         }
     }
@@ -1444,6 +1468,12 @@ final class AppSettingsStore: ObservableObject {
             disabledKey: Keys.openActiveSessionShortcutDisabled,
             action: .openActiveSession
         )
+        let openLeftFeatureShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.openLeftFeatureShortcut,
+            disabledKey: Keys.openLeftFeatureShortcutDisabled,
+            action: .openLeftFeature
+        )
         let openSessionListShortcut = Self.resolvedShortcut(
             from: defaults,
             key: Keys.openSessionListShortcut,
@@ -1704,6 +1734,7 @@ final class AppSettingsStore: ObservableObject {
         _mascotPerClientOverrideEnabled = Published(initialValue: migratedPerClientEnabled)
         _deletedBuiltinMascotThemeIDs = Published(initialValue: deletedBuiltinMascotThemeIDs)
         _openActiveSessionShortcut = Published(initialValue: openActiveSessionShortcut)
+        _openLeftFeatureShortcut = Published(initialValue: openLeftFeatureShortcut)
         _openSessionListShortcut = Published(initialValue: openSessionListShortcut)
         let routePromptsToTerminal = Self.boolValue(
             from: defaults,

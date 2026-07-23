@@ -154,6 +154,7 @@ struct GlobalShortcut: Codable, Equatable, Hashable, Sendable {
 
 enum GlobalShortcutAction: String, CaseIterable, Identifiable {
     case openActiveSession
+    case openLeftFeature
     case openSessionList
 
     var id: String { rawValue }
@@ -162,6 +163,8 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         switch self {
         case .openActiveSession:
             return "展开活跃会话"
+        case .openLeftFeature:
+            return "展开左侧功能"
         case .openSessionList:
             return "展开会话列表"
         }
@@ -171,6 +174,8 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         switch self {
         case .openActiveSession:
             return "活跃会话"
+        case .openLeftFeature:
+            return "左侧功能"
         case .openSessionList:
             return "会话列表"
         }
@@ -180,6 +185,8 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         switch self {
         case .openActiveSession:
             return "优先打开最近需要关注或正在运行的会话。"
+        case .openLeftFeature:
+            return "打开最近预览或激活的左侧功能视图。"
         case .openSessionList:
             return "直接展开 Island 的会话列表视图。"
         }
@@ -190,6 +197,11 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         case .openActiveSession:
             return GlobalShortcut(
                 keyCode: UInt16(kVK_ANSI_J),
+                modifierFlags: [.option]
+            )
+        case .openLeftFeature:
+            return GlobalShortcut(
+                keyCode: UInt16(kVK_ANSI_K),
                 modifierFlags: [.option]
             )
         case .openSessionList:
@@ -213,6 +225,17 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
                     modifierFlags: [.control, .option, .command]
                 )
             ].compactMap { $0 }
+        case .openLeftFeature:
+            return [
+                GlobalShortcut(
+                    keyCode: UInt16(kVK_ANSI_K),
+                    modifierFlags: [.option, .command]
+                ),
+                GlobalShortcut(
+                    keyCode: UInt16(kVK_ANSI_K),
+                    modifierFlags: [.control, .option, .command]
+                )
+            ].compactMap { $0 }
         case .openSessionList:
             return [
                 GlobalShortcut(
@@ -231,6 +254,8 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         switch self {
         case .openActiveSession:
             return 1
+        case .openLeftFeature:
+            return 3
         case .openSessionList:
             return 2
         }

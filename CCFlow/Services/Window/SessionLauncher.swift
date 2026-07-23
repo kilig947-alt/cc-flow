@@ -173,7 +173,51 @@ actor SessionLauncher {
         return false
     }
 
-    private func activateTrackedTerminalSession(_ session: SessionState) async -> Bool {
+    /// Selects the exact terminal tab/pane that owns a session. Unlike
+    /// `activate(_:)`, this never reports success for merely bringing the host
+    /// terminal application to the front, because callers may type immediately
+    /// after this method returns.
+    func focusForTextInput(_ session: SessionState) async -> Bool {
+        guard !session.clientInfo.suppressesActivationNavigation else {
+            return false
+        }
+
+        if await activateTrackedTerminalSession(session, requireExactMatch: true) {
+            return true
+        }
+
+        if let tty = session.tty,
+           await focusTerminalSessionExactly(
+               sessionId: session.sessionId,
+               forTTY: tty,
+               clientInfo: session.clientInfo,
+               workspacePath: session.cwd,
+               launchURL: session.clientInfo.launchURL
+           ) {
+            return true
+        }
+
+        if let pid = session.pid,
+           await focusTerminalSessionExactly(
+               sessionId: session.sessionId,
+               forProcess: pid,
+               clientInfo: session.clientInfo,
+               workspacePath: session.cwd,
+               launchURL: session.clientInfo.launchURL
+           ) {
+            return true
+        }
+
+        await FocusDiagnosticsStore.shared.record(
+            "SessionLauncher exact-input-focus-failed session=\(session.sessionId)"
+        )
+        return false
+    }
+
+    private func activateTrackedTerminalSession(
+        _ session: SessionState,
+        requireExactMatch: Bool = false
+    ) async -> Bool {
         let clientInfo = session.clientInfo
         guard !session.isInTmux else {
             await FocusDiagnosticsStore.shared.record("SessionLauncher tracked-terminal skip-tmux session=\(session.sessionId)")
@@ -222,7 +266,8 @@ actor SessionLauncher {
                 sessionId: session.sessionId,
                 clientInfo: clientInfo,
                 workspacePath: session.cwd,
-                launchURL: clientInfo.launchURL
+                launchURL: clientInfo.launchURL,
+                requireExactMatch: requireExactMatch
             ) {
                 await FocusDiagnosticsStore.shared.record(
                     "SessionLauncher tracked-terminal success session=\(session.sessionId) terminalPid=\(application.processIdentifier)"
@@ -402,6 +447,39 @@ actor SessionLauncher {
         )
     }
 
+    private func focusTerminalSessionExactly(
+        sessionId: String,
+        forProcess pid: Int,
+        clientInfo: SessionClientInfo,
+        workspacePath: String,
+        launchURL: String?
+    ) async -> Bool {
+        let tree = ProcessTreeBuilder.shared.buildTree()
+        guard let terminalPid = ProcessTreeBuilder.shared.findTerminalPid(forProcess: pid, tree: tree) else {
+            return false
+        }
+        let resolvedTerminalPid = await resolvedTerminalApplicationPID(
+            from: terminalPid,
+            clientInfo: clientInfo,
+            tree: tree
+        )
+        let resolvedTTY = tree[pid]?.tty ?? tree[terminalPid]?.tty
+        let candidateProcessIDs = resolvedTTY.map {
+            ProcessTreeBuilder.shared.candidateProcessIDs(forTTY: $0, tree: tree)
+        } ?? Array(Set([pid, terminalPid])).sorted()
+
+        return await TerminalSessionFocuser.shared.focusSession(
+            terminalPid: resolvedTerminalPid,
+            tty: resolvedTTY,
+            candidateProcessIDs: candidateProcessIDs,
+            sessionId: sessionId,
+            clientInfo: clientInfo,
+            workspacePath: workspacePath,
+            launchURL: launchURL,
+            requireExactMatch: true
+        )
+    }
+
     private func activateTerminal(
         sessionId: String,
         forTTY tty: String,
@@ -453,6 +531,36 @@ actor SessionLauncher {
             clientInfo: clientInfo,
             sessionId: sessionId,
             source: "tty-terminal"
+        )
+    }
+
+    private func focusTerminalSessionExactly(
+        sessionId: String,
+        forTTY tty: String,
+        clientInfo: SessionClientInfo,
+        workspacePath: String,
+        launchURL: String?
+    ) async -> Bool {
+        let tree = ProcessTreeBuilder.shared.buildTree()
+        let candidateProcessIDs = ProcessTreeBuilder.shared.candidateProcessIDs(forTTY: tty, tree: tree)
+        guard let terminalPid = ProcessTreeBuilder.shared.findTerminalPid(forTTY: tty, tree: tree) else {
+            return false
+        }
+        let resolvedTerminalPid = await resolvedTerminalApplicationPID(
+            from: terminalPid,
+            clientInfo: clientInfo,
+            tree: tree
+        )
+
+        return await TerminalSessionFocuser.shared.focusSession(
+            terminalPid: resolvedTerminalPid,
+            tty: tty,
+            candidateProcessIDs: candidateProcessIDs,
+            sessionId: sessionId,
+            clientInfo: clientInfo,
+            workspacePath: workspacePath,
+            launchURL: launchURL,
+            requireExactMatch: true
         )
     }
 

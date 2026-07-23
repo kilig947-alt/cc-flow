@@ -15,7 +15,7 @@ final class SessionCompletionStateEvaluatorTests: XCTestCase {
         let fallbackSession = SessionState(sessionId: "plain", cwd: "/tmp", provider: .codex)
 
         XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: directSession), .direct)
-        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: fallbackSession), .copyAndActivate)
+        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: fallbackSession), .focusPasteAndSubmit)
     }
 
     func testCompletedAssistantReplyRejectsToolOnlyTail() {

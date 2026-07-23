@@ -4,12 +4,14 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
     case claude
     case codex
     case trae
+    case antigravity
 
     nonisolated var displayName: String {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .trae: return "TRAE"
+        case .antigravity: return "Antigravity"
         }
     }
 }
@@ -25,6 +27,7 @@ enum SessionClientKind: String, Codable, Equatable, Sendable {
     case claudeCode
     case codex
     case trae
+    case antigravity
     case custom
     case unknown
 }
@@ -103,6 +106,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         case .claude: return SessionClientInfo(kind: .claudeCode, name: "Claude Code")
         case .codex: return SessionClientInfo(kind: .codex, name: "Codex")
         case .trae: return SessionClientInfo(kind: .trae, name: "TRAE")
+        case .antigravity: return SessionClientInfo(kind: .antigravity, name: "Antigravity")
         }
     }
 
@@ -129,6 +133,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         case .claudeCode: return .claude
         case .codex: return .codex
         case .trae: return .trae
+        case .antigravity: return .antigravity
         case .custom, .unknown: return .neutral
         }
     }
@@ -211,7 +216,8 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
     }
 
     nonisolated var prefersAppNavigation: Bool {
-        launchURL != nil || kind == .codex || (bundleIdentifier?.lowercased().contains("trae") == true)
+        launchURL != nil || kind == .codex || kind == .antigravity
+            || (bundleIdentifier?.lowercased().contains("trae") == true)
     }
 
     nonisolated func normalizedForClaudeRouting() -> SessionClientInfo {
@@ -223,6 +229,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         case .claudeCode: return "claude"
         case .codex: return "codex"
         case .trae: return "trae"
+        case .antigravity: return "antigravity"
         case .custom, .unknown: return nil
         }
     }

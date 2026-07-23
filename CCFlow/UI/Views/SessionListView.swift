@@ -221,24 +221,7 @@ struct SessionListView: View {
         selectSession(session)
         Task {
             let targetSession = await interactionTargetSession(for: session)
-            if CompletionQuickReplyDeliveryRoute.resolve(for: targetSession) == .direct {
-                do {
-                    try await sessionMonitor.sendSessionMessage(
-                        sessionId: targetSession.sessionId,
-                        text: reply
-                    )
-                    return
-                } catch {
-                    // Preserve the reply and open the original client when the
-                    // captured tmux pane is no longer reachable.
-                }
-            }
-
-            await MainActor.run {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(reply, forType: .string)
-            }
-            _ = await SessionLauncher.shared.activate(targetSession)
+            _ = try? await sessionMonitor.deliverQuickReply(reply, to: targetSession)
         }
     }
 

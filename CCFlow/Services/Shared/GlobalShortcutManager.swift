@@ -5,6 +5,7 @@ import Combine
 extension Notification.Name {
     static let ccFlowOpenActiveSessionShortcut = Notification.Name("ccFlowOpenActiveSessionShortcut")
     static let ccFlowOpenSessionListShortcut = Notification.Name("ccFlowOpenSessionListShortcut")
+    static let ccFlowOpenRecentLeftFeatureShortcut = Notification.Name("ccFlowOpenRecentLeftFeatureShortcut")
     static let ccFlowOpenLeftFeatureShortcut = Notification.Name("ccFlowOpenLeftFeatureShortcut")
     static let ccFlowPresentNotchDetachmentHint = Notification.Name("ccFlowPresentNotchDetachmentHint")
 }
@@ -29,11 +30,12 @@ final class GlobalShortcutManager: ObservableObject {
     private init() {
         installEventHandlerIfNeeded()
 
-        Publishers.CombineLatest(
+        Publishers.CombineLatest3(
             AppSettings.shared.$openActiveSessionShortcut,
+            AppSettings.shared.$openLeftFeatureShortcut,
             AppSettings.shared.$openSessionListShortcut
         )
-        .sink { [weak self] _, _ in
+        .sink { [weak self] _, _, _ in
             self?.refreshRegistrations()
         }
         .store(in: &cancellables)
@@ -166,6 +168,8 @@ final class GlobalShortcutManager: ObservableObject {
             switch action {
             case .openActiveSession:
                 NotificationCenter.default.post(name: .ccFlowOpenActiveSessionShortcut, object: nil)
+            case .openLeftFeature:
+                NotificationCenter.default.post(name: .ccFlowOpenRecentLeftFeatureShortcut, object: nil)
             case .openSessionList:
                 NotificationCenter.default.post(name: .ccFlowOpenSessionListShortcut, object: nil)
             }

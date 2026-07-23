@@ -8,7 +8,7 @@ struct UsageExpandedView: View {
             VStack(alignment: .leading, spacing: 14) {
                 header
                 if let snapshot = service.snapshot {
-                    ForEach(snapshot.providers) { provider in
+                    ForEach(displayProviders(from: snapshot)) { provider in
                         providerCard(provider)
                     }
                 } else if service.isRefreshing {
@@ -22,6 +22,22 @@ struct UsageExpandedView: View {
         .onAppear {
             service.start()
             Task { await service.refresh(reason: .becameActive) }
+        }
+    }
+
+    private func displayProviders(from snapshot: UsageSnapshot) -> [ProviderUsageSnapshot] {
+        UsageProviderID.allCases.map { provider in
+            snapshot.providers.first(where: { $0.provider == provider })
+                ?? ProviderUsageSnapshot(
+                    provider: provider,
+                    accountState: .unavailable,
+                    windows: [],
+                    tokenSummary: nil,
+                    capturedAt: nil,
+                    errorMessage: service.isRefreshing && provider == .antigravity
+                        ? "正在检测 Antigravity 本地用量服务…"
+                        : nil
+                )
         }
     }
 
@@ -65,9 +81,7 @@ struct UsageExpandedView: View {
             }
 
             if provider.windows.isEmpty {
-                Text(appLocalized: provider.provider == .claude
-                     ? "启动 Claude Code 并完成一次请求后可读取账户限额。"
-                     : "尚未在本地 Codex 会话中检测到限额；Token 统计仍可用。")
+                Text(appLocalized: emptyMessage(for: provider.provider))
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
             } else {
@@ -157,7 +171,7 @@ struct UsageExpandedView: View {
     private var loadingState: some View {
         HStack(spacing: 10) {
             ProgressView().controlSize(.small)
-            Text(appLocalized: "正在读取 Claude Code 和 Codex 用量…")
+            Text(appLocalized: "正在读取 Claude Code、Codex 和 Antigravity 用量…")
         }
         .frame(maxWidth: .infinity, minHeight: 180)
         .foregroundColor(.secondary)
@@ -180,6 +194,17 @@ struct UsageExpandedView: View {
         case .available: return "已连接"
         case .stale: return "数据可能已过期"
         case .unavailable: return "未检测到限额"
+        }
+    }
+
+    private func emptyMessage(for provider: UsageProviderID) -> String {
+        switch provider {
+        case .claude:
+            return "启动 Claude Code 并完成一次请求后可读取账户限额。"
+        case .codex:
+            return "尚未在本地 Codex 会话中检测到限额；Token 统计仍可用。"
+        case .antigravity:
+            return "启动 Antigravity 并登录后可读取各模型限额。"
         }
     }
 }

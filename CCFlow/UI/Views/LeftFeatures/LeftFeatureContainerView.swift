@@ -99,7 +99,7 @@ struct LeftFeatureContainerView: View {
     private func expandedWebView(
         source: CustomAreaWebView.ContentSource,
         feature: LeftFeature
-    ) -> CustomAreaWebView {
+    ) -> some View {
         let request = featureStore.expandedReentryRequest
         let generation = request?.featureID == feature.id ? request?.generation : nil
         return CustomAreaWebView(
@@ -109,6 +109,7 @@ struct LeftFeatureContainerView: View {
             keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView,
             entryReloadGeneration: generation
         )
+        .id(feature.id)
     }
 
     private var emptyState: some View {

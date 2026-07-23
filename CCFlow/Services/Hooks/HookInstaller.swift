@@ -666,6 +666,8 @@ struct HookInstaller {
         switch profile.installationKind {
         case .jsonHooks:
             return profile.configurationURLs.contains { containsManagedHooks(at: $0, profile: profile) }
+        case .antigravityHooks:
+            return profile.configurationURLs.contains { containsManagedAntigravityHooks(at: $0) }
         case .pluginFile:
             return profile.configurationURLs.contains { containsManagedPlugin(at: $0, profile: profile) }
                 && isManagedPluginEnabled(profile)
@@ -708,6 +710,10 @@ struct HookInstaller {
             for url in installationTargets(for: profile) {
                 updateHooks(at: url, profile: profile)
             }
+        case .antigravityHooks:
+            for url in installationTargets(for: profile) {
+                updateAntigravityHooks(at: url, profile: profile)
+            }
         case .pluginFile:
             for url in installationTargets(for: profile) {
                 writeManagedPlugin(at: url, profile: profile)
@@ -740,6 +746,10 @@ struct HookInstaller {
         case .jsonHooks:
             for url in profile.configurationURLs {
                 removeManagedHooks(at: url, profile: profile)
+            }
+        case .antigravityHooks:
+            for url in profile.configurationURLs {
+                removeManagedAntigravityHooks(at: url)
             }
         case .pluginFile:
             for url in profile.configurationURLs {
@@ -1195,6 +1205,73 @@ struct HookInstaller {
         writeData(data, to: url)
     }
 
+    private static let antigravityManagedGroupName = "cc-flow"
+
+    private static func updateAntigravityHooks(at url: URL, profile: ManagedHookClientProfile) {
+        let data = updatedAntigravityHookConfigurationData(
+            existingData: try? Data(contentsOf: url),
+            profile: profile
+        )
+        writeData(data, to: url)
+    }
+
+    static func updatedAntigravityHookConfigurationData(
+        existingData: Data?,
+        profile: ManagedHookClientProfile
+    ) -> Data {
+        var json = existingData.flatMap(HookConfigParser.parseJSONObject(from:)) ?? [:]
+        let command = bridgeCommand(source: profile.bridgeSource, extraArguments: profile.bridgeExtraArguments)
+        var group: [String: Any] = ["enabled": true]
+
+        for event in effectiveEvents(for: profile) {
+            var hookCommand: [String: Any] = [
+                "type": "command",
+                "command": command
+            ]
+            if let timeout = event.timeout {
+                hookCommand["timeout"] = timeout
+            }
+
+            switch event.templates.first {
+            case .matcher(let matcher):
+                group[event.name] = [[
+                    "matcher": matcher,
+                    "hooks": [hookCommand]
+                ]]
+            case .plain, .none:
+                group[event.name] = [hookCommand]
+            }
+        }
+
+        json[antigravityManagedGroupName] = group
+        return serializedJSONObject(json)
+    }
+
+    static func removingManagedAntigravityHookConfigurationData(existingData: Data?) -> Data {
+        guard var json = existingData.flatMap(HookConfigParser.parseJSONObject(from:)) else {
+            return existingData ?? Data()
+        }
+        json.removeValue(forKey: antigravityManagedGroupName)
+        return serializedJSONObject(json)
+    }
+
+    private static func removeManagedAntigravityHooks(at url: URL) {
+        guard let data = try? Data(contentsOf: url) else { return }
+        writeData(removingManagedAntigravityHookConfigurationData(existingData: data), to: url)
+    }
+
+    private static func containsManagedAntigravityHooks(at url: URL) -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let json = HookConfigParser.parseJSONObject(from: data),
+              let group = json[antigravityManagedGroupName] as? [String: Any] else {
+            return false
+        }
+        return group.values.contains { value in
+            guard let entries = value as? [[String: Any]] else { return false }
+            return entries.contains { isIslandManagedHookEntry($0) }
+        }
+    }
+
     static func updatedHookConfigurationData(
         existingData: Data?,
         profile: ManagedHookClientProfile
@@ -1554,6 +1631,8 @@ struct HookInstaller {
         switch profile.installationKind {
         case .jsonHooks:
             updateHooks(at: url, profile: profile)
+        case .antigravityHooks:
+            updateAntigravityHooks(at: url, profile: profile)
         case .pluginFile:
             writeManagedPlugin(at: url, profile: profile)
             setManagedPluginEnabled(true, for: profile, customConfigURL: activationConfigURL, pluginURL: url)
@@ -1591,6 +1670,8 @@ struct HookInstaller {
             switch profile.installationKind {
             case .jsonHooks:
                 removeManagedHooks(at: url)
+            case .antigravityHooks:
+                removeManagedAntigravityHooks(at: url)
             case .pluginFile:
                 removeManagedPlugin(at: url, profile: profile)
                 setManagedPluginEnabled(false, for: profile, customConfigURL: activationConfigURL, pluginURL: url)
@@ -1616,6 +1697,8 @@ struct HookInstaller {
         switch profile.installationKind {
         case .jsonHooks:
             return containsManagedHooks(at: url)
+        case .antigravityHooks:
+            return containsManagedAntigravityHooks(at: url)
         case .pluginFile:
             return containsManagedPlugin(at: url, profile: profile)
         case .pluginDirectory:
@@ -1758,6 +1841,14 @@ struct HookInstaller {
             } else {
                 json["hooks"] = hooks
             }
+        case .antigravityHooks:
+            if installing {
+                return updatedAntigravityHookConfigurationData(
+                    existingData: existingData,
+                    profile: profile
+                )
+            }
+            return removingManagedAntigravityHookConfigurationData(existingData: existingData)
 
         case .pluginFile:
             let targetPluginURL = pluginURL ?? profile.primaryConfigurationURL
@@ -1847,7 +1938,7 @@ struct HookInstaller {
 
     private static func customInstallationURL(for profile: ManagedHookClientProfile, baseDirectory: URL) -> URL {
         switch profile.installationKind {
-        case .jsonHooks, .pluginFile, .tomlHooks:
+        case .jsonHooks, .antigravityHooks, .pluginFile, .tomlHooks:
             return baseDirectory.appendingPathComponent(profile.primaryConfigurationURL.lastPathComponent)
         case .pluginDirectory, .hookDirectory:
             return baseDirectory.appendingPathComponent(profile.primaryConfigurationURL.lastPathComponent, isDirectory: true)
@@ -1856,14 +1947,14 @@ struct HookInstaller {
 
     private static func customActivationConfigurationURL(for profile: ManagedHookClientProfile, baseDirectory: URL) -> URL? {
         switch profile.installationKind {
-        case .jsonHooks, .pluginFile, .pluginDirectory, .tomlHooks, .hookDirectory:
+        case .jsonHooks, .antigravityHooks, .pluginFile, .pluginDirectory, .tomlHooks, .hookDirectory:
             return nil
         }
     }
 
     private static func customActivationConfigurationURL(for profile: ManagedHookClientProfile, installedURL: URL) -> URL? {
         switch profile.installationKind {
-        case .jsonHooks, .pluginFile, .pluginDirectory, .tomlHooks, .hookDirectory:
+        case .jsonHooks, .antigravityHooks, .pluginFile, .pluginDirectory, .tomlHooks, .hookDirectory:
             return nil
         }
     }

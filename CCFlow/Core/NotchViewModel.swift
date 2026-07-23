@@ -1159,6 +1159,18 @@ class NotchViewModel: ObservableObject {
         return true
     }
 
+    func toggleCustomExpanded(reason: NotchOpenReason = .click) {
+        if status == .opened,
+           reason == .click,
+           openReason == .click,
+           case .customExpanded = contentType {
+            notchClose()
+            return
+        }
+
+        presentCustomExpanded(reason: reason)
+    }
+
     func presentSessionList(reason: NotchOpenReason = .click) {
         exitChat()
         notchOpen(reason: reason)

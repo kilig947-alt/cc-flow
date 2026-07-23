@@ -22,6 +22,14 @@ final class GlobalShortcutTests: XCTestCase {
     func testDefaultShortcutsRemainDistinct() {
         XCTAssertNotEqual(
             GlobalShortcutAction.openActiveSession.defaultShortcut,
+            GlobalShortcutAction.openLeftFeature.defaultShortcut
+        )
+        XCTAssertNotEqual(
+            GlobalShortcutAction.openLeftFeature.defaultShortcut,
+            GlobalShortcutAction.openSessionList.defaultShortcut
+        )
+        XCTAssertNotEqual(
+            GlobalShortcutAction.openActiveSession.defaultShortcut,
             GlobalShortcutAction.openSessionList.defaultShortcut
         )
     }
@@ -29,6 +37,10 @@ final class GlobalShortcutTests: XCTestCase {
     func testDefaultShortcutsUseOptionModifier() {
         XCTAssertEqual(
             GlobalShortcutAction.openActiveSession.defaultShortcut?.modifierFlags,
+            [.option]
+        )
+        XCTAssertEqual(
+            GlobalShortcutAction.openLeftFeature.defaultShortcut?.modifierFlags,
             [.option]
         )
         XCTAssertEqual(

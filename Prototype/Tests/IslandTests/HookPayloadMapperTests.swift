@@ -749,3 +749,58 @@ func unknownStopVariantFallsBackToCompleted() throws {
     #expect(envelope.eventType == "MysteryStopThing")
     #expect(envelope.status?.kind == .completed)
 }
+
+@Test
+func antigravityCamelCaseToolPayloadMapsToSessionEnvelope() throws {
+    let payload = """
+    {
+      "hook_event_name": "PreToolUse",
+      "conversationId": "antigravity-session-1",
+      "workspacePaths": ["/tmp/real-project"],
+      "transcriptPath": "/tmp/antigravity.jsonl",
+      "toolCall": {
+        "name": "run_command",
+        "args": {"command": "swift test"}
+      }
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .antigravity,
+        arguments: ["cc-flow-bridge", "--source", "antigravity"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.sessionKey == "antigravity:antigravity-session-1")
+    #expect(envelope.eventType == "PreToolUse")
+    #expect(envelope.cwd == "/tmp/real-project")
+    #expect(envelope.title == "run_command")
+    #expect(envelope.status?.kind == .runningTool)
+}
+
+@Test
+func antigravityApprovalUsesNativeDecisionShape() throws {
+    let allowPayload = HookPayloadMapper.stdoutPayload(
+        for: .antigravity,
+        response: BridgeResponse(requestID: UUID(), decision: .approve),
+        eventType: "PreToolUse",
+        metadata: [:]
+    )
+    let allowJSON = try #require(
+        JSONSerialization.jsonObject(with: Data(allowPayload.utf8)) as? [String: Any]
+    )
+    #expect(allowJSON["decision"] as? String == "allow")
+
+    let denyPayload = HookPayloadMapper.stdoutPayload(
+        for: .antigravity,
+        response: BridgeResponse(requestID: UUID(), decision: .deny, reason: "用户拒绝"),
+        eventType: "PreToolUse",
+        metadata: [:]
+    )
+    let denyJSON = try #require(
+        JSONSerialization.jsonObject(with: Data(denyPayload.utf8)) as? [String: Any]
+    )
+    #expect(denyJSON["decision"] as? String == "deny")
+    #expect(denyJSON["reason"] as? String == "用户拒绝")
+}

@@ -632,4 +632,16 @@ final class SessionStateTests: XCTestCase {
         XCTAssertFalse(script.contains("targetTerminalID"))
         XCTAssertTrue(script.contains("set targetPath to \"/tmp/demo\""))
     }
+
+    func testGhosttyStrictSelectionDoesNotFallBackToSharedWorkspace() {
+        let lines = TerminalSessionFocuser.ghosttySelectionScriptLines(
+            terminalSessionIdentifier: "65a2028f-a93c-48e0-b46a-3f4c20c94b81",
+            workspacePath: "/tmp/demo",
+            allowsWorkspaceFallback: false
+        )
+        let script = lines.joined(separator: "\n")
+
+        XCTAssertTrue(script.contains("first terminal whose id is targetTerminalID"))
+        XCTAssertFalse(script.contains("every terminal whose working directory is targetPath"))
+    }
 }

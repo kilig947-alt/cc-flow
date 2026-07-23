@@ -42,7 +42,8 @@ actor TerminalSessionFocuser {
         clientInfo: SessionClientInfo,
         workspacePath: String,
         launchURL: String?,
-        remoteHostHint: String? = nil
+        remoteHostHint: String? = nil,
+        requireExactMatch: Bool = false
     ) async -> Bool {
         let bundleIdentifier = await Self.resolveTerminalBundleIdentifier(
             terminalPid: terminalPid,
@@ -76,7 +77,8 @@ actor TerminalSessionFocuser {
         case "com.mitchellh.ghostty", "com.cmuxterm.app":
             didFocus = await Self.focusGhosttySession(
                 clientInfo: clientInfo,
-                workspacePath: workspacePath
+                workspacePath: workspacePath,
+                requireStableIdentifier: requireExactMatch
             )
         default:
             didFocus = false
@@ -86,7 +88,10 @@ actor TerminalSessionFocuser {
             "TerminalSessionFocuser focusSession session=\(sessionId) bundle=\(normalizedBundle) pid=\(terminalPid) tty=\(tty ?? "nil") activated=\(activated) focused=\(didFocus)"
         )
 
-        return didFocus || activated
+        // Activating the host application is not the same as selecting the
+        // tab/pane that owns this session. Callers that intend to type into a
+        // terminal must only treat an exact selection as success.
+        return didFocus
     }
 
     /// Returns a snapshot of the frontmost Ghostty terminal, or `nil` if
@@ -167,35 +172,44 @@ actor TerminalSessionFocuser {
     /// identifier (when a UUID is available) and/or by working directory.
     nonisolated static func ghosttySelectionScriptLines(
         terminalSessionIdentifier: String?,
-        workspacePath: String
+        workspacePath: String,
+        allowsWorkspaceFallback: Bool = true
     ) -> [String] {
         let escapedWorkspace = Self.escapeAppleScriptString(workspacePath)
         var lines: [String] = []
         lines.append("tell application \"Ghostty\"")
         lines.append("activate")
+        lines.append("set didFocus to false")
 
         let normalizedID = Self.normalizedGhosttyTerminalIdentifier(terminalSessionIdentifier)
 
         if let normalizedID {
             lines.append("set targetTerminalID to \"\(normalizedID)\"")
-            lines.append("set targetTerminal to first terminal whose id is targetTerminalID")
             lines.append("set targetPath to \"\(escapedWorkspace)\"")
             lines.append("try")
+            lines.append("set targetTerminal to first terminal whose id is targetTerminalID")
             lines.append("focus targetTerminal")
-            lines.append("on error")
-            lines.append("set exactMatches to every terminal whose working directory is targetPath")
-            lines.append("if (count of exactMatches) > 0 then")
-            lines.append("focus (item 1 of exactMatches)")
-            lines.append("end if")
+            lines.append("set didFocus to true")
             lines.append("end try")
-        } else {
+            if allowsWorkspaceFallback {
+                lines.append("if not didFocus then")
+                lines.append("set exactMatches to every terminal whose working directory is targetPath")
+                lines.append("if (count of exactMatches) > 0 then")
+                lines.append("focus (item 1 of exactMatches)")
+                lines.append("set didFocus to true")
+                lines.append("end if")
+                lines.append("end if")
+            }
+        } else if allowsWorkspaceFallback {
             lines.append("set targetPath to \"\(escapedWorkspace)\"")
             lines.append("set exactMatches to every terminal whose working directory is targetPath")
             lines.append("if (count of exactMatches) > 0 then")
             lines.append("focus (item 1 of exactMatches)")
+            lines.append("set didFocus to true")
             lines.append("end if")
         }
 
+        lines.append("return didFocus")
         lines.append("end tell")
         return lines
     }
@@ -218,27 +232,33 @@ actor TerminalSessionFocuser {
             iTermSessionIdentifier: iTermSessionID,
             tty: tty
         )
-        return await Self.runAppleScript(script)
+        return await Self.runAppleScriptReturningBoolean(script)
     }
 
     nonisolated private static func focusTerminalAppSession(tty: String?) async -> Bool {
         guard let tty, !tty.isEmpty else { return false }
         let script = Self.terminalAppSelectionScript(tty: tty)
-        return await Self.runAppleScript(script)
+        return await Self.runAppleScriptReturningBoolean(script)
     }
 
     nonisolated private static func focusGhosttySession(
         clientInfo: SessionClientInfo,
-        workspacePath: String
+        workspacePath: String,
+        requireStableIdentifier: Bool
     ) async -> Bool {
         let terminalSessionID = clientInfo.terminalSessionIdentifier?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if requireStableIdentifier,
+           Self.normalizedGhosttyTerminalIdentifier(terminalSessionID) == nil {
+            return false
+        }
         let lines = Self.ghosttySelectionScriptLines(
             terminalSessionIdentifier: terminalSessionID,
-            workspacePath: workspacePath
+            workspacePath: workspacePath,
+            allowsWorkspaceFallback: !requireStableIdentifier
         )
         let script = lines.joined(separator: "\n")
-        return await Self.runAppleScript(script)
+        return await Self.runAppleScriptReturningBoolean(script)
     }
 
     // MARK: - AppleScript builders
@@ -261,7 +281,7 @@ actor TerminalSessionFocuser {
             lines.append("select aTab")
             lines.append("set current session of aTab to aSession")
             lines.append("set index of aWindow to 1")
-            lines.append("return")
+            lines.append("return true")
             lines.append("end if")
             lines.append("end repeat")
             lines.append("end repeat")
@@ -277,13 +297,14 @@ actor TerminalSessionFocuser {
             lines.append("select aTab")
             lines.append("set current session of aTab to aSession")
             lines.append("set index of aWindow to 1")
-            lines.append("return")
+            lines.append("return true")
             lines.append("end if")
             lines.append("end repeat")
             lines.append("end repeat")
             lines.append("end repeat")
         }
 
+        lines.append("return false")
         lines.append("end tell")
         return lines.joined(separator: "\n")
     }
@@ -302,11 +323,12 @@ actor TerminalSessionFocuser {
         lines.append("if (tty of aTab) is targetTTY then")
         lines.append("set selected of aTab to true")
         lines.append("set index of aWindow to 1")
-        lines.append("return")
+        lines.append("return true")
         lines.append("end if")
         lines.append("end repeat")
         lines.append("end repeat")
 
+        lines.append("return false")
         lines.append("end tell")
         return lines.joined(separator: "\n")
     }
@@ -359,25 +381,25 @@ actor TerminalSessionFocuser {
 
     // MARK: - AppleScript execution
 
-    nonisolated private static func runAppleScript(_ source: String) async -> Bool {
-        let outcome = await MainActor.run { () -> (success: Bool, errorDescription: String?) in
+    nonisolated private static func runAppleScriptReturningBoolean(_ source: String) async -> Bool {
+        let outcome = await MainActor.run { () -> (focused: Bool, errorDescription: String?) in
             guard let script = NSAppleScript(source: source) else {
                 return (false, "failed to create NSAppleScript")
             }
             var errorInfo: NSDictionary?
-            _ = script.executeAndReturnError(&errorInfo)
+            let output = script.executeAndReturnError(&errorInfo)
             if let errorInfo {
                 return (false, errorInfo.description)
             }
-            return (true, nil)
+            return (output.booleanValue, nil)
         }
 
-        if !outcome.success {
+        if let errorDescription = outcome.errorDescription {
             await FocusDiagnosticsStore.shared.record(
-                "TerminalSessionFocuser apple-script-error error=\(outcome.errorDescription ?? "unknown")"
+                "TerminalSessionFocuser apple-script-error error=\(errorDescription)"
             )
         }
-        return outcome.success
+        return outcome.focused
     }
 
     nonisolated private static func runAppleScriptReturningString(_ source: String) async -> String? {

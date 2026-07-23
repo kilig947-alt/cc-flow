@@ -27,6 +27,7 @@ enum HookProtocolFamily: Sendable {
     case claudeHooks
     case codexHooks
     case traeHooks
+    case antigravityHooks
 
     // Keep explicit raw-value decoding stable for persisted profile metadata.
     init?(rawValue: String) {
@@ -34,6 +35,7 @@ enum HookProtocolFamily: Sendable {
         case "claudehooks": self = .claudeHooks
         case "codexhooks": self = .codexHooks
         case "traehooks": self = .traeHooks
+        case "antigravityhooks": self = .antigravityHooks
         default: return nil
         }
     }
@@ -43,6 +45,7 @@ enum SessionClientBrand: String, Codable, Equatable, Sendable {
     case claude
     case codex
     case trae
+    case antigravity
     case neutral
 }
 
@@ -58,6 +61,7 @@ enum HookInstallEntryTemplate: Sendable {
 
 enum ManagedHookInstallationKind: Sendable, Equatable {
     case jsonHooks
+    case antigravityHooks
     case pluginFile
     case pluginDirectory
     case hookDirectory
@@ -290,7 +294,13 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
     }
 
     nonisolated var supportsEventSelection: Bool {
-        installationKind == .jsonHooks && !events.isEmpty
+        guard !events.isEmpty else { return false }
+        switch installationKind {
+        case .jsonHooks, .antigravityHooks:
+            return true
+        case .pluginFile, .pluginDirectory, .hookDirectory, .tomlHooks:
+            return false
+        }
     }
 
     nonisolated var availableEventCategories: [HookInstallEventCategory] {
@@ -306,6 +316,8 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         switch installationKind {
         case .jsonHooks:
             return "这会重新写入 %@ 的 CC FLOW hooks 配置，并保留其他非 CC FLOW hooks。"
+        case .antigravityHooks:
+            return "这会重新写入 %@ 的 CC FLOW Hook 组，并保留其他 Hook 组。"
         case .pluginFile:
             return "这会重新生成 %@ 的 CC FLOW 插件文件，并覆盖旧的 CC FLOW 托管版本。"
         case .pluginDirectory:
@@ -496,6 +508,33 @@ enum ClientProfileRegistry {
             supportsHookIntegration: true
         ),
         ManagedHookClientProfile(
+            id: "antigravity-hooks",
+            title: "Antigravity",
+            subtitle: "管理 ~/.gemini/config/hooks.json，接收 Antigravity 工具、调用与停止事件",
+            installationKind: .antigravityHooks,
+            alwaysVisibleInSettings: false,
+            localAppBundleIdentifiers: ["com.google.antigravity"],
+            iconSymbolName: "atom",
+            configurationRelativePath: ".gemini/config/hooks.json",
+            bridgeSource: "antigravity",
+            bridgeExtraArguments: [
+                "--client-kind", "antigravity",
+                "--client-name", "Antigravity",
+                "--client-bundle-id", "com.google.antigravity",
+                "--client-originator", "Antigravity"
+            ],
+            defaultEnabled: false,
+            brand: .antigravity,
+            events: [
+                HookInstallEventDescriptor(name: "PreToolUse", templates: [.matcher("*")]),
+                HookInstallEventDescriptor(name: "PostToolUse", templates: [.matcher("*")]),
+                HookInstallEventDescriptor(name: "PreInvocation", templates: [.plain]),
+                HookInstallEventDescriptor(name: "PostInvocation", templates: [.plain]),
+                HookInstallEventDescriptor(name: "Stop", templates: [.plain]),
+            ],
+            supportsHookIntegration: true
+        ),
+        ManagedHookClientProfile(
             id: "trae-hooks",
             title: "Trae",
             subtitle: "管理 ~/.trae/hooks.json，按 Trae 官方 Hook 协议接入 Trae",
@@ -648,6 +687,21 @@ enum ClientProfileRegistry {
             bundleIdentifiers: []
         ),
         SessionClientProfile(
+            id: "antigravity",
+            provider: .antigravity,
+            family: .antigravityHooks,
+            kind: .antigravity,
+            displayName: "Antigravity",
+            assistantLabelMode: .providerDisplayName,
+            brand: .antigravity,
+            defaultBundleIdentifier: "com.google.antigravity",
+            defaultOrigin: "ide",
+            recognizedKinds: ["antigravity", "antigravity-ide"],
+            exactAliases: ["antigravity", "antigravity ide", "antigravity-ide"],
+            keywordAliases: ["antigravity"],
+            bundleIdentifiers: ["com.google.antigravity"]
+        ),
+        SessionClientProfile(
             id: "trae",
             provider: .trae,
             family: .traeHooks,
@@ -701,6 +755,7 @@ enum ClientProfileRegistry {
         case .claude: return runtimeProfile(id: "claude")
         case .codex: return runtimeProfile(id: "codex")
         case .trae: return runtimeProfile(id: "trae")
+        case .antigravity: return runtimeProfile(id: "antigravity")
         }
     }
 

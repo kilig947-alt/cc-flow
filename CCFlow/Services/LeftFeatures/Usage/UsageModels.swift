@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum UsageProviderID: String, Codable, CaseIterable, Identifiable, Sendable {
     case claude
     case codex
+    case antigravity
 
     var id: String { rawValue }
 
@@ -10,6 +11,7 @@ nonisolated enum UsageProviderID: String, Codable, CaseIterable, Identifiable, S
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
+        case .antigravity: return "Antigravity"
         }
     }
 
@@ -17,7 +19,12 @@ nonisolated enum UsageProviderID: String, Codable, CaseIterable, Identifiable, S
         switch self {
         case .claude: return "ClaudeCodeLogo"
         case .codex: return "OpenAILogo"
+        case .antigravity: return "AntigravityLogo"
         }
+    }
+
+    var logoSystemName: String? {
+        nil
     }
 }
 

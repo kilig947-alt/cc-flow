@@ -124,6 +124,7 @@ nonisolated enum UsageDataLoader {
         codexArchivedRoot: URL? = nil,
         statusURL: URL? = nil,
         queryCodexAccount: Bool = true,
+        queryAntigravityAccount: Bool = false,
         currentSessionIDs: [UsageProviderID: String] = [:],
         currentSessionPaths: [UsageProviderID: String] = [:],
         shouldCancel: @Sendable () -> Bool = { Task.isCancelled }
@@ -163,6 +164,21 @@ nonisolated enum UsageDataLoader {
             codexError = nil
         }
         let claudeAccount = loadClaudeAccount(now: now, statusURL: statusURL ?? claudeStatusURL)
+        let antigravityAccount: AntigravityAccountUsageResult?
+        let antigravityError: String?
+        if queryAntigravityAccount {
+            switch AntigravityUsageClient.fetch() {
+            case .success(let result):
+                antigravityAccount = result
+                antigravityError = nil
+            case .failure(let message):
+                antigravityAccount = nil
+                antigravityError = message
+            }
+        } else {
+            antigravityAccount = nil
+            antigravityError = nil
+        }
 
         return UsageSnapshot(
             providers: [
@@ -181,6 +197,14 @@ nonisolated enum UsageDataLoader {
                     tokenSummary: codexResult.tokens,
                     capturedAt: codexAccount?.capturedAt ?? codexResult.capturedAt,
                     errorMessage: codexError
+                ),
+                ProviderUsageSnapshot(
+                    provider: .antigravity,
+                    accountState: antigravityAccount == nil ? .unavailable : .available,
+                    windows: antigravityAccount?.windows ?? [],
+                    tokenSummary: nil,
+                    capturedAt: antigravityAccount?.capturedAt,
+                    errorMessage: antigravityError
                 )
             ],
             capturedAt: now

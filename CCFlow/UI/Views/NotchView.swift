@@ -550,6 +550,9 @@ struct NotchView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenActiveSessionShortcut)) { _ in
                 handleOpenActiveSessionShortcut()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenRecentLeftFeatureShortcut)) { _ in
+                handleOpenRecentLeftFeatureShortcut()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenSessionListShortcut)) { _ in
                 handleOpenSessionListShortcut()
             }
@@ -937,6 +940,7 @@ struct NotchView: View {
         case .customArea(let areaID):
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                 CustomAreaWebView(source: .localArea(area))
+                    .id(feature.id)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 placeholderContent
@@ -949,7 +953,8 @@ struct NotchView: View {
                     source: .remoteURL(url),
                     keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView
                 )
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                .id(feature.id)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 placeholderContent
             }
@@ -2150,6 +2155,14 @@ struct NotchView: View {
     private func handleOpenSessionListShortcut() {
         NSApp.activate(ignoringOtherApps: true)
         viewModel.toggleSessionList(reason: .click)
+    }
+
+    private func handleOpenRecentLeftFeatureShortcut() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let feature = leftFeatureStore.expandedActiveFeature, feature.id == LeftFeature.usageID {
+            Task { await UsageService.shared.refresh(reason: .shortcut) }
+        }
+        viewModel.toggleCustomExpanded(reason: .click)
     }
 
     private func activateTemporaryReminderMute() {

@@ -31,6 +31,8 @@ extension SessionProvider {
             return TerminalColors.green
         case .trae:
             return TerminalColors.blue
+        case .antigravity:
+            return TerminalColors.magenta
         }
     }
 }
@@ -44,6 +46,8 @@ extension SessionClientBrand {
             return TerminalColors.green
         case .trae:
             return TerminalColors.blue
+        case .antigravity:
+            return TerminalColors.magenta
         case .neutral:
             return Color.white.opacity(0.72)
         }

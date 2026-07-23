@@ -1769,6 +1769,11 @@ private struct SettingsPanelContentView: View {
                 )
                 SettingsLineDivider()
                 ShortcutSettingsLine(
+                    action: .openLeftFeature,
+                    shortcut: shortcutBinding(for: .openLeftFeature)
+                )
+                SettingsLineDivider()
+                ShortcutSettingsLine(
                     action: .openSessionList,
                     shortcut: shortcutBinding(for: .openSessionList)
                 )
@@ -1777,7 +1782,7 @@ private struct SettingsPanelContentView: View {
             SettingsSectionCard(title: "说明") {
                 SettingsInfoLine(
                     title: "默认键位",
-                    subtitle: "默认使用 Option + J 打开活跃会话，Option + L 展开会话列表。"
+                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表。"
                 ) {
                     EmptyView()
                 }
@@ -1990,6 +1995,7 @@ private struct SettingsPanelContentView: View {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .trae: return "TRAE"
+        case .antigravity: return "Antigravity"
         case .neutral: return "其他"
         }
     }
@@ -4137,7 +4143,7 @@ private struct CustomHookInstallSheet: View {
         }
 
         switch profile.installationKind {
-        case .jsonHooks, .tomlHooks:
+        case .jsonHooks, .antigravityHooks, .tomlHooks:
             return "例如 /path/to/.claude"
         case .pluginFile:
             return "例如 /path/to/plugins"
@@ -4160,7 +4166,7 @@ private struct CustomHookInstallSheet: View {
         let baseURL = URL(fileURLWithPath: customPath)
         let targetURL: URL
         switch profile.installationKind {
-        case .jsonHooks, .pluginFile, .tomlHooks:
+        case .jsonHooks, .antigravityHooks, .pluginFile, .tomlHooks:
             targetURL = baseURL.appendingPathComponent(resolvedFileName)
         case .pluginDirectory:
             if baseURL.lastPathComponent == "plugins" {

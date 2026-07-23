@@ -49,6 +49,7 @@ final class AppSettingsPersistenceTests: XCTestCase {
         let store = makeStore(defaults: defaults)
 
         XCTAssertEqual(store.shortcut(for: .openActiveSession), GlobalShortcutAction.openActiveSession.defaultShortcut)
+        XCTAssertEqual(store.shortcut(for: .openLeftFeature), GlobalShortcutAction.openLeftFeature.defaultShortcut)
         XCTAssertEqual(store.shortcut(for: .openSessionList), GlobalShortcutAction.openSessionList.defaultShortcut)
     }
 

@@ -556,6 +556,7 @@ final class LeftFeatureStore: ObservableObject {
     /// 设置展开态当前激活功能；nil 表示回退到第一个已启用功能
     func setExpandedActiveFeature(id: String?) {
         expandedActiveFeatureID = id
+        expandedReentryRequest = nil
         if id == LeftFeature.usageID {
             UsageService.shared.start()
             Task { await UsageService.shared.refresh(reason: .becameActive) }

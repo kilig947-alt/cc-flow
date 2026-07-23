@@ -192,6 +192,7 @@ private enum BridgeProvider: String, Codable, Sendable {
     case claude
     case codex
     case trae
+    case antigravity
 }
 
 private enum BridgeStatusKind: String, Codable, Sendable {
@@ -927,6 +928,7 @@ private extension BridgeProvider {
         case .claude: return .claude
         case .codex: return .codex
         case .trae: return .trae
+        case .antigravity: return .antigravity
         }
     }
 }
@@ -937,6 +939,7 @@ private extension SessionProvider {
         case .claude: return .claudeCode
         case .codex: return .codex
         case .trae: return .trae
+        case .antigravity: return .antigravity
         }
     }
 }

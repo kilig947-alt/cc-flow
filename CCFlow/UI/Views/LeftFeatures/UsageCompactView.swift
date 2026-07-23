@@ -13,13 +13,21 @@ struct UsageCompactView: View {
                 HStack(spacing: 12) {
                     ForEach(compactPresentations, id: \.provider.rawValue) { presentation in
                         HStack(spacing: 5) {
-                            Image(presentation.provider.logoAssetName)
-                                .resizable()
-                                .renderingMode(.original)
-                                .interpolation(.high)
-                                .scaledToFit()
-                                .frame(width: 14, height: 14)
-                                .accessibilityHidden(true)
+                            if let systemName = presentation.provider.logoSystemName {
+                                Image(systemName: systemName)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.86))
+                                    .frame(width: 14, height: 14)
+                                    .accessibilityHidden(true)
+                            } else {
+                                Image(presentation.provider.logoAssetName)
+                                    .resizable()
+                                    .renderingMode(.original)
+                                    .interpolation(.high)
+                                    .scaledToFit()
+                                    .frame(width: 14, height: 14)
+                                    .accessibilityHidden(true)
+                            }
 
                             Text(verbatim: "\(presentation.remainingPercentage)%")
                                 .font(.system(size: 11, weight: .semibold, design: .rounded))
