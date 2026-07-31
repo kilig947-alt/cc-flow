@@ -119,10 +119,13 @@ actor ConversationParser {
             let type = json["type"] as? String
             let isMeta = json["isMeta"] as? Bool ?? false
 
-            if type == "user" && !isMeta {
+            if (type == "user" && !isMeta) || type == "USER_INPUT" {
                 if let message = json["message"] as? [String: Any],
                    let msgContent = Self.firstDisplayText(in: message) {
                     firstUserMessage = Self.truncateMessage(msgContent, maxLength: 50)
+                    break
+                } else if let content = json["content"] as? String {
+                    firstUserMessage = Self.truncateMessage(content, maxLength: 50)
                     break
                 }
             }
@@ -138,7 +141,7 @@ actor ConversationParser {
             let type = json["type"] as? String
 
             if lastMessage == nil {
-                if type == "user" || type == "assistant" {
+                if type == "user" || type == "assistant" || type == "USER_INPUT" || type == "PLANNER_RESPONSE" {
                     let isMeta = json["isMeta"] as? Bool ?? false
                     if !isMeta, let message = json["message"] as? [String: Any] {
                         for block in Self.contentBlocks(in: message).reversed() {
@@ -160,11 +163,19 @@ actor ConversationParser {
                                 break
                             }
                         }
+                    } else if let content = json["content"] as? String {
+                        lastMessage = content
+                        lastMessageRole = (type == "USER_INPUT") ? "user" : "assistant"
+                    } else if type == "PLANNER_RESPONSE" {
+                        if let thinking = json["thinking"] as? String {
+                            lastMessage = thinking
+                            lastMessageRole = "assistant"
+                        }
                     }
                 }
             }
 
-            if !foundLastUserMessage && type == "user" {
+            if !foundLastUserMessage && (type == "user" || type == "USER_INPUT") {
                 let isMeta = json["isMeta"] as? Bool ?? false
                 if !isMeta, let message = json["message"] as? [String: Any] {
                     if Self.firstDisplayText(in: message) != nil {
@@ -173,6 +184,11 @@ actor ConversationParser {
                         }
                         foundLastUserMessage = true
                     }
+                } else if let content = json["content"] as? String, !content.isEmpty {
+                    if let timestampStr = json["created_at"] as? String ?? json["timestamp"] as? String {
+                        lastUserMessageDate = Self.parseTimestamp(timestampStr)
+                    }
+                    foundLastUserMessage = true
                 }
             }
 
@@ -467,6 +483,14 @@ actor ConversationParser {
                     newMessages.append(message)
                     state.messages.append(message)
                 }
+            } else if let lineData = line.data(using: .utf8),
+                      let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
+                      json["step_index"] as? Int != nil,
+                      let type = json["type"] as? String {
+                if let message = parseAntigravityLine(json, type: type, state: &state) {
+                    newMessages.append(message)
+                    state.messages.append(message)
+                }
             }
         }
 
@@ -539,7 +563,121 @@ actor ConversationParser {
         guard let value else { return Date() }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
         return formatter.date(from: value) ?? Date()
+    }
+
+    private func parseAntigravityLine(
+        _ json: [String: Any],
+        type: String,
+        state: inout IncrementalParseState
+    ) -> ChatMessage? {
+        let stepIndex = json["step_index"] as? Int ?? 0
+        let timestamp = Self.parseTimestamp(json["created_at"] as? String ?? json["timestamp"] as? String)
+        
+        if type == "USER_INPUT" {
+            guard let content = json["content"] as? String,
+                  let sanitized = SessionTextSanitizer.sanitizedDisplayText(content) else {
+                return nil
+            }
+            return ChatMessage(
+                id: "antigravity-user-\(stepIndex)",
+                role: .user,
+                timestamp: timestamp,
+                content: [.text(sanitized)]
+            )
+        } else if type == "PLANNER_RESPONSE" {
+            var blocks: [MessageBlock] = []
+            
+            if let thinking = json["thinking"] as? String,
+               let sanitizedThinking = SessionTextSanitizer.sanitizedDisplayText(thinking) {
+                blocks.append(.thinking(sanitizedThinking))
+            }
+            
+            if let toolCalls = json["tool_calls"] as? [[String: Any]] {
+                for (idx, toolCall) in toolCalls.enumerated() {
+                    if let name = toolCall["name"] as? String {
+                        let toolUseId = "antigravity-tool-\(stepIndex)-\(idx)"
+                        state.seenToolIds.insert(toolUseId)
+                        state.toolIdToName[toolUseId] = name
+                        
+                        var input: [String: String] = [:]
+                        if let args = toolCall["args"] as? [String: Any] {
+                            input = Self.stringDictionary(from: args)
+                        }
+                        blocks.append(.toolUse(ToolUseBlock(id: toolUseId, name: name, input: input)))
+                    }
+                }
+            }
+            
+            guard !blocks.isEmpty else { return nil }
+            return ChatMessage(
+                id: "antigravity-assistant-\(stepIndex)",
+                role: .assistant,
+                timestamp: timestamp,
+                content: blocks
+            )
+        } else {
+            // Treat as tool result.
+            let content = json["content"] as? String ?? json["output"] as? String
+            let statusStr = json["status"] as? String ?? ""
+            let isError = statusStr == "ERROR" || statusStr == "FAILURE"
+            
+            if let content = content {
+                if let matchedToolUseId = findLastUncompletedToolUse(
+                    in: state.messages,
+                    completedToolIds: state.completedToolIds,
+                    eventType: type
+                ) {
+                    state.completedToolIds.insert(matchedToolUseId)
+                    state.toolResults[matchedToolUseId] = ToolResult(
+                        content: content,
+                        stdout: content,
+                        stderr: nil,
+                        isError: isError
+                    )
+                }
+            }
+            return nil
+        }
+    }
+
+    private func findLastUncompletedToolUse(
+        in messages: [ChatMessage],
+        completedToolIds: Set<String>,
+        eventType: String
+    ) -> String? {
+        let normalizedEvent = eventType.lowercased().replacingOccurrences(of: "_", with: "")
+        
+        for message in messages.reversed() {
+            for block in message.content.reversed() {
+                if case .toolUse(let toolUse) = block {
+                    if !completedToolIds.contains(toolUse.id) {
+                        let normalizedTool = toolUse.name.lowercased().replacingOccurrences(of: "_", with: "")
+                        if normalizedTool == normalizedEvent || 
+                           normalizedEvent.hasPrefix(normalizedTool) || 
+                           normalizedTool.hasPrefix(normalizedEvent) {
+                            return toolUse.id
+                        }
+                    }
+                }
+            }
+        }
+        
+        for message in messages.reversed() {
+            for block in message.content.reversed() {
+                if case .toolUse(let toolUse) = block {
+                    if !completedToolIds.contains(toolUse.id) {
+                        return toolUse.id
+                    }
+                }
+            }
+        }
+        
+        return nil
     }
 
     private static func stringDictionary(from object: [String: Any]) -> [String: String] {
