@@ -85,4 +85,61 @@ final class AntigravityIntegrationTests: XCTestCase {
         XCTAssertNil(removed["cc-flow"])
         XCTAssertNotNil(removed["user-linter"])
     }
+
+    func testAntigravityTranscriptParsing() async throws {
+        let sessionId = "antigravity-parser-\(UUID().uuidString)"
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("antigravity-parser-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directory.appendingPathComponent("\(sessionId).jsonl")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let transcript = """
+        {"step_index":0,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-07-31T04:31:35Z","content":"hello world"}
+        {"step_index":1,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-07-31T04:31:37Z","thinking":"let me think","tool_calls":[{"name":"list_dir","args":{"DirectoryPath":"/tmp"}}]}
+        {"step_index":2,"source":"MODEL","type":"LIST_DIRECTORY","status":"DONE","created_at":"2026-07-31T04:31:38Z","content":"file1\\nfile2"}
+        """
+        try transcript.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let messages = await ConversationParser.shared.parseFullConversation(
+            sessionId: sessionId,
+            cwd: "/tmp",
+            explicitFilePath: fileURL.path
+        )
+
+        XCTAssertEqual(messages.count, 2)
+        XCTAssertEqual(messages[0].role, .user)
+        if case .text(let text) = messages[0].content.first {
+            XCTAssertEqual(text, "hello world")
+        } else {
+            XCTFail("Expected text block")
+        }
+
+        XCTAssertEqual(messages[1].role, .assistant)
+        if case .thinking(let thinking) = messages[1].content[0] {
+            XCTAssertEqual(thinking, "let me think")
+        } else {
+            XCTFail("Expected thinking block")
+        }
+
+        if case .toolUse(let toolUse) = messages[1].content[1] {
+            XCTAssertEqual(toolUse.name, "list_dir")
+            XCTAssertEqual(toolUse.input["DirectoryPath"], "/tmp")
+            
+            let results = await ConversationParser.shared.toolResults(for: sessionId)
+            XCTAssertEqual(results[toolUse.id]?.content, "file1\nfile2")
+        } else {
+            XCTFail("Expected tool use block")
+        }
+
+        let info = await ConversationParser.shared.parse(
+            sessionId: sessionId,
+            cwd: "/tmp",
+            explicitFilePath: fileURL.path
+        )
+        XCTAssertEqual(info.firstUserMessage, "hello world")
+        XCTAssertEqual(info.lastMessage, "let me think")
+    }
 }
