@@ -682,7 +682,8 @@ private extension BridgeEnvelope {
         let sessionFilePath = firstNonEmpty(
             metadata["session_file_path"],
             metadata["rollout_path"],
-            metadata["transcript_path"]
+            metadata["transcript_path"],
+            metadata["transcriptPath"]
         )
         let launchURL = firstNonEmpty(
             metadata["launch_url"],
@@ -1153,6 +1154,18 @@ class HookSocketServer {
         }
     }
 
+    func completePendingHookWithoutDecision(toolUseId: String) {
+        queue.async { [weak self] in
+            self?.sendEmptyHookResponse(toolUseId: toolUseId)
+        }
+    }
+
+    func hasPendingHookResponse(toolUseId: String) -> Bool {
+        permissionsLock.lock()
+        defer { permissionsLock.unlock() }
+        return pendingPermissions[toolUseId]?.isEmpty == false
+    }
+
     func cancelPendingPermissions(sessionId: String) {
         queue.async { [weak self] in
             self?.cleanupPendingPermissions(sessionId: sessionId)
@@ -1177,6 +1190,20 @@ class HookSocketServer {
             return nil
         }
         return (pending.event.tool, pending.toolUseId, pending.event.toolInput)
+    }
+
+    func pendingPermissionToolUseIDs(sessionId: String) -> [String] {
+        permissionsLock.lock()
+        defer { permissionsLock.unlock() }
+        return pendingPermissions.values
+            .flatMap { $0 }
+            .filter { $0.sessionId == sessionId }
+            .sorted { $0.receivedAt < $1.receivedAt }
+            .map(\.toolUseId)
+            .reduce(into: [String]()) { result, toolUseId in
+                guard !result.contains(toolUseId) else { return }
+                result.append(toolUseId)
+            }
     }
 
     func cancelPendingPermission(toolUseId: String) {
@@ -1538,6 +1565,33 @@ class HookSocketServer {
                 toolUseId: pending.toolUseId,
                 receivedAt: pending.receivedAt,
                 decision: decision
+            )
+        }
+    }
+
+    private func sendEmptyHookResponse(toolUseId: String) {
+        permissionsLock.lock()
+        guard let pendings = pendingPermissions.removeValue(forKey: toolUseId), !pendings.isEmpty else {
+            permissionsLock.unlock()
+            logger.debug("No pending hook response for toolUseId: \(toolUseId.prefix(12), privacy: .public)")
+            return
+        }
+        permissionsLock.unlock()
+
+        for pending in pendings {
+            let response = BridgeResponse(
+                requestID: pending.requestId,
+                decision: nil,
+                reason: nil,
+                updatedInput: nil,
+                errorMessage: nil
+            )
+            writeBridgeResponse(
+                response,
+                to: pending.clientSocket,
+                sessionId: pending.sessionId,
+                toolUseId: pending.toolUseId,
+                receivedAt: pending.receivedAt
             )
         }
     }
