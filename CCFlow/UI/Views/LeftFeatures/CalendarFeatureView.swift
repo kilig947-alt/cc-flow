@@ -6,6 +6,7 @@ struct CalendarFeatureView: View {
     @ObservedObject private var service = CalendarService.shared
     @State private var displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
     @State private var selectedDate = Date()
+    @State private var expandedReminderID: String?
 
     var body: some View {
         Group {
@@ -97,16 +98,122 @@ struct CalendarFeatureView: View {
                         Text("今天没有到期的待办").foregroundStyle(.secondary).font(.caption)
                     }
                     ForEach(service.actionableReminders) { reminder in
-                        Button { service.completeReminder(reminder) } label: {
-                            HStack { Image(systemName: "circle"); Text(reminder.title).lineLimit(2); Spacer()
-                                if let due = reminder.dueDate { Text(due, style: .date).font(.caption2).foregroundStyle(.secondary) }
-                            }.contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityHint("标记为已完成并同步到 macOS 提醒事项")
+                        reminderRow(reminder)
                     }
                     if let error = service.errorMessage { Text(error).font(.caption).foregroundStyle(.red) }
                 }
             }
         }.padding(14).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func reminderRow(_ reminder: ReminderAgendaItem) -> some View {
+        let isExpanded = expandedReminderID == reminder.id
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 9) {
+                Button {
+                    service.completeReminder(reminder)
+                    if isExpanded { expandedReminderID = nil }
+                } label: {
+                    Image(systemName: "circle")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("标记为已完成")
+                .accessibilityLabel("完成：\(reminder.title)")
+                .accessibilityHint("标记为已完成并同步到 macOS 提醒事项")
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        expandedReminderID = isExpanded ? nil : reminder.id
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(reminder.title)
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(isExpanded ? nil : 2)
+                            HStack(spacing: 5) {
+                                if let due = reminder.dueDate {
+                                    Text(due.formatted(date: .abbreviated, time: .shortened))
+                                }
+                                if reminder.calendarName != "提醒事项" {
+                                    Text("· \(reminder.calendarName)")
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(reminderDueColor(reminder))
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(isExpanded ? "收起待办详情" : "查看待办详情")
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 8)
+
+            if isExpanded {
+                reminderDetails(reminder)
+                    .padding(.leading, 31)
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(
+            (isExpanded ? Color.green.opacity(0.10) : Color.white.opacity(0.035)),
+            in: RoundedRectangle(cornerRadius: 9)
+        )
+    }
+
+    private func reminderDetails(_ reminder: ReminderAgendaItem) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if let due = reminder.dueDate {
+                Label(due.formatted(date: .complete, time: .shortened), systemImage: "clock")
+            }
+            Label(reminder.calendarName, systemImage: "list.bullet")
+            if let priority = reminderPriorityText(reminder.priority) {
+                Label(priority, systemImage: "flag")
+            }
+            if let notes = reminder.notes {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("备注", systemImage: "note.text")
+                    Text(notes)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+            }
+            if let url = reminder.url {
+                Link(destination: url) {
+                    Label(url.host ?? url.absoluteString, systemImage: "link")
+                        .lineLimit(1)
+                }
+            }
+        }
+        .font(.system(size: 10))
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func reminderDueColor(_ reminder: ReminderAgendaItem) -> Color {
+        guard let due = reminder.dueDate else { return .secondary }
+        return due < Calendar.current.startOfDay(for: Date()) ? .orange : .secondary
+    }
+
+    private func reminderPriorityText(_ priority: Int) -> String? {
+        switch priority {
+        case 1...4: "高优先级"
+        case 5: "中优先级"
+        case 6...9: "低优先级"
+        default: nil
+        }
     }
 
     private var eventsForSelectedDate: [CalendarAgendaItem] {

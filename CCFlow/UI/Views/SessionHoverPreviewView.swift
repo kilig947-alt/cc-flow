@@ -157,6 +157,10 @@ struct SessionHoverDashboardView: View {
 }
 
 struct SessionAttentionNotificationView: View {
+    /// Prevent the docked panel from feeding a clipped ScrollView viewport back
+    /// into its own window size before the approval/question card is measured.
+    static let minimumContentHeight: CGFloat = 220
+
     let session: SessionState
     let sessionMonitor: SessionMonitor
     var density: HoverPreviewDensity = .regular
@@ -502,6 +506,17 @@ private struct HoverApprovalCard: View {
                     }
                     .buttonStyle(HoverApprovalButtonStyle(background: Color.white.opacity(0.1)))
 
+                    if session.supportsUnrestrictedSessionApproval {
+                        UnrestrictedSessionApprovalButton(
+                            approvalIdentity: "\(session.sessionId):\(session.activePermission?.toolUseId ?? "")"
+                        ) {
+                            sessionMonitor.approveAllPermissionsForSession(
+                                sessionId: session.sessionId
+                            )
+                            onActionCompleted()
+                        }
+                    }
+
                     if let sessionAction = session.scopedApprovalAction {
                         Button(AppLocalization.string(sessionAction.buttonTitleKey)) {
                             sessionMonitor.approvePermission(sessionId: session.sessionId, forSession: true)
@@ -521,6 +536,7 @@ private struct HoverApprovalCard: View {
                     }
                     .buttonStyle(HoverApprovalButtonStyle(background: Color.white.opacity(0.92), foreground: .black))
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.top, 12)
@@ -544,9 +560,16 @@ private struct HoverQuestionInterventionCard: View {
                     Text(intervention.title)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
-                    Text(intervention.message)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.72))
+
+                    // Structured question payloads already render their full
+                    // prompt inside SessionQuestionForm. Rendering `message`
+                    // as well duplicates the same (often very long) content.
+                    if intervention.resolvedQuestions.isEmpty,
+                       !intervention.message.isEmpty {
+                        Text(intervention.message)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.72))
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -562,12 +585,6 @@ private struct HoverQuestionInterventionCard: View {
                         initialAnswers: intervention.submittedAnswers,
                         onSubmit: { _ in },
                         onInteractionStateChanged: onQuestionInteractionStateChanged,
-                        secondaryActionTitle: AppLocalization.format("打开 %@", session.interactionDisplayName),
-                        onSecondaryAction: {
-                            Task {
-                                _ = await SessionLauncher.shared.activateClientApplication(session)
-                            }
-                        },
                         isEditable: false
                     )
 
@@ -579,32 +596,24 @@ private struct HoverQuestionInterventionCard: View {
                     }
                 }
             } else if intervention.metadata["responseMode"] == "external_only" {
-                Button {
-                    Task {
-                        _ = await SessionLauncher.shared.activate(session)
-                    }
-                }
-                label: {
-                    Text(verbatim: AppLocalization.format("打开 %@", session.interactionDisplayName))
-                }
-                .buttonStyle(HoverApprovalButtonStyle(background: Color.white.opacity(0.9), foreground: .black))
+                EmptyView()
             } else if intervention.supportsInlineResponse {
-                let secondaryActionTitle: String? = if session.clientInfo.prefersAnsweredQuestionFollowupAction {
-                    AppLocalization.format("打开 %@", session.interactionDisplayName)
-                } else {
-                    nil
-                }
-
                 SessionQuestionForm(
                     intervention: intervention,
-                    submitLabel: "提交所有回答",
+                    submitLabel: AppLocalization.format(
+                        "提交回 %@",
+                        session.messageBadgeDisplayName
+                    ),
                     initialDraft: sessionMonitor.questionDraft(
                         sessionId: session.sessionId,
                         interventionId: intervention.id
                     ),
                     onSubmit: { payload in
-                        sessionMonitor.answerIntervention(sessionId: session.sessionId, answers: payload)
-                        onActionCompleted()
+                        sessionMonitor.answerIntervention(
+                            sessionId: session.sessionId,
+                            answers: payload,
+                            onSubmitted: onActionCompleted
+                        )
                     },
                     onInteractionStateChanged: onQuestionInteractionStateChanged,
                     onDraftChanged: { draft in
@@ -619,29 +628,35 @@ private struct HoverQuestionInterventionCard: View {
                             sessionId: session.sessionId,
                             interventionId: intervention.id
                         )
-                    },
-                    secondaryActionTitle: secondaryActionTitle,
-                    onSecondaryAction: secondaryActionTitle == nil ? nil : {
-                        Task {
-                            _ = await SessionLauncher.shared.activateClientApplication(session)
-                        }
                     }
                 )
             } else {
-                Button {
-                    Task {
-                        _ = await SessionLauncher.shared.activateClientApplication(session)
-                    }
-                }
-                label: {
-                    Text(verbatim: AppLocalization.format("打开 %@ 回答", session.interactionDisplayName))
-                }
-                .buttonStyle(HoverApprovalButtonStyle(background: Color.white.opacity(0.9), foreground: .black))
+                EmptyView()
             }
+
+            returnToSessionButton
         }
         .padding(.top, 12)
         .padding(.bottom, intervention.metadata["responseMode"] == "external_only" ? 12 : 18)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var returnToSessionButton: some View {
+        Button {
+            Task {
+                if await SessionLauncher.shared.returnToSession(session) {
+                    onActionCompleted()
+                }
+            }
+        } label: {
+            Label(AppLocalization.string("Return to Session"), systemImage: "arrow.turn.up.left")
+        }
+        .buttonStyle(
+            HoverApprovalButtonStyle(
+                background: Color.white.opacity(0.1),
+                foreground: .white
+            )
+        )
     }
 }
 

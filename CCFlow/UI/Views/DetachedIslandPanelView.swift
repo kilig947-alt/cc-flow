@@ -290,7 +290,7 @@ enum DetachedIslandContentModel {
                     max(DetachedIslandPanelMetrics.completionBubbleMinimumHeight, height)
                 )
             )
-        case .chat, .customExpanded:
+        case .chat, .customExpanded, .audit:
             // Spec 2.4: 自定义内容全屏面板在 detached 气泡中复用会话详情尺寸
             return viewModel.panelSize(for: .detached)
         }

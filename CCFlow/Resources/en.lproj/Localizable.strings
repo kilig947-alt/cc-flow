@@ -353,8 +353,13 @@
 "Auto" = "Auto";
 "Allow Session" = "Allow Session";
 "Always Allow" = "Always Allow";
+"Allow Same Operation" = "Allow Same Operation";
+"完全放任" = "Allow Everything";
+"请确认你的AI会遵循《阿西洛马 AI 原则》?" = "Confirm your AI will follow the Asilomar AI Principles?";
 "Session" = "Session";
 "Always" = "Always";
+"Same Operation" = "Same";
+"Return to Session" = "Return to Session";
 "Built-in or Main" = "Built-in or Main";
 "Built-in" = "Built-in";
 "Main" = "Main";

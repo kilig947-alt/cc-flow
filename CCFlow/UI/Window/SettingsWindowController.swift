@@ -9,6 +9,12 @@ extension Notification.Name {
 }
 
 enum SettingsWindowLayout {
+    /// Keep Settings and its attached sheets above both docked and detached
+    /// Flow Island windows, which use `.statusBar`.
+    static let windowLevel = NSWindow.Level(
+        rawValue: NSWindow.Level.statusBar.rawValue + 1
+    )
+
     @MainActor
     static func resetContentSize(of window: NSWindow?) {
         guard let window else { return }
@@ -40,8 +46,20 @@ final class SettingsPanelWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown || event.type == .rightMouseDown {
+            if !NSApp.isActive {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            if !isKeyWindow {
+                makeKey()
+            }
+        }
+        super.sendEvent(event)
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if isCommandW(event) {
+        if isCommandW(event) || isEscape(event) {
             requestCloseFromKeyboard()
             return true
         }
@@ -50,7 +68,7 @@ final class SettingsPanelWindow: NSWindow {
     }
 
     override func keyDown(with event: NSEvent) {
-        if isCommandW(event) {
+        if isCommandW(event) || isEscape(event) {
             requestCloseFromKeyboard()
             return
         }
@@ -61,6 +79,11 @@ final class SettingsPanelWindow: NSWindow {
     private func isCommandW(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         return event.keyCode == UInt16(kVK_ANSI_W) && flags == .command
+    }
+
+    private func isEscape(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        return event.keyCode == UInt16(kVK_Escape) && flags.isEmpty
     }
 
     private func requestCloseFromKeyboard() {
@@ -116,6 +139,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
         window.tabbingMode = .disallowed
         window.isReleasedWhenClosed = false
+        window.level = SettingsWindowLayout.windowLevel
 
         super.init(window: window)
 
@@ -147,7 +171,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         showWindow(nil)
         window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
         publishVisibilityDidChange(isVisible: true)
     }
 

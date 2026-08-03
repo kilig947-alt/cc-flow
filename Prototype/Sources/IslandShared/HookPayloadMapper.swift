@@ -56,6 +56,7 @@ public enum HookPayloadMapper {
         let expectsResponse = runtimeConfig.routePromptsToTerminal
             ? false
             : detectExpectsResponse(
+                provider: source,
                 eventType: eventType,
                 payload: payload,
                 clientKind: clientKind,
@@ -143,6 +144,18 @@ public enum HookPayloadMapper {
                 return #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#
             case .deny, .cancel:
                 return #"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied from CC FLOW"}}}"#
+            case .answer where eventType == "Stop":
+                let reason = response.reason?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let reason, !reason.isEmpty,
+                      let data = try? JSONSerialization.data(withJSONObject: [
+                        "decision": "block",
+                        "reason": reason
+                      ], options: [.sortedKeys]),
+                      let json = String(data: data, encoding: .utf8) else {
+                    return "{}"
+                }
+                return json
             case .answer:
                 return "{}"
             }
@@ -314,6 +327,7 @@ public enum HookPayloadMapper {
     }
 
     private static func detectExpectsResponse(
+        provider: AgentProvider,
         eventType: String,
         payload: [String: Any],
         clientKind: String?,
@@ -321,6 +335,15 @@ public enum HookPayloadMapper {
     ) -> Bool {
         if hasAnsweredQuestionPayload(payload) {
             return false
+        }
+
+        // Codex Stop hooks can return `decision:block` with a `reason`. Codex
+        // injects that reason into the same turn as a continuation prompt, so
+        // keep the bridge socket open while CC FLOW presents a regex-derived
+        // question. The app immediately returns an empty response when no rule
+        // matches, preserving normal Stop behavior.
+        if provider == .codex && eventType == "Stop" {
+            return true
         }
 
         if let intervention {
@@ -633,6 +656,13 @@ public enum HookPayloadMapper {
         terminalContext: TerminalContext
     ) -> [String: String] {
         var metadata = flattenMetadata(payload: payload)
+        // Completion-question parsing depends on option lines retaining their
+        // original boundaries (for example `A. ...`, `B. ...`). The generic
+        // metadata flattener intentionally collapses whitespace for compact
+        // display, so restore the raw assistant message for Stop processing.
+        if let lastAssistantMessage = nonEmpty(payload["last_assistant_message"] as? String) {
+            metadata["last_assistant_message"] = lastAssistantMessage
+        }
         for (key, value) in argumentMetadata(arguments: arguments) {
             metadata[key] = value
         }

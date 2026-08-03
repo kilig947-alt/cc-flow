@@ -11,6 +11,7 @@ import Foundation
 enum SessionScopedApprovalAction: Equatable, Sendable {
     case allowSession
     case autoApprove
+    case allowSimilarOperation
 
     nonisolated var buttonTitleKey: String {
         switch self {
@@ -18,6 +19,8 @@ enum SessionScopedApprovalAction: Equatable, Sendable {
             return "Allow Session"
         case .autoApprove:
             return "Always Allow"
+        case .allowSimilarOperation:
+            return "Allow Same Operation"
         }
     }
 
@@ -27,6 +30,8 @@ enum SessionScopedApprovalAction: Equatable, Sendable {
             return "Session"
         case .autoApprove:
             return "Always"
+        case .allowSimilarOperation:
+            return "Same Operation"
         }
     }
 }
@@ -472,16 +477,6 @@ struct SessionState: Equatable, Identifiable, Sendable {
         phase.isWaitingForApproval || intervention?.kind == .approval
     }
 
-    /// A completed turn that can accept a normal follow-up message. Unlike
-    /// `needsAttention`, this deliberately includes `.waitingForInput` because
-    /// that is the normal Codex/Claude completion state.
-    nonisolated var isCompletionQuickReplyEligible: Bool {
-        phase == .waitingForInput
-            && intervention == nil
-            && !needsQuestionResponse
-            && !needsApprovalResponse
-    }
-
     /// Whether Island has a concrete response target for the active approval.
     nonisolated var canSubmitApprovalFromIsland: Bool {
         if let toolUseId = activePermission?.toolUseId,
@@ -546,6 +541,15 @@ struct SessionState: Equatable, Identifiable, Sendable {
     nonisolated var scopedApprovalAction: SessionScopedApprovalAction? {
         guard needsApprovalResponse else { return nil }
 
+        if let permission = activePermission,
+           SimilarOperationApprovalRule.make(
+               provider: provider,
+               toolName: permission.toolName,
+               toolInput: permission.toolInput
+           ) != nil {
+            return .allowSimilarOperation
+        }
+
         if provider == .trae,
            clientInfo.kind == .trae,
            intervention?.offersSessionScopedApproval == true {
@@ -557,6 +561,13 @@ struct SessionState: Equatable, Identifiable, Sendable {
 
     nonisolated var supportsSessionScopedApproval: Bool {
         scopedApprovalAction != nil
+    }
+
+    /// Codex PermissionRequest hooks can be answered locally for the lifetime
+    /// of this tracked session. This is intentionally separate from the
+    /// narrower same-operation approval action.
+    nonisolated var supportsUnrestrictedSessionApproval: Bool {
+        provider == .codex && needsApprovalResponse && canSubmitApprovalFromIsland
     }
 
     nonisolated var isNativeRuntimeSession: Bool {

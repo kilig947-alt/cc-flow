@@ -199,44 +199,148 @@ final class AppSettingsPersistenceTests: XCTestCase {
         XCTAssertEqual(defaults.object(forKey: "automaticUpdateChecksEnabled") as? Bool, false)
     }
 
-    func testCompletionQuickRepliesUseDefaultsWhenUnset() {
+    func testCompletionPromptRegexRulesUseDefaultTemplatesWhenUnset() {
         let defaults = makeDefaults()
+        defaults.set(true, forKey: "completionQuickRepliesEnabled")
+        defaults.set(["OK", "继续", "允许"], forKey: "completionQuickReplies")
         let store = makeStore(defaults: defaults)
 
-        XCTAssertTrue(store.completionQuickRepliesEnabled)
-        XCTAssertEqual(store.completionQuickReplies, ["OK", "继续", "允许"])
+        XCTAssertEqual(store.completionPromptRegexRules, CompletionPromptRegexRule.defaultTemplates)
+        XCTAssertEqual(store.completionPromptRegexRules.map(\.id), [
+            "builtin-review-confirmation",
+            "builtin-listed-options",
+            "builtin-inline-or-options",
+            "builtin-freeform-input",
+            "builtin-trailing-question-confirmation"
+        ])
+        XCTAssertTrue(store.completionPromptRegexRules.allSatisfy(\.isEnabled))
+        XCTAssertNil(defaults.object(forKey: "completionQuickRepliesEnabled"))
+        XCTAssertNil(defaults.object(forKey: "completionQuickReplies"))
     }
 
-    func testCompletionQuickRepliesPersistOrderAndDisabledState() {
+    func testCompletionPromptRegexRulesPersistEditsAndDisabledState() {
         let defaults = makeDefaults()
         let store = makeStore(defaults: defaults)
 
-        store.completionQuickRepliesEnabled = false
-        store.completionQuickReplies = ["继续处理", "OK"]
+        store.completionPromptRegexRules[0].isEnabled = false
+        store.completionPromptRegexRules[0].triggerPattern = "请审阅"
+        store.completionPromptRegexRules.swapAt(0, 1)
 
         let reloadedStore = makeStore(defaults: defaults)
-        XCTAssertFalse(reloadedStore.completionQuickRepliesEnabled)
-        XCTAssertEqual(reloadedStore.completionQuickReplies, ["继续处理", "OK"])
+        XCTAssertEqual(reloadedStore.completionPromptRegexRules.map(\.id), [
+            "builtin-listed-options",
+            "builtin-review-confirmation",
+            "builtin-inline-or-options",
+            "builtin-freeform-input",
+            "builtin-trailing-question-confirmation"
+        ])
+        XCTAssertFalse(reloadedStore.completionPromptRegexRules[1].isEnabled)
+        XCTAssertEqual(reloadedStore.completionPromptRegexRules[1].triggerPattern, "请审阅")
     }
 
-    func testCompletionQuickRepliesPreservePersistedEmptyList() {
+    func testExistingRegexRulesReceiveTrailingQuestionFallbackOnce() throws {
         let defaults = makeDefaults()
-        let store = makeStore(defaults: defaults)
+        let oldRules = Array(CompletionPromptRegexRule.defaultTemplates.prefix(3))
+        defaults.set(
+            try JSONEncoder().encode(oldRules),
+            forKey: "completionPromptRegexRules"
+        )
 
-        store.completionQuickReplies = []
+        let migratedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(
+            migratedStore.completionPromptRegexRules.last?.id,
+            "builtin-trailing-question-confirmation"
+        )
+
+        migratedStore.completionPromptRegexRules.removeAll {
+            $0.id == "builtin-trailing-question-confirmation"
+        }
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertFalse(reloadedStore.completionPromptRegexRules.contains {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
+    }
+
+    func testExistingRegexRulesReceiveInlineChoiceTemplateOnce() throws {
+        let defaults = makeDefaults()
+        let oldRules = CompletionPromptRegexRule.defaultTemplates.filter {
+            $0.id != "builtin-inline-or-options"
+        }
+        defaults.set(
+            try JSONEncoder().encode(oldRules),
+            forKey: "completionPromptRegexRules"
+        )
+
+        let migratedStore = makeStore(defaults: defaults)
+        let inlineIndex = try XCTUnwrap(migratedStore.completionPromptRegexRules.firstIndex {
+            $0.id == "builtin-inline-or-options"
+        })
+        let trailingIndex = try XCTUnwrap(migratedStore.completionPromptRegexRules.firstIndex {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
+        XCTAssertLessThan(inlineIndex, trailingIndex)
+        XCTAssertTrue(migratedStore.completionPromptRegexRules[inlineIndex].isEnabled)
+
+        migratedStore.completionPromptRegexRules.removeAll {
+            $0.id == "builtin-inline-or-options"
+        }
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertFalse(reloadedStore.completionPromptRegexRules.contains {
+            $0.id == "builtin-inline-or-options"
+        })
+    }
+
+    func testExistingTrailingQuestionRuleReceivesYesOptionOnce() throws {
+        let defaults = makeDefaults()
+        var oldRules = CompletionPromptRegexRule.defaultTemplates
+        let trailingIndex = try XCTUnwrap(oldRules.firstIndex {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
+        oldRules[trailingIndex].staticOptions.removeAll { $0.id == "yes" }
+        defaults.set(
+            try JSONEncoder().encode(oldRules),
+            forKey: "completionPromptRegexRules"
+        )
+
+        let migratedStore = makeStore(defaults: defaults)
+        let migratedTrailing = try XCTUnwrap(migratedStore.completionPromptRegexRules.first {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
+        XCTAssertEqual(migratedTrailing.staticOptions.filter { $0.id == "yes" }.count, 1)
+        XCTAssertEqual(migratedTrailing.staticOptions.last?.title, "是的")
 
         let reloadedStore = makeStore(defaults: defaults)
-        XCTAssertEqual(reloadedStore.completionQuickReplies, [])
+        let reloadedTrailing = try XCTUnwrap(reloadedStore.completionPromptRegexRules.first {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
+        XCTAssertEqual(reloadedTrailing.staticOptions.filter { $0.id == "yes" }.count, 1)
     }
 
-    func testCompletionQuickRepliesTrimAndRemoveInvalidDuplicates() {
+    func testV2RepairRestoresMissingDefaultRulesAfterLegacyMigrationsCompleted() throws {
         let defaults = makeDefaults()
-        let store = makeStore(defaults: defaults)
+        let legacyRules = Array(CompletionPromptRegexRule.defaultTemplates.prefix(2))
+        defaults.set(
+            try JSONEncoder().encode(legacyRules),
+            forKey: "completionPromptRegexRules"
+        )
+        defaults.set(true, forKey: "completionPromptTrailingQuestionTemplateMigrationCompleted")
+        defaults.set(true, forKey: "completionPromptInlineChoiceTemplateMigrationCompleted")
+        defaults.set(true, forKey: "completionPromptTrailingQuestionOptionsMigrationCompleted")
 
-        store.completionQuickReplies = ["  OK  ", "", "OK", "  继续 "]
+        let repairedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(
+            repairedStore.completionPromptRegexRules.map(\.id),
+            CompletionPromptRegexRule.defaultTemplates.map(\.id)
+        )
+        XCTAssertTrue(repairedStore.completionPromptRegexRules.allSatisfy(\.isEnabled))
 
-        XCTAssertEqual(store.completionQuickReplies, ["OK", "继续"])
-        XCTAssertEqual(defaults.stringArray(forKey: "completionQuickReplies"), ["OK", "继续"])
+        repairedStore.completionPromptRegexRules.removeAll {
+            $0.id == "builtin-trailing-question-confirmation"
+        }
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertFalse(reloadedStore.completionPromptRegexRules.contains {
+            $0.id == "builtin-trailing-question-confirmation"
+        })
     }
 
     func testHookDebugLogSettingsPersistAndWriteRuntimeConfig() {

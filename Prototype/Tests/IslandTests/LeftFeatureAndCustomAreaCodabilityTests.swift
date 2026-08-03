@@ -20,6 +20,19 @@ import Testing
         case customArea(areaID: String)
         case webURL(url: String)
         case newsnow(baseURL: String)
+        case mineradio(pageURL: String)
+
+        var isURLBacked: Bool {
+            switch self {
+            case .webURL, .newsnow, .mineradio: return true
+            default: return false
+            }
+        }
+
+        var loadsMineradioBridgeByDefault: Bool {
+            if case .mineradio = self { return true }
+            return false
+        }
     }
 
     /// 镜像 `LeftFeature`：包含网站显示信息与跨域登录开关，
@@ -33,12 +46,14 @@ import Testing
         var customIconName: String?
         var customDisplayName: String?
         var keepsCrossDomainLoginInWebView: Bool
+        var loadsMineradioBridge: Bool
 
         enum CodingKeys: String, CodingKey {
             case id, kind, isEnabled, sortOrder, createdAt
             case customIconName
             case customDisplayName
             case keepsCrossDomainLoginInWebView
+            case loadsMineradioBridge
         }
 
         init(id: String = UUID().uuidString,
@@ -48,7 +63,8 @@ import Testing
              createdAt: Date = Date(),
              customIconName: String? = nil,
              customDisplayName: String? = nil,
-             keepsCrossDomainLoginInWebView: Bool = false) {
+             keepsCrossDomainLoginInWebView: Bool? = nil,
+             loadsMineradioBridge: Bool? = nil) {
             self.id = id
             self.kind = kind
             self.isEnabled = isEnabled
@@ -56,7 +72,8 @@ import Testing
             self.createdAt = createdAt
             self.customIconName = customIconName
             self.customDisplayName = customDisplayName
-            self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+            self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView ?? kind.isURLBacked
+            self.loadsMineradioBridge = loadsMineradioBridge ?? kind.loadsMineradioBridgeByDefault
         }
 
         init(from decoder: Decoder) throws {
@@ -71,7 +88,11 @@ import Testing
             self.keepsCrossDomainLoginInWebView = try c.decodeIfPresent(
                 Bool.self,
                 forKey: .keepsCrossDomainLoginInWebView
-            ) ?? false
+            ) ?? kind.isURLBacked
+            self.loadsMineradioBridge = try c.decodeIfPresent(
+                Bool.self,
+                forKey: .loadsMineradioBridge
+            ) ?? kind.loadsMineradioBridgeByDefault
         }
 
         func encode(to encoder: Encoder) throws {
@@ -84,6 +105,7 @@ import Testing
             try c.encodeIfPresent(customIconName, forKey: .customIconName)
             try c.encodeIfPresent(customDisplayName, forKey: .customDisplayName)
             try c.encode(keepsCrossDomainLoginInWebView, forKey: .keepsCrossDomainLoginInWebView)
+            try c.encode(loadsMineradioBridge, forKey: .loadsMineradioBridge)
         }
     }
 
@@ -212,6 +234,7 @@ import Testing
         XCTAssertNil(feature.customIconName, "老数据缺 customIconName 应回退 nil")
         XCTAssertNil(feature.customDisplayName, "老数据缺 customDisplayName 应回退 nil")
         XCTAssertFalse(feature.keepsCrossDomainLoginInWebView, "老数据缺跨域登录开关应回退 false")
+        XCTAssertFalse(feature.loadsMineradioBridge, "非 URL 老数据不加载 Bridge")
     }
 
 
@@ -226,7 +249,8 @@ import Testing
           "createdAt": 100,
           "customIconName": "star.fill",
           "customDisplayName": "示例站",
-          "keepsCrossDomainLoginInWebView": true
+          "keepsCrossDomainLoginInWebView": true,
+          "loadsMineradioBridge": true
         }
         """
         let feature = try decode(TestLeftFeature.self, from: json)
@@ -234,6 +258,7 @@ import Testing
         XCTAssertEqual(feature.customIconName, "star.fill")
         XCTAssertEqual(feature.customDisplayName, "示例站")
         XCTAssertTrue(feature.keepsCrossDomainLoginInWebView)
+        XCTAssertTrue(feature.loadsMineradioBridge)
     }
 
     // MARK: - webURL kind 编解码往返
@@ -248,7 +273,8 @@ import Testing
             sortOrder: 2,
             customIconName: "globe",
             customDisplayName: "TRAE Flow 官网",
-            keepsCrossDomainLoginInWebView: true
+            keepsCrossDomainLoginInWebView: true,
+            loadsMineradioBridge: true
         )
         let json = try encode(original)
         let decoded = try decode(TestLeftFeature.self, from: json)
@@ -256,6 +282,7 @@ import Testing
         XCTAssertEqual(decoded.kind, .webURL(url: "https://trae.flow"))
         XCTAssertEqual(decoded.customDisplayName, "TRAE Flow 官网")
         XCTAssertTrue(decoded.keepsCrossDomainLoginInWebView)
+        XCTAssertTrue(decoded.loadsMineradioBridge)
     }
 
 

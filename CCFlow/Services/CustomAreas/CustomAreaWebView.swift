@@ -38,9 +38,7 @@ struct CustomAreaWebNavigationPolicy {
         }
 
         switch source {
-        case .mineradio:
-            return .allowInWebView
-        case .remoteURL:
+        case .mineradio, .remoteURL:
             if keepsCrossDomainLoginInWebView || isSameHost {
                 return .allowInWebView
             }
@@ -55,7 +53,7 @@ struct CustomAreaWebNavigationPolicy {
         source: CustomAreaWebNavigationSource,
         keepsCrossDomainLoginInWebView: Bool
     ) -> Bool {
-        guard source == .remoteURL,
+        guard source == .remoteURL || source == .mineradio,
               keepsCrossDomainLoginInWebView,
               let scheme else { return false }
         return scheme == "http" || scheme == "https"
@@ -122,6 +120,8 @@ struct CustomAreaWebView: NSViewRepresentable {
     let keepsAlive: Bool
     /// 远程网站跨域登录是否继续留在当前 WebView，并复用同一 Cookie 环境。
     let keepsCrossDomainLoginInWebView: Bool
+    /// 是否为普通远程 URL 注入 Mineradio Bridge；内置 Mineradio 始终注入。
+    let loadsMineradioBridge: Bool
     /// 再次点击当前功能图标时递增；变化时重新加载配置入口。
     let entryReloadGeneration: UInt64?
 
@@ -130,13 +130,19 @@ struct CustomAreaWebView: NSViewRepresentable {
         cacheKey: CustomAreaWebViewCache.Key? = nil,
         keepsAlive: Bool = false,
         keepsCrossDomainLoginInWebView: Bool = false,
+        loadsMineradioBridge: Bool = false,
         entryReloadGeneration: UInt64? = nil
     ) {
         self.source = source
         self.cacheKey = cacheKey
         self.keepsAlive = keepsAlive
         self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+        self.loadsMineradioBridge = loadsMineradioBridge
         self.entryReloadGeneration = entryReloadGeneration
+    }
+
+    var bridgeInjectionEnabled: Bool {
+        source.isMineradio || loadsMineradioBridge
     }
 
     private var entryURL: URL? {
@@ -180,7 +186,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         }
 
         // Spec: mineradio-bridge-compat-layer —— Mineradio 源特殊配置
-        if source.isMineradio {
+        if bridgeInjectionEnabled {
             // 使用 default dataStore 共享 cookie（登录 WebView 与 mineradio WebView 共用）
             configuration.websiteDataStore = WKWebsiteDataStore.default()
             // 桌面 Chrome UA（避免 mineradio.art 检测为移动端）
@@ -206,7 +212,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         )
 
         // Spec: mineradio-bridge-compat-layer —— 注入 Bridge user script + 注册 message handler
-        if source.isMineradio {
+        if bridgeInjectionEnabled {
             let bridgeScript = MineradioBridgeUserScript.makeUserScript()
             configuration.userContentController.addUserScript(bridgeScript)
             configuration.userContentController.add(context.coordinator, name: MineradioBridgeUserScript.apiMessageHandlerName)
@@ -223,7 +229,7 @@ struct CustomAreaWebView: NSViewRepresentable {
         webView.underPageBackgroundColor = .clear
 
         // Spec: mineradio 桌面 Chrome UA
-        if source.isMineradio {
+        if bridgeInjectionEnabled {
             webView.customUserAgent = MineradioBridgeUserScript.desktopChromeUserAgent
         }
 
@@ -282,11 +288,9 @@ struct CustomAreaWebView: NSViewRepresentable {
         controller.removeScriptMessageHandler(forName: Self.hintMessageHandlerName)
         controller.removeScriptMessageHandler(forName: Self.metricsMessageHandlerName)
         controller.removeScriptMessageHandler(forName: Self.pluginRPCMessageHandlerName)
-        if source.isMineradio {
-            controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.apiMessageHandlerName)
-            controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.binaryMessageHandlerName)
-            controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.playbackMessageHandlerName)
-        }
+        controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.apiMessageHandlerName)
+        controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.binaryMessageHandlerName)
+        controller.removeScriptMessageHandler(forName: MineradioBridgeUserScript.playbackMessageHandlerName)
         // 添加新 handler
         controller.add(context.coordinator, name: Self.hintMessageHandlerName)
         controller.add(context.coordinator, name: Self.metricsMessageHandlerName)
@@ -295,7 +299,7 @@ struct CustomAreaWebView: NSViewRepresentable {
             contentWorld: .page,
             name: Self.pluginRPCMessageHandlerName
         )
-        if source.isMineradio {
+        if bridgeInjectionEnabled {
             controller.add(context.coordinator, name: MineradioBridgeUserScript.apiMessageHandlerName)
             controller.add(context.coordinator, name: MineradioBridgeUserScript.binaryMessageHandlerName)
             controller.add(context.coordinator, name: MineradioBridgeUserScript.playbackMessageHandlerName)

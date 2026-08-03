@@ -28,6 +28,11 @@ final class CustomAreaWebViewCache {
             Key(rawValue: "expanded:\(featureID)")
         }
 
+        /// 桌面小组件使用独立 WebView，避免与 Flow Island 展开态争用同一个 NSView。
+        static func desktopWidget(featureID: String) -> Key {
+            Key(rawValue: "desktop-widget:\(featureID)")
+        }
+
         /// 兼容旧的仅按 URL 保活调用；展开态功能应优先使用 `expanded(featureID:)`。
         static func legacy(url: URL) -> Key {
             Key(rawValue: "legacy:\(url.absoluteString)")

@@ -27,6 +27,7 @@ enum NotchOpenReason {
 enum NotchContentType: Equatable {
     case instances
     case chat(SessionState)
+    case audit(SessionState)
     /// Spec 2.4: 展开态自定义内容全屏面板，由点击 flow Island左半区触发
     case customExpanded
 
@@ -34,6 +35,7 @@ enum NotchContentType: Equatable {
         switch self {
         case .instances: return "instances"
         case .chat(let session): return "chat-\(session.sessionId)"
+        case .audit(let session): return "audit-\(session.sessionId)"
         case .customExpanded: return "customExpanded"
         }
     }
@@ -69,6 +71,9 @@ class NotchViewModel: ObservableObject {
     @Published private(set) var isQuietBackgroundPresentationActive = false
     @Published private(set) var isSettingsPopoverPresented = false
     @Published private(set) var isInlineTextInputActive = false
+    /// 审计记录 popover 属于灵动岛的交互内容。悬浮展开时，即使鼠标移到 popover，
+    /// 也不能被 hover 离开逻辑当成离开灵动岛而自动收起。
+    @Published private(set) var isAuditPopoverPresented = false
     /// 屏幕切换后触发滑块从顶部向下动画的标志，由 IslandPresentationCoordinator 设置，NotchView 消费后复位
     @Published var triggerScreenSlideIn = false
 
@@ -153,6 +158,7 @@ class NotchViewModel: ObservableObject {
         isSettingsPopoverPresented: Bool,
         isInlineTextInputActive: Bool,
         autoCollapseOnLeave: Bool,
+        isAuditPopoverPresented: Bool = false,
         keepIslandOpen: Bool = false
     ) -> Bool {
         !isHovering
@@ -160,6 +166,7 @@ class NotchViewModel: ObservableObject {
             && openReason == .hover
             && !isSettingsPopoverPresented
             && !isInlineTextInputActive
+            && !isAuditPopoverPresented
             && autoCollapseOnLeave
             && !keepIslandOpen
     }
@@ -229,7 +236,7 @@ class NotchViewModel: ObservableObject {
         let resolvedMeasuredHeight: CGFloat? = style == .detached ? detachedOpenedMeasuredHeight : openedMeasuredHeight
 
         switch resolvedContentType {
-        case .chat, .customExpanded:
+        case .chat, .customExpanded, .audit:
             // Spec 2.4: 自定义内容全屏面板采用与会话详情一致的尺寸
             switch style {
             case .docked:
@@ -298,7 +305,7 @@ class NotchViewModel: ObservableObject {
         }
 
         switch contentType {
-        case .chat, .customExpanded:
+        case .chat, .customExpanded, .audit:
             return min(screenLimit, maxPanelHeight)
         case .instances:
             // 任务列表高度仅受屏幕限制，不受面板最大高度设置约束
@@ -643,8 +650,10 @@ class NotchViewModel: ObservableObject {
 
     /// Whether we're in chat mode.
     private var isInChatMode: Bool {
-        if case .chat = contentType { return true }
-        return false
+        switch contentType {
+        case .chat, .audit: return true
+        default: return false
+        }
     }
 
     /// The chat session we're currently presenting while the island stays open.
@@ -675,6 +684,7 @@ class NotchViewModel: ObservableObject {
             isSettingsPopoverPresented: isSettingsPopoverPresented,
             isInlineTextInputActive: isInlineTextInputActive,
             autoCollapseOnLeave: AppSettings.autoCollapseOnLeave,
+            isAuditPopoverPresented: isAuditPopoverPresented,
             keepIslandOpen: currentPanelPinned
         ) {
             notchClose()
@@ -1017,11 +1027,22 @@ class NotchViewModel: ObservableObject {
         // “固定显示 flow Island”或当前功能设置「展开即固定」时，保持面板展开直到用户取消固定。
         // per-feature 的 expandedPinned 仅对当前激活功能生效，切换到其他功能时自动跟随全局配置。
         guard !currentPanelPinned else { return }
+        resetDockedPresentationToClosed()
+    }
+
+    /// 用户已经处理完会话主动通知时，直接结束这次通知展示。
+    /// 这是显式用户操作，因此不受“固定展开”设置阻止，也不让路由回退到会话列表后继续展示。
+    func dismissResolvedSessionNotificationPresentation() {
+        resetDockedPresentationToClosed()
+    }
+
+    private func resetDockedPresentationToClosed() {
         status = .closed
         currentChatSession = nil
         contentType = .instances
         openedMeasuredHeight = nil
         isInlineTextInputActive = false
+        isAuditPopoverPresented = false
         openedSizeOverride = nil
     }
 
@@ -1088,6 +1109,11 @@ class NotchViewModel: ObservableObject {
         isInlineTextInputActive = isActive
     }
 
+    func setAuditPopoverPresented(_ isPresented: Bool) {
+        guard isAuditPopoverPresented != isPresented else { return }
+        isAuditPopoverPresented = isPresented
+    }
+
     func showChat(for session: SessionState) {
         currentChatSession = session
         openedMeasuredHeight = nil
@@ -1102,6 +1128,21 @@ class NotchViewModel: ObservableObject {
     func presentChat(for session: SessionState, reason: NotchOpenReason = .click) {
         notchOpen(reason: reason)
         showChat(for: session)
+    }
+
+    func showAudit(for session: SessionState) {
+        openedMeasuredHeight = nil
+
+        // Avoid unnecessary updates only when the snapshot is already current.
+        if case .audit(let current) = contentType, current == session {
+            return
+        }
+        contentType = .audit(session)
+    }
+
+    func presentAudit(for session: SessionState, reason: NotchOpenReason = .click) {
+        notchOpen(reason: reason)
+        showAudit(for: session)
     }
 
     func toggleChat(for session: SessionState, reason: NotchOpenReason = .click) {
@@ -1188,8 +1229,20 @@ class NotchViewModel: ObservableObject {
         presentSessionList(reason: reason)
     }
 
-    func updateOpenedMeasuredHeight(_ height: CGFloat?) {
-        let sanitized = height.map { max(closedHeight, ceil($0)) }
+    func updateOpenedMeasuredHeight(
+        _ height: CGFloat?,
+        preventsDecrease: Bool = false
+    ) {
+        var sanitized = height.map { max(closedHeight, ceil($0)) }
+
+        // Automatic notifications stay fully expanded until the user acts.
+        // A ScrollView can transiently report its already-clipped viewport
+        // after a window resize; accepting that smaller value creates a
+        // self-reinforcing collapse.
+        if preventsDecrease, let currentHeight = openedMeasuredHeight {
+            guard let candidateHeight = sanitized else { return }
+            sanitized = max(currentHeight, candidateHeight)
+        }
 
         guard sanitized != openedMeasuredHeight else { return }
         openedMeasuredHeight = sanitized

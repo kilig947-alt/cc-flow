@@ -884,10 +884,12 @@ private struct SettingsPanelContentView: View {
     // 左侧功能列表中点击 NewsNow「编辑实例 URL」时弹出的编辑表单
     @State private var editingNewsNowFeature: LeftFeature?
     @State private var newsNowBaseURLDraft: String = ""
+    @State private var newsNowKeepsCrossDomainLoginInWebView = true
     // Spec: mineradio-bridge-compat-layer —— Mineradio URL 编辑表单
     @State private var editingMineradioFeature: LeftFeature?
     @State private var editingShortcutFeature: LeftFeature?
     @State private var mineradioPageURLDraft: String = ""
+    @State private var mineradioKeepsCrossDomainLoginInWebView = true
     // Spec: mineradio-bridge-compat-layer —— Mineradio 平台登录 sheet
     @State private var presentingMineradioLogin: MusicPlatform?
     // 左侧功能列表中点击「添加自定义区域」时弹出的新建表单
@@ -907,7 +909,8 @@ private struct SettingsPanelContentView: View {
     // 新建表单：是否允许请求外部接口（仅本地目录类型显示）
     @State private var newCustomAreaAllowsNetwork = false
     // 新建表单：跨域登录是否留在 WebView（仅网站 URL 类型显示）
-    @State private var newWebURLKeepsCrossDomainLoginInWebView = false
+    @State private var newWebURLKeepsCrossDomainLoginInWebView = true
+    @State private var newWebURLLoadsMineradioBridge = false
     // Spec: webURL 模式自动获取图标/名称的 debounce token + 上次自动填入的名称（用于判断是否覆盖用户输入）
     @State private var metadataFetchToken: UUID?
     @State private var autoFilledName: String?
@@ -1089,6 +1092,7 @@ private struct SettingsPanelContentView: View {
                     }(),
                     iconName: updated.customIconName,
                     keepsCrossDomainLoginInWebView: updated.keepsCrossDomainLoginInWebView,
+                    loadsMineradioBridge: updated.loadsMineradioBridge,
                     variant: nil
                 )
                 editingWebURLFeature = nil
@@ -1099,6 +1103,12 @@ private struct SettingsPanelContentView: View {
             EditableCustomAreaView(builtinFeature: feature) { updated in
                 leftFeatureStore.setCustomIconName(id: updated.id, name: updated.customIconName)
                 leftFeatureStore.setCustomDisplayName(id: updated.id, name: updated.customDisplayName)
+                if updated.kind.isURLBacked {
+                    leftFeatureStore.setWebViewCapabilities(
+                        id: updated.id,
+                        keepsCrossDomainLoginInWebView: updated.keepsCrossDomainLoginInWebView
+                    )
+                }
                 editingBuiltinFeature = nil
             }
         }
@@ -1120,6 +1130,11 @@ private struct SettingsPanelContentView: View {
                 Text("AI 行业动态聚合页面。默认使用 AI HOT 公开地址。")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
+                Toggle(
+                    "跨域登录留在 WebView",
+                    isOn: $newsNowKeepsCrossDomainLoginInWebView
+                )
+                .font(.caption)
                 HStack {
                     Spacer()
                     Button("取消") {
@@ -1129,6 +1144,10 @@ private struct SettingsPanelContentView: View {
                         let trimmed = newsNowBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                         if isValidNewsNowURL(trimmed) {
                             leftFeatureStore.updateNewsNowBaseURL(id: feature.id, baseURL: trimmed)
+                            leftFeatureStore.setWebViewCapabilities(
+                                id: feature.id,
+                                keepsCrossDomainLoginInWebView: newsNowKeepsCrossDomainLoginInWebView
+                            )
                             editingNewsNowFeature = nil
                         }
                     }
@@ -1141,6 +1160,7 @@ private struct SettingsPanelContentView: View {
                 if case .newsnow(let baseURL) = feature.kind {
                     newsNowBaseURLDraft = baseURL
                 }
+                newsNowKeepsCrossDomainLoginInWebView = feature.keepsCrossDomainLoginInWebView
             }
         }
         // Spec: mineradio-bridge-compat-layer —— Mineradio 页面 URL 编辑表单
@@ -1153,6 +1173,11 @@ private struct SettingsPanelContentView: View {
                 Text("指向 Mineradio 网页版。默认使用官方实例。")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
+                Toggle(
+                    "跨域登录留在 WebView",
+                    isOn: $mineradioKeepsCrossDomainLoginInWebView
+                )
+                .font(.caption)
                 HStack {
                     Spacer()
                     Button("取消") {
@@ -1162,6 +1187,10 @@ private struct SettingsPanelContentView: View {
                         let trimmed = mineradioPageURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                         if isValidMineradioURL(trimmed) {
                             leftFeatureStore.updateMineradioPageURL(id: feature.id, pageURL: trimmed)
+                            leftFeatureStore.setWebViewCapabilities(
+                                id: feature.id,
+                                keepsCrossDomainLoginInWebView: mineradioKeepsCrossDomainLoginInWebView
+                            )
                             editingMineradioFeature = nil
                         }
                     }
@@ -1174,6 +1203,7 @@ private struct SettingsPanelContentView: View {
                 if case .mineradio(let pageURL) = feature.kind {
                     mineradioPageURLDraft = pageURL
                 }
+                mineradioKeepsCrossDomainLoginInWebView = feature.keepsCrossDomainLoginInWebView
             }
         }
         // Spec: mineradio-bridge-compat-layer —— 平台登录 sheet
@@ -1845,7 +1875,7 @@ private struct SettingsPanelContentView: View {
 
                 SettingsLineDivider()
 
-                CompletionQuickRepliesSettingsView(settings: settings)
+                CompletionPromptRegexRulesSettingsView(settings: settings)
             }
 
             let hookProfiles = viewModel.visibleHookProfiles
@@ -2832,6 +2862,9 @@ private struct SettingsPanelContentView: View {
                 Toggle("跨域登录留在 WebView", isOn: $newWebURLKeepsCrossDomainLoginInWebView)
                     .font(.caption)
                     .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
+                Toggle("加载 Mineradio Bridge", isOn: $newWebURLLoadsMineradioBridge)
+                    .font(.caption)
+                    .help("向该网站注入 Mineradio Bridge 兼容层，用于音乐 API、Cookie 和二进制资源代理。")
             }
 
             HStack {
@@ -3057,6 +3090,7 @@ private struct SettingsPanelContentView: View {
                 url: newFeatureURLString,
                 iconName: iconName,
                 keepsCrossDomainLoginInWebView: newWebURLKeepsCrossDomainLoginInWebView,
+                loadsMineradioBridge: newWebURLLoadsMineradioBridge,
                 variant: .traeWorkCN
             )
         }
@@ -3072,7 +3106,8 @@ private struct SettingsPanelContentView: View {
         newCustomAreaIconImage = nil
         iconImageError = nil
         newCustomAreaAllowsNetwork = false
-        newWebURLKeepsCrossDomainLoginInWebView = false
+        newWebURLKeepsCrossDomainLoginInWebView = true
+        newWebURLLoadsMineradioBridge = false
         // Spec: 重置自动获取相关 state
         metadataFetchToken = nil
         autoFilledName = nil
@@ -3289,143 +3324,248 @@ private struct SettingsPanelContentView: View {
     }
 }
 
-private struct CompletionQuickRepliesSettingsView: View {
+private struct CompletionPromptRegexRulesSettingsView: View {
     @ObservedObject var settings: AppSettingsStore
-    @State private var newReply = ""
-    @State private var validationMessage: String?
-    @State private var replyDrafts: [Int: String] = [:]
+    @State private var expandedRuleIDs: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SettingsToggleLine(
-                title: "快速回复",
-                subtitle: "任务完成后显示快捷回复；tmux 会话直接发送，其他会话复制后跳回客户端。",
-                isOn: $settings.completionQuickRepliesEnabled
-            )
+            VStack(alignment: .leading, spacing: 4) {
+                Text("完成回复识别")
+                    .font(.system(size: 13, weight: .medium))
+                Text("当 Stop 回复没有原生提问时，用正则提取问题和选项；选择结果会作为新消息回传到原会话。原生审批与提问始终优先。")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 18)
 
-            if settings.completionQuickRepliesEnabled {
-                ForEach(Array(settings.completionQuickReplies.enumerated()), id: \.offset) { index, reply in
-                    HStack(spacing: 8) {
-                        TextField(
-                            "快速回复",
-                            text: Binding(
-                                get: { replyDrafts[index] ?? reply },
-                                set: {
-                                    replyDrafts[index] = $0
-                                    persistValidDraft(at: index)
-                                }
-                            )
+            ForEach($settings.completionPromptRegexRules) { $rule in
+                DisclosureGroup(
+                    isExpanded: Binding(
+                        get: { expandedRuleIDs.contains(rule.id) },
+                        set: { isExpanded in
+                            if isExpanded {
+                                expandedRuleIDs.insert(rule.id)
+                            } else {
+                                expandedRuleIDs.remove(rule.id)
+                            }
+                        }
+                    )
+                ) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        labeledEditor(
+                            title: "触发正则",
+                            text: $rule.triggerPattern,
+                            minimumHeight: 56
                         )
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { commitReply(at: index) }
-
-                        Spacer(minLength: 8)
-
-                        Button { moveReply(at: index, offset: -1) } label: {
-                            Image(systemName: "chevron.up")
+                        if let error = CompletionPromptRegexParser.validationError(
+                            for: rule.triggerPattern
+                        ) {
+                            validationText(error)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(index == 0)
-                        .accessibilityLabel("上移快速回复 \(reply)")
 
-                        Button { moveReply(at: index, offset: 1) } label: {
-                            Image(systemName: "chevron.down")
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(index == settings.completionQuickReplies.count - 1)
-                        .accessibilityLabel("下移快速回复 \(reply)")
+                        Toggle("仅自由输入，不显示预设选项", isOn: $rule.isFreeformOnly)
+                            .toggleStyle(.checkbox)
+                            .font(.system(size: 11))
 
-                        Button(role: .destructive) {
-                            settings.completionQuickReplies.remove(at: index)
-                            replyDrafts.removeAll()
-                        } label: {
-                            Image(systemName: "trash")
+                        if !rule.isFreeformOnly {
+                            if rule.capturesTriggerGroupsAsOptions {
+                                Text("触发正则的捕获组 1、2… 将依次作为 A、B… 选项。")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                labeledEditor(
+                                    title: "选项正则（捕获组 1 = 键，捕获组 2 = 文本；留空使用固定选项）",
+                                    text: $rule.optionPattern,
+                                    minimumHeight: 56
+                                )
+                                if !rule.optionPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                                   let error = CompletionPromptRegexParser.validationError(
+                                       for: rule.optionPattern
+                                   ) {
+                                    validationText(error)
+                                }
+                            }
+
+                            Toggle("允许多选", isOn: $rule.allowsMultiple)
+                                .toggleStyle(.checkbox)
+                                .font(.system(size: 11))
+
+                            if rule.capturesTriggerGroupsAsOptions {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text("回传模板")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                    TextField("选择 {key}：{option}", text: $rule.replyTemplate)
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            } else if rule.optionPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                staticOptionsEditor(rule: $rule)
+                            } else {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text("回传模板")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                    TextField("选择 {key}：{option}", text: $rule.replyTemplate)
+                                        .textFieldStyle(.roundedBorder)
+                                    Text("可使用 {key} 和 {option} 占位符。")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("删除快速回复 \(reply)")
+
+                        HStack {
+                            Spacer()
+                            Button(role: .destructive) {
+                                removeRule(rule.id)
+                            } label: {
+                                Label("删除规则", systemImage: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                        }
                     }
-                    .padding(.horizontal, 18)
-                }
-
-                HStack(spacing: 8) {
-                    TextField("新增快速回复", text: $newReply)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit(addReply)
-
-                    Button("新增", action: addReply)
-                        .buttonStyle(.bordered)
+                    .padding(.top, 10)
+                    .padding(.leading, 24)
+                } label: {
+                    HStack(spacing: 10) {
+                        TextField("规则名称", text: $rule.name)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer(minLength: 8)
+                        Text(ruleModeLabel(rule))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Toggle("启用", isOn: $rule.isEnabled)
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .font(.system(size: 10, weight: .medium))
+                            .fixedSize()
+                    }
                 }
                 .padding(.horizontal, 18)
-
-                if let validationMessage {
-                    Text(validationMessage)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(TerminalColors.amber)
-                        .padding(.horizontal, 18)
-                }
             }
+
+            HStack(spacing: 8) {
+                Button("新增规则", action: addRule)
+                    .buttonStyle(.bordered)
+                Button("恢复默认模板") {
+                    settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+                    expandedRuleIDs.removeAll()
+                }
+                .buttonStyle(.bordered)
+                Spacer()
+            }
+            .padding(.horizontal, 18)
         }
         .padding(.vertical, 4)
     }
 
-    private func addReply() {
-        let value = newReply.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else {
-            validationMessage = "快速回复不能为空。"
-            return
+    private func labeledEditor(
+        title: String,
+        text: Binding<String>,
+        minimumHeight: CGFloat
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            TextEditor(text: text)
+                .font(.system(size: 11, design: .monospaced))
+                .frame(minHeight: minimumHeight)
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.primary.opacity(0.05))
+                )
         }
-        guard !settings.completionQuickReplies.contains(value) else {
-            validationMessage = "该快速回复已存在。"
-            return
-        }
-        settings.completionQuickReplies.append(value)
-        newReply = ""
-        validationMessage = nil
     }
 
-    private func moveReply(at index: Int, offset: Int) {
-        persistAllValidDrafts()
-        let destination = index + offset
-        guard settings.completionQuickReplies.indices.contains(index),
-              settings.completionQuickReplies.indices.contains(destination) else { return }
-        settings.completionQuickReplies.swapAt(index, destination)
-        replyDrafts.removeAll()
+    @ViewBuilder
+    private func staticOptionsEditor(
+        rule: Binding<CompletionPromptRegexRule>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("固定选项")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.secondary)
+            ForEach(rule.staticOptions) { $option in
+                HStack(spacing: 7) {
+                    TextField("按钮文字", text: $option.title)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 130)
+                    TextField("回传内容", text: $option.reply)
+                        .textFieldStyle(.roundedBorder)
+                    Button(role: .destructive) {
+                        removeStaticOption(ruleID: rule.wrappedValue.id, optionID: option.id)
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            Button {
+                appendStaticOption(to: rule.wrappedValue.id)
+            } label: {
+                Label("添加选项", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+        }
     }
 
-    private func commitReply(at index: Int) {
-        guard settings.completionQuickReplies.indices.contains(index) else { return }
-        let value = (replyDrafts[index] ?? settings.completionQuickReplies[index])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty else {
-            validationMessage = "快速回复不能为空。"
+    private func validationText(_ message: String) -> some View {
+        Text(message)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundColor(TerminalColors.amber)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func ruleModeLabel(_ rule: CompletionPromptRegexRule) -> String {
+        if rule.isFreeformOnly {
+            return "自由输入"
+        }
+        if rule.capturesTriggerGroupsAsOptions {
+            return rule.allowsMultiple ? "行内多选" : "行内单选"
+        }
+        if rule.optionPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return rule.allowsMultiple ? "固定多选" : "固定单选"
+        }
+        return rule.allowsMultiple ? "提取多选" : "提取单选"
+    }
+
+    private func addRule() {
+        let rule = CompletionPromptRegexRule(
+            name: "自定义规则",
+            triggerPattern: #"(?is)请输入你的触发正则"#,
+            staticOptions: [
+                CompletionPromptStaticOption(title: "确认", reply: "确认，请继续。"),
+                CompletionPromptStaticOption(title: "取消", reply: "请先暂停。")
+            ]
+        )
+        settings.completionPromptRegexRules.append(rule)
+        expandedRuleIDs.insert(rule.id)
+    }
+
+    private func removeRule(_ id: String) {
+        settings.completionPromptRegexRules.removeAll { $0.id == id }
+        expandedRuleIDs.remove(id)
+    }
+
+    private func appendStaticOption(to ruleID: String) {
+        guard let index = settings.completionPromptRegexRules.firstIndex(where: { $0.id == ruleID }) else {
             return
         }
-        guard !settings.completionQuickReplies.enumerated().contains(where: {
-            $0.offset != index && $0.element == value
-        }) else {
-            validationMessage = "该快速回复已存在。"
+        settings.completionPromptRegexRules[index].staticOptions.append(
+            CompletionPromptStaticOption(title: "新选项", reply: "新回复")
+        )
+    }
+
+    private func removeStaticOption(ruleID: String, optionID: String) {
+        guard let index = settings.completionPromptRegexRules.firstIndex(where: { $0.id == ruleID }) else {
             return
         }
-        settings.completionQuickReplies[index] = value
-        replyDrafts[index] = nil
-        validationMessage = nil
-    }
-
-    private func persistValidDraft(at index: Int) {
-        guard settings.completionQuickReplies.indices.contains(index),
-              let draft = replyDrafts[index] else { return }
-        let value = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty,
-              !settings.completionQuickReplies.enumerated().contains(where: {
-                  $0.offset != index && $0.element == value
-              }) else { return }
-        settings.completionQuickReplies[index] = value
-    }
-
-    private func persistAllValidDrafts() {
-        for index in replyDrafts.keys.sorted() {
-            persistValidDraft(at: index)
-        }
+        settings.completionPromptRegexRules[index].staticOptions.removeAll { $0.id == optionID }
     }
 }
 

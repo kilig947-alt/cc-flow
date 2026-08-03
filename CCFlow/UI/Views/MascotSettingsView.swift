@@ -16,6 +16,7 @@ struct MascotSettingsView: View {
             sandboxAccessSection
             staleThemeSection
             themePackSection
+            floatingPetSizeSection
             animationSpeedSection
             designPromptSection
             downloadHintSection
@@ -150,6 +151,47 @@ struct MascotSettingsView: View {
         }
     }
 
+    /// 浮动宠物大小和展示开关。
+    private var floatingPetSizeSection: some View {
+        MascotSectionCard(
+            title: "宠物大小",
+            accessory: {
+                Toggle(
+                    isOn: Binding(
+                        get: { settings.surfaceMode == .floatingPet },
+                        set: { settings.surfaceMode = $0 ? .floatingPet : .notch }
+                    )
+                ) {
+                    Text(appLocalized: "展示宠物")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    Text(appLocalized: "大小")
+                        .font(.system(size: 12))
+
+                    Slider(value: floatingPetScaleBinding, in: 0.5...2, step: 0.05)
+                        .tint(.accentColor)
+
+                    Text(String(format: "%.2f×", floatingPetScaleBinding.wrappedValue))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, alignment: .trailing)
+                }
+
+                Text(appLocalized: "拖动调整浮动宠物的显示大小。也可以在桌面上将鼠标移到宠物上，通过滚轮继续缩放。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+        }
+    }
+
     /// 宠物动画速率设置 —— 0 = 完全不动，1 = 正常速度，2 = 2 倍速
     private var animationSpeedSection: some View {
         MascotSectionCard(title: "动画速率") {
@@ -186,6 +228,28 @@ struct MascotSettingsView: View {
             }
             .padding(16)
         }
+    }
+
+    private var floatingPetScaleBinding: Binding<Double> {
+        Binding(
+            get: {
+                if settings.floatingPetCustomScale > 0 {
+                    return Double(settings.floatingPetCustomScale)
+                }
+
+                let screenRect = NSScreen.main?.visibleFrame
+                    ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+                return Double(
+                    DetachedIslandPanelMetrics.resolutionScale(
+                        for: screenRect,
+                        sizeMode: settings.floatingPetSizeMode
+                    )
+                )
+            },
+            set: {
+                settings.floatingPetCustomScale = CGFloat(($0 * 20).rounded() / 20)
+            }
+        )
     }
 
     private func speedLabel(_ speed: Double) -> String {
@@ -481,16 +545,42 @@ private let downloadLinks: [DownloadLink] = [
 ]
 
 /// 宠物设置页专用区域卡片，匹配 SettingsSectionCard 的标题样式
-private struct MascotSectionCard<Content: View>: View {
+private struct MascotSectionCard<Content: View, Accessory: View>: View {
     let title: String
+    @ViewBuilder let accessory: () -> Accessory
     @ViewBuilder let content: () -> Content
+
+    init(
+        title: String,
+        @ViewBuilder content: @escaping () -> Content
+    ) where Accessory == EmptyView {
+        self.title = title
+        self.accessory = { EmptyView() }
+        self.content = content
+    }
+
+    init(
+        title: String,
+        @ViewBuilder accessory: @escaping () -> Accessory,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.accessory = accessory
+        self.content = content
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(appLocalized: title)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
-                .padding(.bottom, 10)
+            HStack(spacing: 12) {
+                Text(appLocalized: title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+
+                Spacer(minLength: 12)
+
+                accessory()
+            }
+            .padding(.bottom, 10)
 
             VStack(spacing: 0) {
                 content()

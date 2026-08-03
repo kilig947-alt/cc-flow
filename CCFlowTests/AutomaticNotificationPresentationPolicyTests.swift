@@ -14,6 +14,28 @@ final class AutomaticNotificationPresentationPolicyTests: XCTestCase {
         XCTAssertEqual(resolve(mode: .active, smart: true, open: true), .expand)
     }
 
+    func testManualAttentionBypassesTerminalSmartSuppression() {
+        XCTAssertEqual(
+            resolve(mode: .active, smart: true, priority: .manualAttention),
+            .expand
+        )
+    }
+
+    func testManualAttentionStillHonorsExplicitQuietAndSafetySuppression() {
+        XCTAssertEqual(
+            resolve(mode: .quiet, smart: true, priority: .manualAttention),
+            .broadcast
+        )
+        XCTAssertEqual(
+            resolve(mode: .active, smart: true, fullscreen: true, priority: .manualAttention),
+            .defer
+        )
+        XCTAssertEqual(
+            resolve(mode: .active, smart: true, muted: true, priority: .manualAttention),
+            .discard
+        )
+    }
+
     func testQuietBroadcastsRegardlessOfSmartSuppression() {
         XCTAssertEqual(resolve(mode: .quiet), .broadcast)
         XCTAssertEqual(resolve(mode: .quiet, smart: true), .broadcast)
@@ -43,14 +65,16 @@ final class AutomaticNotificationPresentationPolicyTests: XCTestCase {
         smart: Bool = false,
         open: Bool = false,
         fullscreen: Bool = false,
-        muted: Bool = false
+        muted: Bool = false,
+        priority: AutomaticNotificationPriority = .standard
     ) -> AutomaticNotificationPresentationDecision {
         AutomaticNotificationPresentationPolicy.resolve(
             mode: mode,
             smartSuppressionTriggered: smart,
             isPanelOpen: open,
             isFullscreenSuppressed: fullscreen,
-            isReminderMuted: muted
+            isReminderMuted: muted,
+            priority: priority
         )
     }
 }

@@ -180,7 +180,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
     private var bubbleVisibilityWorkItem: DispatchWorkItem?
     private var bubbleHoverGraceWorkItem: DispatchWorkItem?
     private var floatingSettingsHintDismissWorkItem: DispatchWorkItem?
-    private var completionNotificationDismissWorkItem: DispatchWorkItem?
     private var outsideClickMonitor: EventMonitor?
     private var floatingDragStartOrigin: CGPoint?
     private var petMouseDownPoint: CGPoint?
@@ -198,7 +197,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
     private var completionNotificationQueue: [SessionCompletionNotification] = []
     private var currentEnergyMode: EnergyMode = .quietBackground
     var bubbleHoverGraceDelay: TimeInterval = 3
-    var completionNotificationDismissDelay: TimeInterval = 5
     private var activeCompletionNotification: SessionCompletionNotification? {
         didSet {
             bubbleViewState.setActiveCompletionNotification(activeCompletionNotification)
@@ -604,7 +602,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
         applyBubbleStateChange {
             interactionModel.presentHoverPreview(canPresentBubble: true)
         }
-        scheduleCompletionNotificationDismissal(for: notification.id)
     }
 
     func dismiss() {
@@ -616,8 +613,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
         bubbleHoverGraceWorkItem = nil
         floatingSettingsHintDismissWorkItem?.cancel()
         floatingSettingsHintDismissWorkItem = nil
-        completionNotificationDismissWorkItem?.cancel()
-        completionNotificationDismissWorkItem = nil
         outsideClickMonitor?.stop()
         outsideClickMonitor = nil
         floatingDragStartOrigin = nil
@@ -1760,23 +1755,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
         applyBubbleStateChange {
             interactionModel.presentHoverPreview(canPresentBubble: true)
         }
-        scheduleCompletionNotificationDismissal(for: nextNotification.id)
-    }
-
-    private func scheduleCompletionNotificationDismissal(for notificationID: UUID) {
-        completionNotificationDismissWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self,
-                  self.activeCompletionNotification?.id == notificationID else { return }
-            self.dismissActiveCompletionNotification(closeBubble: true, advanceQueue: true)
-        }
-
-        completionNotificationDismissWorkItem = workItem
-        DispatchQueue.main.asyncAfter(
-            deadline: .now() + completionNotificationDismissDelay,
-            execute: workItem
-        )
     }
 
     private func clearCompletionNotifications(keepBubbleOpen: Bool) {
@@ -1809,9 +1787,6 @@ final class DetachedIslandWindowController: NSWindowController, NSWindowDelegate
         closeBubble: Bool,
         advanceQueue: Bool
     ) {
-        completionNotificationDismissWorkItem?.cancel()
-        completionNotificationDismissWorkItem = nil
-
         guard activeCompletionNotification != nil else {
             if advanceQueue {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in

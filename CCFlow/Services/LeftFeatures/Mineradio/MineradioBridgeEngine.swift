@@ -167,6 +167,20 @@ final class MineradioBridgeEngine {
 
     // MARK: - Public API
 
+    /// 重新创建 JSContext，并从磁盘重新读取 Bridge bundle/polyfills。
+    /// 用于网站功能再次进入时立即应用刚下载或替换的 Bridge，无需重启应用。
+    func reload() {
+        lock.lock()
+        let callbacks = Array(apiCallbacks.values)
+        apiCallbacks.removeAll()
+        lock.unlock()
+
+        let reloadError = MineradioBridgeError.apiError("Bridge reloaded")
+        callbacks.forEach { $0(.failure(reloadError)) }
+        jsContext = nil
+        setupContext()
+    }
+
     /// 调用扩展 `handleApiRequest(payload)`，resolve 后调 completion。
     func handleApi(_ payload: [String: Any], completion: @escaping (Result<Any?, Error>) -> Void) {
         guard let context = jsContext else {

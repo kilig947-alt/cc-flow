@@ -173,7 +173,8 @@ actor TerminalSessionFocuser {
     nonisolated static func ghosttySelectionScriptLines(
         terminalSessionIdentifier: String?,
         workspacePath: String,
-        allowsWorkspaceFallback: Bool = true
+        allowsWorkspaceFallback: Bool = true,
+        requiresUniqueWorkspaceMatch: Bool = false
     ) -> [String] {
         let escapedWorkspace = Self.escapeAppleScriptString(workspacePath)
         var lines: [String] = []
@@ -194,7 +195,11 @@ actor TerminalSessionFocuser {
             if allowsWorkspaceFallback {
                 lines.append("if not didFocus then")
                 lines.append("set exactMatches to every terminal whose working directory is targetPath")
-                lines.append("if (count of exactMatches) > 0 then")
+                lines.append(
+                    requiresUniqueWorkspaceMatch
+                        ? "if (count of exactMatches) is 1 then"
+                        : "if (count of exactMatches) > 0 then"
+                )
                 lines.append("focus (item 1 of exactMatches)")
                 lines.append("set didFocus to true")
                 lines.append("end if")
@@ -203,7 +208,11 @@ actor TerminalSessionFocuser {
         } else if allowsWorkspaceFallback {
             lines.append("set targetPath to \"\(escapedWorkspace)\"")
             lines.append("set exactMatches to every terminal whose working directory is targetPath")
-            lines.append("if (count of exactMatches) > 0 then")
+            lines.append(
+                requiresUniqueWorkspaceMatch
+                    ? "if (count of exactMatches) is 1 then"
+                    : "if (count of exactMatches) > 0 then"
+            )
             lines.append("focus (item 1 of exactMatches)")
             lines.append("set didFocus to true")
             lines.append("end if")
@@ -248,14 +257,13 @@ actor TerminalSessionFocuser {
     ) async -> Bool {
         let terminalSessionID = clientInfo.terminalSessionIdentifier?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        if requireStableIdentifier,
-           Self.normalizedGhosttyTerminalIdentifier(terminalSessionID) == nil {
-            return false
-        }
+        let hasStableIdentifier =
+            Self.normalizedGhosttyTerminalIdentifier(terminalSessionID) != nil
         let lines = Self.ghosttySelectionScriptLines(
             terminalSessionIdentifier: terminalSessionID,
             workspacePath: workspacePath,
-            allowsWorkspaceFallback: !requireStableIdentifier
+            allowsWorkspaceFallback: !requireStableIdentifier || !hasStableIdentifier,
+            requiresUniqueWorkspaceMatch: requireStableIdentifier && !hasStableIdentifier
         )
         let script = lines.joined(separator: "\n")
         return await Self.runAppleScriptReturningBoolean(script)

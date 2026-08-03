@@ -104,13 +104,35 @@ enum PluginBridgeRouter {
         guard let definition else { throw PluginBridgeError.methodNotFound(method) }
         if let capability = definition.capability {
             guard manifest.capabilities.contains(capability) else { throw PluginBridgeError.capabilityRequired(capability) }
-            if !PluginCapabilityGrantStore.isGranted(capability, areaID: area.id, manifest: manifest),
-               !confirmGrant(capability: capability, plugin: manifest) {
-                throw PluginBridgeError.userDenied(capability)
+            var justGranted = false
+            if !PluginCapabilityGrantStore.isGranted(capability, areaID: area.id, manifest: manifest) {
+                let granted = await confirmGrant(capability: capability, plugin: manifest)
+                if !granted {
+                    throw PluginBridgeError.userDenied(capability)
+                }
+                PluginCapabilityGrantStore.grant(capability, areaID: area.id, manifest: manifest)
+                justGranted = true
             }
-            PluginCapabilityGrantStore.grant(capability, areaID: area.id, manifest: manifest)
-            if sensitiveCapabilities.contains(capability), !confirm(capability: capability, plugin: manifest) {
-                throw PluginBridgeError.userDenied(capability)
+            if !justGranted,
+               sensitiveCapabilities.contains(capability),
+               !PluginSensitiveCapabilityGrantStore.isGranted(
+                   capability,
+                   areaID: area.id,
+                   manifest: manifest
+               ) {
+                let decision = await confirm(capability: capability, plugin: manifest)
+                switch decision {
+                case .allowOnce:
+                    break
+                case .allowWhileAppIsRunning:
+                    PluginSensitiveCapabilityGrantStore.grant(
+                        capability,
+                        areaID: area.id,
+                        manifest: manifest
+                    )
+                case .deny:
+                    throw PluginBridgeError.userDenied(capability)
+                }
             }
         }
 
@@ -189,24 +211,91 @@ enum PluginBridgeRouter {
         return value
     }
 
-    private static func confirm(capability: String, plugin: PluginManifest) -> Bool {
+    private static func presentAlert(_ alert: NSAlert) async -> NSApplication.ModalResponse {
+        NSApp.activate(ignoringOtherApps: true)
+
+        let targetWindow: NSWindow? = {
+            if let window = SettingsWindowController.shared.window, window.isVisible {
+                return window
+            }
+            if let key = NSApp.keyWindow, key.isVisible {
+                return key
+            }
+            if let main = NSApp.mainWindow, main.isVisible {
+                return main
+            }
+            return nil
+        }()
+
+        if let targetWindow {
+            return await withCheckedContinuation { continuation in
+                alert.beginSheetModal(for: targetWindow) { response in
+                    continuation.resume(returning: response)
+                }
+            }
+        } else {
+            alert.window.level = SettingsWindowLayout.windowLevel
+            alert.window.makeKeyAndOrderFront(nil)
+            return alert.runModal()
+        }
+    }
+
+    private static func confirm(
+        capability: String,
+        plugin: PluginManifest
+    ) async -> PluginSensitivePermissionDecision {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "允许 \(plugin.name ?? plugin.id) 使用 \(capability)？"
-        alert.informativeText = "这是敏感操作，仅批准当前这次调用。"
+        alert.informativeText = "这是敏感操作。你可以仅允许当前调用，或在本次 App 运行期间持续允许；重启 App 后将重新询问。"
         alert.addButton(withTitle: "允许一次")
+        alert.addButton(withTitle: "App 打开期间允许")
         alert.addButton(withTitle: "拒绝")
-        return alert.runModal() == .alertFirstButtonReturn
+        switch await presentAlert(alert) {
+        case .alertFirstButtonReturn:
+            return .allowOnce
+        case .alertSecondButtonReturn:
+            return .allowWhileAppIsRunning
+        default:
+            return .deny
+        }
     }
 
-    private static func confirmGrant(capability: String, plugin: PluginManifest) -> Bool {
+    private static func confirmGrant(capability: String, plugin: PluginManifest) async -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "插件请求权限"
         alert.informativeText = "\(plugin.name ?? plugin.id) 请求在当前插件版本中使用 \(capability)。插件版本或权限清单变化后将重新授权。"
         alert.addButton(withTitle: "授权")
         alert.addButton(withTitle: "拒绝")
-        return alert.runModal() == .alertFirstButtonReturn
+        return await presentAlert(alert) == .alertFirstButtonReturn
+    }
+}
+
+enum PluginSensitivePermissionDecision: Equatable {
+    case allowOnce
+    case allowWhileAppIsRunning
+    case deny
+}
+
+@MainActor
+enum PluginSensitiveCapabilityGrantStore {
+    private static var grants: Set<String> = []
+
+    static func isGranted(_ capability: String, areaID: String, manifest: PluginManifest) -> Bool {
+        grants.contains(grantKey(capability: capability, areaID: areaID, manifest: manifest))
+    }
+
+    static func grant(_ capability: String, areaID: String, manifest: PluginManifest) {
+        grants.insert(grantKey(capability: capability, areaID: areaID, manifest: manifest))
+    }
+
+    static func resetForTesting() {
+        grants.removeAll()
+    }
+
+    private static func grantKey(capability: String, areaID: String, manifest: PluginManifest) -> String {
+        "\(areaID)|\(manifest.id)|\(manifest.version)|\(manifest.capabilities.sorted().joined(separator: ","))|\(capability)"
     }
 }
 

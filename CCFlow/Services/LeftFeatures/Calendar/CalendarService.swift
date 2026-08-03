@@ -17,6 +17,27 @@ struct ReminderAgendaItem: Identifiable, Equatable {
     let title: String
     let dueDate: Date?
     let priority: Int
+    let notes: String?
+    let url: URL?
+    let calendarName: String
+
+    init(
+        id: String,
+        title: String,
+        dueDate: Date?,
+        priority: Int,
+        notes: String? = nil,
+        url: URL? = nil,
+        calendarName: String = "提醒事项"
+    ) {
+        self.id = id
+        self.title = title
+        self.dueDate = dueDate
+        self.priority = priority
+        self.notes = notes
+        self.url = url
+        self.calendarName = calendarName
+    }
 }
 
 @MainActor
@@ -100,7 +121,15 @@ final class CalendarService: ObservableObject {
         store.fetchReminders(matching: store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)) { [weak self] values in
             Task { @MainActor in
                 self?.reminders = (values ?? []).map {
-                    ReminderAgendaItem(id: $0.calendarItemIdentifier, title: $0.title, dueDate: $0.dueDateComponents?.date, priority: $0.priority)
+                    ReminderAgendaItem(
+                        id: $0.calendarItemIdentifier,
+                        title: $0.title,
+                        dueDate: $0.dueDateComponents?.date,
+                        priority: $0.priority,
+                        notes: $0.notes?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+                        url: $0.url,
+                        calendarName: $0.calendar.title
+                    )
                 }.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
                 self?.evaluateReminderPrompt()
             }
@@ -148,4 +177,8 @@ final class CalendarService: ObservableObject {
     }
 
     var nextEvent: CalendarAgendaItem? { events.first { $0.end >= Date() } }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

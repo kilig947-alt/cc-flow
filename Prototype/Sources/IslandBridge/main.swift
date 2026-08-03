@@ -281,8 +281,12 @@ struct IslandBridgeMain {
     ) throws -> BridgeResponse? {
         do {
             return try SocketClient.send(envelope: envelope, socketPath: socketPath)
-        } catch BridgeError.connectionFailed where !envelope.expectsResponse {
-            // State-only hooks should not fail the calling CLI when Island is unavailable.
+        } catch BridgeError.connectionFailed where !envelope.expectsResponse
+            || (envelope.provider == .codex && envelope.eventType == "Stop") {
+            // State-only hooks should not fail the calling CLI when Island is
+            // unavailable. Codex Stop is also fail-open: it normally waits for
+            // a notification response, but must not break turn completion when
+            // CC FLOW is not running.
             return nil
         }
     }

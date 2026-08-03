@@ -916,7 +916,7 @@ final class DetachedIslandWindowControllerTests: XCTestCase {
         wait(for: [bubblePresented], timeout: 1.0)
     }
 
-    func testCompletionBubbleAutoDismissesEvenWhileHoveredInFloatingMode() {
+    func testCompletionBubbleRemainsVisibleWithoutUserInteractionInFloatingMode() {
         let viewModel = makeViewModel()
         let sessionMonitor = makeSessionMonitor()
         let completed = makeCompletedSession(id: "completed")
@@ -927,7 +927,6 @@ final class DetachedIslandWindowControllerTests: XCTestCase {
             sessionMonitor: sessionMonitor,
             onClose: {}
         )
-        controller.completionNotificationDismissDelay = 1.0
         defer { controller.dismiss() }
 
         controller.present(atPetAnchor: CGPoint(x: 1200, y: 220))
@@ -938,21 +937,20 @@ final class DetachedIslandWindowControllerTests: XCTestCase {
         let bubblePresented = expectation(description: "completion bubble becomes active")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             XCTAssertNotNil(controller.currentActiveCompletionNotificationForTesting)
-            controller.simulateCompletionNotificationHoverForTesting(true)
             bubblePresented.fulfill()
         }
 
         wait(for: [bubblePresented], timeout: 1.0)
 
-        let bubbleDismissed = expectation(description: "completion bubble auto-dismisses")
+        let bubbleRemainsVisible = expectation(description: "completion bubble remains visible")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            XCTAssertNil(controller.currentActiveCompletionNotificationForTesting)
-            XCTAssertEqual(controller.renderedBubbleStateForTesting, .hidden)
-            XCTAssertFalse(controller.isBubbleVisibleForTesting)
-            bubbleDismissed.fulfill()
+            XCTAssertNotNil(controller.currentActiveCompletionNotificationForTesting)
+            XCTAssertEqual(controller.renderedBubbleStateForTesting, .hoverPreview)
+            XCTAssertTrue(controller.isBubbleVisibleForTesting)
+            bubbleRemainsVisible.fulfill()
         }
 
-        wait(for: [bubbleDismissed], timeout: 2.0)
+        wait(for: [bubbleRemainsVisible], timeout: 2.0)
     }
 
     func testDismissAttentionBubbleHidesHoverPreview() {

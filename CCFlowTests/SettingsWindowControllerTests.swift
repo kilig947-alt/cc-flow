@@ -81,6 +81,7 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertTrue(window.isVisible)
         XCTAssertFalse(window.isMiniaturized)
         XCTAssertFalse(window.isMovableByWindowBackground)
+        XCTAssertGreaterThan(window.level.rawValue, NSWindow.Level.statusBar.rawValue)
         XCTAssertEqual(window.contentRect(forFrameRect: window.frame).size.width, SettingsWindowDefaults.defaultContentSize.width)
         XCTAssertEqual(window.contentRect(forFrameRect: window.frame).size.height, SettingsWindowDefaults.defaultContentSize.height)
 
@@ -152,6 +153,29 @@ final class SettingsWindowControllerTests: XCTestCase {
             charactersIgnoringModifiers: "w",
             isARepeat: false,
             keyCode: UInt16(kVK_ANSI_W)
+        ))
+
+        XCTAssertTrue(window.performKeyEquivalent(with: event))
+        XCTAssertFalse(window.isVisible)
+    }
+
+    func testEscapeClosesSettingsWindow() throws {
+        let controller = SettingsWindowController.shared
+        controller.dismiss()
+
+        controller.present()
+        let window = try XCTUnwrap(controller.window)
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: "\u{1b}",
+            charactersIgnoringModifiers: "\u{1b}",
+            isARepeat: false,
+            keyCode: UInt16(kVK_Escape)
         ))
 
         XCTAssertTrue(window.performKeyEquivalent(with: event))

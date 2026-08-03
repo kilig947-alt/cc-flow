@@ -430,8 +430,15 @@ final class AppSettingsStore: ObservableObject {
         static let hookDebugLogRetentionDays = "hookDebugLogRetentionDays"
         static let hookDebugLogMaxDirectoryMegabytes = "hookDebugLogMaxDirectoryMegabytes"
         static let toolApprovalMode = "toolApprovalMode"
-        static let completionQuickRepliesEnabled = "completionQuickRepliesEnabled"
-        static let completionQuickReplies = "completionQuickReplies"
+        static let completionPromptRegexRules = "completionPromptRegexRules"
+        static let completionPromptTrailingQuestionTemplateMigrationCompleted =
+            "completionPromptTrailingQuestionTemplateMigrationCompleted"
+        static let completionPromptInlineChoiceTemplateMigrationCompleted =
+            "completionPromptInlineChoiceTemplateMigrationCompleted"
+        static let completionPromptTrailingQuestionOptionsMigrationCompleted =
+            "completionPromptTrailingQuestionOptionsMigrationCompleted"
+        static let completionPromptDefaultTemplatesRepairMigrationV2Completed =
+            "completionPromptDefaultTemplatesRepairMigrationV2Completed"
     }
 
     // MARK: - Published Settings
@@ -1058,31 +1065,14 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
-    @Published var completionQuickRepliesEnabled: Bool {
+    @Published var completionPromptRegexRules: [CompletionPromptRegexRule] {
         didSet {
             guard !isBootstrapping else { return }
-            defaults.set(completionQuickRepliesEnabled, forKey: Keys.completionQuickRepliesEnabled)
-        }
-    }
-
-    @Published var completionQuickReplies: [String] {
-        didSet {
-            let normalized = Self.normalizedCompletionQuickReplies(completionQuickReplies)
-            if normalized != completionQuickReplies {
-                completionQuickReplies = normalized
-                return
-            }
-            guard !isBootstrapping else { return }
-            defaults.set(completionQuickReplies, forKey: Keys.completionQuickReplies)
-        }
-    }
-
-    nonisolated static func normalizedCompletionQuickReplies(_ replies: [String]) -> [String] {
-        var seen: Set<String> = []
-        return replies.compactMap { rawValue in
-            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, seen.insert(value).inserted else { return nil }
-            return value
+            Self.persistValue(
+                completionPromptRegexRules,
+                defaults: defaults,
+                key: Keys.completionPromptRegexRules
+            )
         }
     }
 
@@ -1777,15 +1767,91 @@ final class AppSettingsStore: ObservableObject {
         _toolApprovalMode = Published(initialValue: ToolApprovalMode(
             rawValue: defaults.string(forKey: Keys.toolApprovalMode) ?? ""
         ) ?? .prompt)
-        _completionQuickRepliesEnabled = Published(initialValue: Self.boolValue(
+        let persistedCompletionPromptRegexRules = Self.decodeValue(
+            [CompletionPromptRegexRule].self,
             from: defaults,
-            key: Keys.completionQuickRepliesEnabled,
-            exists: persistedKeys.contains(Keys.completionQuickRepliesEnabled),
-            default: true
-        ))
-        _completionQuickReplies = Published(initialValue: persistedKeys.contains(Keys.completionQuickReplies)
-            ? Self.normalizedCompletionQuickReplies(defaults.stringArray(forKey: Keys.completionQuickReplies) ?? [])
-            : ["OK", "继续", "允许"])
+            key: Keys.completionPromptRegexRules
+        )
+        var initialCompletionPromptRegexRules =
+            persistedCompletionPromptRegexRules ?? CompletionPromptRegexRule.defaultTemplates
+        if persistedCompletionPromptRegexRules != nil,
+           !defaults.bool(forKey: Keys.completionPromptTrailingQuestionTemplateMigrationCompleted),
+           !initialCompletionPromptRegexRules.contains(where: {
+               $0.id == "builtin-trailing-question-confirmation"
+           }),
+           let fallbackTemplate = CompletionPromptRegexRule.defaultTemplates.first(where: {
+               $0.id == "builtin-trailing-question-confirmation"
+           }) {
+            initialCompletionPromptRegexRules.append(fallbackTemplate)
+        }
+        if persistedCompletionPromptRegexRules != nil,
+           !defaults.bool(forKey: Keys.completionPromptInlineChoiceTemplateMigrationCompleted),
+           !initialCompletionPromptRegexRules.contains(where: {
+               $0.id == "builtin-inline-or-options"
+           }),
+           let inlineTemplate = CompletionPromptRegexRule.defaultTemplates.first(where: {
+               $0.id == "builtin-inline-or-options"
+           }) {
+            let insertionIndex = initialCompletionPromptRegexRules.firstIndex(where: {
+                $0.id == "builtin-trailing-question-confirmation"
+            }) ?? initialCompletionPromptRegexRules.endIndex
+            initialCompletionPromptRegexRules.insert(inlineTemplate, at: insertionIndex)
+        }
+        if persistedCompletionPromptRegexRules != nil,
+           !defaults.bool(forKey: Keys.completionPromptTrailingQuestionOptionsMigrationCompleted),
+           let trailingIndex = initialCompletionPromptRegexRules.firstIndex(where: {
+               $0.id == "builtin-trailing-question-confirmation"
+           }),
+           !initialCompletionPromptRegexRules[trailingIndex].staticOptions.contains(where: {
+               $0.id == "yes" || $0.title == "是的"
+           }) {
+            initialCompletionPromptRegexRules[trailingIndex].staticOptions.append(
+                CompletionPromptStaticOption(
+                    id: "yes",
+                    title: "是的",
+                    reply: "是的，请继续。"
+                )
+            )
+        }
+        if persistedCompletionPromptRegexRules != nil,
+           !defaults.bool(forKey: Keys.completionPromptDefaultTemplatesRepairMigrationV2Completed) {
+            let defaultTemplates = CompletionPromptRegexRule.defaultTemplates
+            for (defaultIndex, template) in defaultTemplates.enumerated()
+            where !initialCompletionPromptRegexRules.contains(where: { $0.id == template.id }) {
+                let laterDefaultIDs = Set(defaultTemplates.dropFirst(defaultIndex + 1).map(\.id))
+                let insertionIndex = initialCompletionPromptRegexRules.firstIndex {
+                    laterDefaultIDs.contains($0.id)
+                } ?? initialCompletionPromptRegexRules.endIndex
+                initialCompletionPromptRegexRules.insert(template, at: insertionIndex)
+            }
+        }
+        if let persistedCompletionPromptRegexRules,
+           initialCompletionPromptRegexRules != persistedCompletionPromptRegexRules {
+            Self.persistValue(
+                initialCompletionPromptRegexRules,
+                defaults: defaults,
+                key: Keys.completionPromptRegexRules
+            )
+        }
+        _completionPromptRegexRules = Published(initialValue: initialCompletionPromptRegexRules)
+        defaults.set(
+            true,
+            forKey: Keys.completionPromptTrailingQuestionTemplateMigrationCompleted
+        )
+        defaults.set(
+            true,
+            forKey: Keys.completionPromptInlineChoiceTemplateMigrationCompleted
+        )
+        defaults.set(
+            true,
+            forKey: Keys.completionPromptTrailingQuestionOptionsMigrationCompleted
+        )
+        defaults.set(
+            true,
+            forKey: Keys.completionPromptDefaultTemplatesRepairMigrationV2Completed
+        )
+        defaults.removeObject(forKey: "completionQuickRepliesEnabled")
+        defaults.removeObject(forKey: "completionQuickReplies")
 
         if defaults.string(forKey: Keys.soundThemeMode) == nil {
             defaults.set(resolvedSoundThemeMode.rawValue, forKey: Keys.soundThemeMode)

@@ -365,6 +365,78 @@ func codexQuestionAnswerDoesNotPretendToSupportGenericInput() {
 }
 
 @Test
+func codexStopWaitsForNativeNotificationContinuation() {
+    let payload = #"{"hook_event_name":"Stop","session_id":"codex-stop","last_assistant_message":"请选择？"}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .codex,
+        arguments: ["cc-flow-bridge", "--source", "codex", "--client-kind", "codex"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.expectsResponse)
+}
+
+@Test
+func codexStopPreservesMultilineAssistantMessageForOptionParsing() {
+    let message = """
+    结果放在哪里？
+
+    A. 统一任务中心
+    B. 新建对话
+    C. 原对话
+    """
+    let payload = try! JSONSerialization.data(withJSONObject: [
+        "hook_event_name": "Stop",
+        "session_id": "codex-stop-options",
+        "last_assistant_message": message
+    ])
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .codex,
+        arguments: ["cc-flow-bridge", "--source", "codex", "--client-kind", "codex"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.metadata["last_assistant_message"] == message)
+    #expect(envelope.preview == "结果放在哪里？ A. 统一任务中心 B. 新建对话 C. 原对话")
+}
+
+@Test
+func codexStopDoesNotWaitWhenPromptsRouteToTerminal() {
+    let payload = #"{"hook_event_name":"Stop","session_id":"codex-stop","last_assistant_message":"请选择？"}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .codex,
+        arguments: ["cc-flow-bridge", "--source", "codex", "--client-kind", "codex"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload,
+        runtimeConfig: BridgeRuntimeConfig(routePromptsToTerminal: true)
+    )
+
+    #expect(envelope.expectsResponse == false)
+}
+
+@Test
+func codexStopAnswerUsesNativeBlockContinuation() throws {
+    let payload = HookPayloadMapper.stdoutPayload(
+        for: .codex,
+        response: BridgeResponse(
+            requestID: UUID(),
+            decision: .answer(["answer": "C"]),
+            reason: "选择 C，两者结合"
+        ),
+        eventType: "Stop",
+        metadata: [:]
+    )
+    let json = try #require(
+        JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any]
+    )
+
+    #expect(json["decision"] as? String == "block")
+    #expect(json["reason"] as? String == "选择 C，两者结合")
+}
+
+@Test
 func codexQuestionPayloadDoesNotCreateBlockingIntervention() {
     let payload = #"{"hook_event_name":"PreToolUse","session_id":"codex-question","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Pick","options":["A","B"]}]}}"#.data(using: .utf8)!
     let envelope = HookPayloadMapper.makeEnvelope(

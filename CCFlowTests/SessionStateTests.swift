@@ -357,6 +357,65 @@ final class SessionStateTests: XCTestCase {
         XCTAssertTrue(session.supportsSessionScopedApproval)
     }
 
+    func testCodexWaitingForApprovalOffersAllowSameOperationAction() {
+        let session = SessionState(
+            sessionId: "codex-same-operation",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(kind: .codex, name: "Codex"),
+            phase: .waitingForApproval(
+                PermissionContext(
+                    toolUseId: "tool-1",
+                    toolName: "Bash",
+                    toolInput: [
+                        "command": AnyCodable(
+                            "xcodebuild -project CCFlow.xcodeproj -scheme CCFlow test"
+                        )
+                    ],
+                    receivedAt: Date()
+                )
+            )
+        )
+
+        XCTAssertEqual(session.scopedApprovalAction, .allowSimilarOperation)
+        XCTAssertTrue(session.supportsUnrestrictedSessionApproval)
+        XCTAssertEqual(
+            SessionScopedApprovalAction.allowSimilarOperation.buttonTitleKey,
+            "Allow Same Operation"
+        )
+        XCTAssertEqual(
+            SessionScopedApprovalAction.allowSimilarOperation.compactButtonTitleKey,
+            "Same Operation"
+        )
+    }
+
+    func testUnrestrictedSessionApprovalIsCodexOnlyAndRequiresPendingApproval() {
+        let traeSession = SessionState(
+            sessionId: "trae-unrestricted",
+            cwd: "/tmp/project",
+            provider: .trae,
+            clientInfo: SessionClientInfo(kind: .trae, name: "TRAE"),
+            phase: .waitingForApproval(
+                PermissionContext(
+                    toolUseId: "tool-1",
+                    toolName: "Bash",
+                    toolInput: nil,
+                    receivedAt: Date()
+                )
+            )
+        )
+        let idleCodexSession = SessionState(
+            sessionId: "codex-idle",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(kind: .codex, name: "Codex"),
+            phase: .idle
+        )
+
+        XCTAssertFalse(traeSession.supportsUnrestrictedSessionApproval)
+        XCTAssertFalse(idleCodexSession.supportsUnrestrictedSessionApproval)
+    }
+
     func testIdleSessionAutoArchivesFromPrimaryUIAfterThirtyMinutes() {
         let session = SessionState(
             sessionId: "idle-auto-archive",
@@ -643,5 +702,19 @@ final class SessionStateTests: XCTestCase {
 
         XCTAssertTrue(script.contains("first terminal whose id is targetTerminalID"))
         XCTAssertFalse(script.contains("every terminal whose working directory is targetPath"))
+    }
+
+    func testGhosttyStrictSelectionAllowsOnlyUniqueWorkspaceWithoutIdentifier() {
+        let lines = TerminalSessionFocuser.ghosttySelectionScriptLines(
+            terminalSessionIdentifier: nil,
+            workspacePath: "/tmp/demo",
+            allowsWorkspaceFallback: true,
+            requiresUniqueWorkspaceMatch: true
+        )
+        let script = lines.joined(separator: "\n")
+
+        XCTAssertTrue(script.contains("every terminal whose working directory is targetPath"))
+        XCTAssertTrue(script.contains("if (count of exactMatches) is 1 then"))
+        XCTAssertFalse(script.contains("if (count of exactMatches) > 0 then"))
     }
 }

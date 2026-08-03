@@ -50,27 +50,39 @@ final class UsageDataLoaderTests: XCTestCase {
         XCTAssertEqual(decoded.globalShortcut, shortcut)
     }
 
-    func testLeftFeatureCrossDomainLoginDefaultsOffForLegacyDataAndRoundTrips() throws {
+    func testLeftFeatureURLCapabilitiesUseSafeKindDefaultsAndRoundTrip() throws {
         let feature = LeftFeature(kind: .webURL(url: "https://example.com"))
         let encoded = try JSONEncoder().encode(feature)
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "keepsCrossDomainLoginInWebView")
+        object.removeValue(forKey: "loadsMineradioBridge")
 
         let legacyDecoded = try JSONDecoder().decode(
             LeftFeature.self,
             from: JSONSerialization.data(withJSONObject: object)
         )
-        XCTAssertFalse(legacyDecoded.keepsCrossDomainLoginInWebView)
+        XCTAssertTrue(legacyDecoded.keepsCrossDomainLoginInWebView)
+        XCTAssertFalse(legacyDecoded.loadsMineradioBridge)
+
+        let mineradio = LeftFeature(kind: .mineradio(pageURL: "https://mineradio.art"))
+        XCTAssertTrue(mineradio.keepsCrossDomainLoginInWebView)
+        XCTAssertTrue(mineradio.loadsMineradioBridge)
+
+        let nonURL = LeftFeature(kind: .music)
+        XCTAssertFalse(nonURL.keepsCrossDomainLoginInWebView)
+        XCTAssertFalse(nonURL.loadsMineradioBridge)
 
         let enabled = LeftFeature(
             kind: .webURL(url: "https://chatgpt.com"),
-            keepsCrossDomainLoginInWebView: true
+            keepsCrossDomainLoginInWebView: false,
+            loadsMineradioBridge: true
         )
         let roundTripped = try JSONDecoder().decode(
             LeftFeature.self,
             from: JSONEncoder().encode(enabled)
         )
-        XCTAssertTrue(roundTripped.keepsCrossDomainLoginInWebView)
+        XCTAssertFalse(roundTripped.keepsCrossDomainLoginInWebView)
+        XCTAssertTrue(roundTripped.loadsMineradioBridge)
     }
 
     func testCustomAreaWebNavigationPolicyKeepsOnlyEnabledWebsiteCrossDomainNavigationEmbedded() {
@@ -137,7 +149,7 @@ final class UsageDataLoaderTests: XCTestCase {
                 allowsNetworkAccess: true,
                 keepsCrossDomainLoginInWebView: false
             ),
-            .allowInWebView
+            .openExternally
         )
         XCTAssertEqual(
             CustomAreaWebNavigationPolicy.decision(
@@ -167,7 +179,7 @@ final class UsageDataLoaderTests: XCTestCase {
                 keepsCrossDomainLoginInWebView: false
             )
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             CustomAreaWebNavigationPolicy.shouldLoadPopupInCurrentWebView(
                 scheme: "https",
                 source: .mineradio,
@@ -181,6 +193,18 @@ final class UsageDataLoaderTests: XCTestCase {
                 keepsCrossDomainLoginInWebView: true
             )
         )
+    }
+
+    func testCustomAreaWebViewEnablesBridgeForBuiltinAndOptInRemoteURL() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com"))
+        XCTAssertFalse(CustomAreaWebView(source: .remoteURL(url)).bridgeInjectionEnabled)
+        XCTAssertTrue(
+            CustomAreaWebView(
+                source: .remoteURL(url),
+                loadsMineradioBridge: true
+            ).bridgeInjectionEnabled
+        )
+        XCTAssertTrue(CustomAreaWebView(source: .mineradio(url)).bridgeInjectionEnabled)
     }
 
     @MainActor

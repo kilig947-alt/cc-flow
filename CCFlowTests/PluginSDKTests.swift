@@ -30,4 +30,46 @@ struct PluginSDKTests {
         #expect(manifest.id == "com.example.panel")
         #expect(manifest.capabilities == ["system.metrics.read"])
     }
+
+    @Test("run-scoped sensitive grants match only the same plugin capability")
+    func runScopedSensitiveGrant() throws {
+        let data = Data(#"{"manifestVersion":2,"id":"com.example.panel","name":"Panel","version":"1.0.0","entryPoint":"index.html","sdkVersion":"^1.0","capabilities":["clipboard.write","apps.open"]}"#.utf8)
+        let manifest = try JSONDecoder().decode(PluginManifest.self, from: data)
+        PluginSensitiveCapabilityGrantStore.resetForTesting()
+
+        #expect(!PluginSensitiveCapabilityGrantStore.isGranted(
+            "clipboard.write",
+            areaID: "area-a",
+            manifest: manifest
+        ))
+
+        PluginSensitiveCapabilityGrantStore.grant(
+            "clipboard.write",
+            areaID: "area-a",
+            manifest: manifest
+        )
+
+        #expect(PluginSensitiveCapabilityGrantStore.isGranted(
+            "clipboard.write",
+            areaID: "area-a",
+            manifest: manifest
+        ))
+        #expect(!PluginSensitiveCapabilityGrantStore.isGranted(
+            "apps.open",
+            areaID: "area-a",
+            manifest: manifest
+        ))
+        #expect(!PluginSensitiveCapabilityGrantStore.isGranted(
+            "clipboard.write",
+            areaID: "area-b",
+            manifest: manifest
+        ))
+
+        PluginSensitiveCapabilityGrantStore.resetForTesting()
+        #expect(!PluginSensitiveCapabilityGrantStore.isGranted(
+            "clipboard.write",
+            areaID: "area-a",
+            manifest: manifest
+        ))
+    }
 }

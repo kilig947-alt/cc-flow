@@ -35,6 +35,7 @@ struct EditableCustomAreaView: View {
     // webURL 模式专用
     @State private var url: String
     @State private var keepsCrossDomainLoginInWebView: Bool
+    @State private var loadsMineradioBridge: Bool
 
     // 展开尺寸 + 固定开关（两模式共用）
     @State private var expandedPinned: Bool
@@ -63,6 +64,7 @@ struct EditableCustomAreaView: View {
         _allowsNetwork = State(initialValue: area.allowsNetworkAccess)
         _url = State(initialValue: "")
         _keepsCrossDomainLoginInWebView = State(initialValue: false)
+        _loadsMineradioBridge = State(initialValue: false)
         // 从 LeftFeatureStore 查 areaID 对应 feature 的展开尺寸/固定字段
         let feature = LeftFeatureStore.shared.features.first {
             if case .customArea(let areaID) = $0.kind { return areaID == area.id }
@@ -91,6 +93,7 @@ struct EditableCustomAreaView: View {
             return ""
         }())
         _keepsCrossDomainLoginInWebView = State(initialValue: feature.keepsCrossDomainLoginInWebView)
+        _loadsMineradioBridge = State(initialValue: feature.loadsMineradioBridge)
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
         _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
@@ -128,7 +131,8 @@ struct EditableCustomAreaView: View {
         _iconImage = State(initialValue: parsed.image)
         _allowsNetwork = State(initialValue: false)
         _url = State(initialValue: "")
-        _keepsCrossDomainLoginInWebView = State(initialValue: false)
+        _keepsCrossDomainLoginInWebView = State(initialValue: feature.keepsCrossDomainLoginInWebView)
+        _loadsMineradioBridge = State(initialValue: feature.loadsMineradioBridge)
         _expandedPinned = State(initialValue: feature.expandedPinned)
         _useCustomExpandedSize = State(initialValue: feature.expandedWidth != nil || feature.expandedHeight != nil)
         _hasCustomExpandedWidth = State(initialValue: feature.expandedWidth != nil)
@@ -179,11 +183,19 @@ struct EditableCustomAreaView: View {
                 Toggle("跨域登录留在 WebView", isOn: $keepsCrossDomainLoginInWebView)
                     .font(.caption)
                     .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
+                Toggle("加载 Mineradio Bridge", isOn: $loadsMineradioBridge)
+                    .font(.caption)
+                    .help("向该网站注入 Mineradio Bridge 兼容层，用于音乐 API、Cookie 和二进制资源代理。")
 
-            case .builtin:
+            case .builtin(let feature):
                 // 内置功能：图标 → 名称
                 iconRow
                 nameRow
+                if feature.kind.isURLBacked {
+                    Toggle("跨域登录留在 WebView", isOn: $keepsCrossDomainLoginInWebView)
+                        .font(.caption)
+                        .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
+                }
             }
 
             // 展开尺寸 + 固定开关（所有模式共用）
@@ -451,6 +463,7 @@ struct EditableCustomAreaView: View {
             updated.customIconName = iconName
             updated.kind = .webURL(url: url)
             updated.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+            updated.loadsMineradioBridge = loadsMineradioBridge
             onSaveWebURL(updated)
             LeftFeatureStore.shared.setExpandedSize(id: feature.id, width: resolvedWidth, height: resolvedHeight)
             LeftFeatureStore.shared.setExpandedPinned(id: feature.id, pinned: expandedPinned)
@@ -471,6 +484,7 @@ struct EditableCustomAreaView: View {
             }
             updated.customDisplayName = (trimmedName == defaultName || trimmedName.isEmpty) ? nil : trimmedName
             updated.customIconName = iconName
+            updated.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
             onSaveBuiltin(updated)
             LeftFeatureStore.shared.setExpandedSize(id: feature.id, width: resolvedWidth, height: resolvedHeight)
             LeftFeatureStore.shared.setExpandedPinned(id: feature.id, pinned: expandedPinned)

@@ -75,9 +75,7 @@ struct NotchView: View {
     @State private var previousSessionPhases: [String: SessionPhase] = [:]
     @State private var completionNotificationQueue: [SessionCompletionNotification] = []
     @State private var activeCompletionNotification: SessionCompletionNotification?
-    @State private var completionNotificationDismissWorkItem: DispatchWorkItem?
     @State private var productivityNotificationRetryWorkItem: DispatchWorkItem?
-    @State private var shouldDismissCompletionNotificationOnHoverExit: Bool = false
     @State private var isShowingDetachmentHint: Bool = false
     @State private var detachmentHintDismissWorkItem: DispatchWorkItem?
     @State private var detachmentHintPresentationWorkItem: DispatchWorkItem?
@@ -224,9 +222,19 @@ struct NotchView: View {
         )
     }
 
-    private var shouldPresentCompletionQuickReplyNotification: Bool {
-        settings.completionQuickRepliesEnabled
-            && !settings.completionQuickReplies.isEmpty
+    /// Blocking approvals and questions must remain visible even when the terminal
+    /// itself is on-screen. Smart suppression is intended for informational
+    /// reminders; applying it here can strand a session waiting for a response.
+    private var manualAttentionPresentationDecision: AutomaticNotificationPresentationDecision {
+        AutomaticNotificationPresentationPolicy.resolve(
+            mode: settings.notificationPresentationMode,
+            smartSuppressionTriggered: settings.smartSuppression
+                && TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace(),
+            isPanelOpen: viewModel.status != .closed,
+            isFullscreenSuppressed: viewModel.shouldSuppressAutomaticPresentation,
+            isReminderMuted: areReminderNotificationsSuppressed,
+            priority: .manualAttention
+        )
     }
 
     private var hasRecentTaskError: Bool {
@@ -577,6 +585,17 @@ struct NotchView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForBrowserConnection)) { _ in
                 viewModel.notchClose()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowSessionAutoApproved)) { note in
+                guard let userInfo = note.userInfo,
+                      let sessionId = userInfo["sessionId"] as? String,
+                      let toolName = userInfo["toolName"] as? String,
+                      let resultLabel = userInfo["resultLabel"] as? String else {
+                    return
+                }
+                if let session = sessionMonitor.instances.first(where: { $0.sessionId == sessionId }) {
+                    enqueueAutoApprovalBroadcast(for: session, toolName: toolName, resultLabel: resultLabel)
+                }
+            }
             .onPreferenceChange(OpenedPanelContentHeightPreferenceKey.self) { height in
                 guard viewModel.status == .opened else {
                     viewModel.updateOpenedMeasuredHeight(nil)
@@ -584,13 +603,28 @@ struct NotchView: View {
                 }
 
                 if case .instances = viewModel.contentType {
-                    let effectiveHeight = activeCompletionNotification == nil
-                        ? height
-                        : max(height, SessionCompletionNotificationView.minimumContentHeight)
+                    let effectiveHeight: CGFloat
+                    if activeCompletionNotification != nil {
+                        effectiveHeight = max(
+                            height,
+                            SessionCompletionNotificationView.minimumContentHeight
+                        )
+                    } else if viewModel.openReason == .notification,
+                              hasManualAttentionIndicator {
+                        effectiveHeight = max(
+                            height,
+                            SessionAttentionNotificationView.minimumContentHeight
+                        )
+                    } else {
+                        effectiveHeight = height
+                    }
                     let measuredHeight = height > 0
                         ? closedNotchSize.height + effectiveHeight + 12
                         : nil
-                    viewModel.updateOpenedMeasuredHeight(measuredHeight)
+                    viewModel.updateOpenedMeasuredHeight(
+                        measuredHeight,
+                        preventsDecrease: viewModel.openReason == .notification
+                    )
                 } else {
                     viewModel.updateOpenedMeasuredHeight(nil)
                 }
@@ -951,9 +985,10 @@ struct NotchView: View {
             if let url = URL(string: urlString) {
                 CustomAreaWebView(
                     source: .remoteURL(url),
-                    keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView
+                    keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView,
+                    loadsMineradioBridge: feature.loadsMineradioBridge
                 )
-                .id(feature.id)
+                .id("\(feature.id)-bridge-\(feature.loadsMineradioBridge)")
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 placeholderContent
@@ -1088,6 +1123,12 @@ struct NotchView: View {
                     }
                 }
 
+                if let feature = leftFeatureStore.expandedActiveFeature {
+                    NotchDesktopWidgetButton {
+                        DesktopWidgetController.shared.deploy(featureID: feature.id, revealDesktop: true)
+                    }
+                }
+
                 NotchPanelPinButton(
                     isPinned: currentPanelPinned,
                     action: toggleKeepIslandOpen
@@ -1129,10 +1170,15 @@ struct NotchView: View {
             trigger: triggerForCurrentPresentation,
             style: .docked,
             activeCompletionNotification: activeCompletionNotification,
-            onAttentionActionCompleted: {},
-            onCompletionNotificationHoverChanged: handleCompletionNotificationHover,
+            onAttentionActionCompleted: {
+                viewModel.dismissResolvedSessionNotificationPresentation()
+            },
+            // Hovering is not an acknowledgement. Automatic notifications stay
+            // open until the user explicitly dismisses or resolves them.
+            onCompletionNotificationHoverChanged: { _ in },
             onDismissCompletionNotification: {
                 clearCompletionNotifications(keepPanelOpen: true)
+                viewModel.dismissResolvedSessionNotificationPresentation()
             }
         )
         .frame(width: notchSize.width - 24) // Fixed width to prevent text reflow
@@ -1345,6 +1391,8 @@ struct NotchView: View {
             return "session_list"
         case .chat:
             return "session_detail"
+        case .audit:
+            return "session_audit"
         case .customExpanded:
             return "custom_expanded"
         }
@@ -1475,7 +1523,7 @@ struct NotchView: View {
             return
         }
 
-        switch automaticNotificationPresentationDecision {
+        switch manualAttentionPresentationDecision {
         case .discard:
             acknowledgeAllManualAttention(in: instances)
             cancelManualAttentionRetry()
@@ -1570,8 +1618,7 @@ struct NotchView: View {
             // Spec: 任务完成后自动展开任务列表（会话列表），保持 flow Island始终显示。
             // 完成自动展开现为默认行为（旧 autoOpenCompletionPanel 设置已移除），无条件展开。
             // 不在用户正在交互（hover/inline input/settings popover）时强制切换，避免打断输入。
-            if automaticNotificationPresentationDecision == .expand,
-               !shouldPresentCompletionQuickReplyNotification {
+            if automaticNotificationPresentationDecision == .expand {
                 presentSessionListOnCompletionIfNeeded()
             }
 
@@ -1599,9 +1646,6 @@ struct NotchView: View {
         completionNotificationQueue.removeAll()
         if activeCompletionNotification != nil {
             activeCompletionNotification = nil
-            completionNotificationDismissWorkItem?.cancel()
-            completionNotificationDismissWorkItem = nil
-            shouldDismissCompletionNotificationOnHoverExit = false
         }
 
         if viewModel.status == .opened {
@@ -1650,8 +1694,7 @@ struct NotchView: View {
         guard !newlyCompletedSessions.isEmpty else { return }
 
         // 任务从活跃→完成：展开任务列表，保持 flow Island始终显示
-        if automaticNotificationPresentationDecision == .expand,
-           !shouldPresentCompletionQuickReplyNotification {
+        if automaticNotificationPresentationDecision == .expand {
             presentSessionListOnCompletionIfNeeded()
         }
     }
@@ -1692,7 +1735,7 @@ struct NotchView: View {
         }
 
         if automaticNotificationPresentationDecision == .expand,
-           hasNewCompletion && !shouldPresentCompletionQuickReplyNotification {
+           hasNewCompletion {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
             presentSessionListOnCompletionIfNeeded()
@@ -1702,15 +1745,9 @@ struct NotchView: View {
         // Ambient popups are one-shot notifications. If the notch is already expanded for
         // some other reason, drop new ones instead of queueing them to appear later on
         // top of the normal expanded UI.
-        let canReplaceOpenSessionListWithQuickReplyNotification: Bool = {
-            guard shouldPresentCompletionQuickReplyNotification,
-                  case .instances = viewModel.contentType else { return false }
-            return true
-        }()
         if automaticNotificationPresentationDecision == .expand,
            viewModel.status == .opened,
-           activeCompletionNotification == nil,
-           !canReplaceOpenSessionListWithQuickReplyNotification {
+           activeCompletionNotification == nil {
             previousCompletionNotificationPhases = currentPhases
             completionNotificationQueue.removeAll()
             return
@@ -1845,21 +1882,6 @@ struct NotchView: View {
         viewModel.openReason = .notification
         viewModel.status = .opened
         isVisible = true
-        scheduleCompletionNotificationDismissal(for: nextNotification.id)
-    }
-
-    private func scheduleCompletionNotificationDismissal(for notificationID: UUID) {
-        completionNotificationDismissWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem { [self] in
-            guard activeCompletionNotification?.id == notificationID else { return }
-            // 任务完成后保持 flow Island始终展开：通知自动消失时仅清除通知本身，
-            // 不收起面板，由用户手动点击外部收起。
-            dismissActiveCompletionNotification(closePanel: false, advanceQueue: true)
-        }
-
-        completionNotificationDismissWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: workItem)
     }
 
     private func clearCompletionNotifications(keepPanelOpen: Bool) {
@@ -1877,32 +1899,10 @@ struct NotchView: View {
         }
     }
 
-    private func handleCompletionNotificationHover(_ isHovering: Bool) {
-        guard activeCompletionNotification != nil else {
-            shouldDismissCompletionNotificationOnHoverExit = false
-            return
-        }
-
-        if isHovering {
-            shouldDismissCompletionNotificationOnHoverExit = true
-            completionNotificationDismissWorkItem?.cancel()
-            completionNotificationDismissWorkItem = nil
-            return
-        }
-
-        guard shouldDismissCompletionNotificationOnHoverExit else { return }
-        shouldDismissCompletionNotificationOnHoverExit = false
-        dismissActiveCompletionNotification(closePanel: true, advanceQueue: true)
-    }
-
     private func dismissActiveCompletionNotification(
         closePanel: Bool,
         advanceQueue: Bool
     ) {
-        completionNotificationDismissWorkItem?.cancel()
-        completionNotificationDismissWorkItem = nil
-        shouldDismissCompletionNotificationOnHoverExit = false
-
         guard activeCompletionNotification != nil else {
             if advanceQueue {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -2053,6 +2053,22 @@ struct NotchView: View {
             side: .session,
             target: .session(stableID: session.stableId),
             iconName: iconName,
+            summary: summary
+        ))
+    }
+
+    private func enqueueAutoApprovalBroadcast(
+        for session: SessionState,
+        toolName: String,
+        resultLabel: String
+    ) {
+        let suffix = resultLabel == "允许相同操作 · 自动" ? " (相同操作)" : ""
+        let summary = "已自动允许：\(toolName)\(suffix)"
+        compactBroadcasts.enqueue(CompactBroadcast(
+            deduplicationKey: "auto_approve:\(session.stableId):\(toolName)",
+            side: .session,
+            target: .session(stableID: session.stableId),
+            iconName: "checkmark.shield.fill",
             summary: summary
         ))
     }
@@ -2372,6 +2388,35 @@ private struct NotchPanelPinButton: View {
 
     private var borderColor: Color {
         .clear
+    }
+}
+
+/// 将当前左侧功能部署为 CC FLOW 桌面小组件。
+private struct NotchDesktopWidgetButton: View {
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "macwindow.badge.plus")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isHovering ? .black : .white.opacity(0.92))
+                .frame(width: 28, height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isHovering ? Color.white.opacity(0.95) : Color.white.opacity(0.1))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("部署到桌面")
+        .accessibilityLabel("部署当前功能到桌面")
+        .onHover { hovering in
+            withAnimation(.easeOut(duration: 0.12)) {
+                isHovering = hovering
+            }
+        }
     }
 }
 

@@ -101,6 +101,25 @@ final class NotchViewModelTests: XCTestCase {
         }
     }
 
+    func testResolvedAttentionDismissalClosesInsteadOfShowingSessionList() async {
+        await MainActor.run {
+            let originalKeepIslandOpen = AppSettings.keepIslandOpen
+            defer { AppSettings.keepIslandOpen = originalKeepIslandOpen }
+
+            let viewModel = makeViewModel()
+            let session = makeSession(id: "resolved-attention")
+            AppSettings.keepIslandOpen = true
+            viewModel.presentNotificationChat(for: session)
+            viewModel.setInlineTextInputActive(true)
+
+            viewModel.dismissResolvedSessionNotificationPresentation()
+
+            XCTAssertEqual(viewModel.status, .closed)
+            XCTAssertEqual(viewModel.contentType, .instances)
+            XCTAssertFalse(viewModel.isInlineTextInputActive)
+        }
+    }
+
     func testPresentSessionListClearsSavedChatAndOpensManualList() async {
         await MainActor.run {
             let viewModel = makeViewModel()
@@ -681,6 +700,20 @@ final class NotchViewModelTests: XCTestCase {
             viewModel.updateOpenedMeasuredHeight(320)
 
             XCTAssertEqual(viewModel.detachedSize, baselineSize)
+        }
+    }
+
+    func testNotificationMeasuredHeightDoesNotShrinkWithoutUserAction() async {
+        await MainActor.run {
+            let viewModel = makeViewModel()
+
+            viewModel.notchOpen(reason: .notification)
+            viewModel.updateOpenedMeasuredHeight(320, preventsDecrease: true)
+            viewModel.updateOpenedMeasuredHeight(170, preventsDecrease: true)
+            viewModel.updateOpenedMeasuredHeight(nil, preventsDecrease: true)
+
+            XCTAssertEqual(viewModel.openedMeasuredHeight, 320)
+            XCTAssertEqual(viewModel.openedSize.height, 320)
         }
     }
 

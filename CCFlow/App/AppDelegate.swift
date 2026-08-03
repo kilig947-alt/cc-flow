@@ -19,11 +19,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // before any hook fires.
         _ = AppSettings.shared
 
-        // 正常启动时默认回到 Flow Island 形态，避免测试/开发残留把 surfaceMode 设为 floatingPet。
-        if !launchConfiguration.isRunningTests {
-            AppSettings.surfaceMode = .notch
-        }
-
         if !launchConfiguration.isRunningTests {
             UpdateManager.shared.start()
             UserIdleAutoProtection.shared.start()
@@ -85,6 +80,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = LeftFeatureStore.shared
         CustomAreaStore.shared.bootstrapBuiltInAreasIfNeeded()
         if !launchConfiguration.isRunningTests {
+            DesktopWidgetController.shared.restorePersistedWidgets()
             GeneratedPanelScanner.shared.start()
         }
         if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.usageID && $0.isEnabled }) {

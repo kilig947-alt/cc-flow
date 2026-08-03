@@ -36,6 +36,7 @@ struct HookEvent: Sendable {
     let suppressInAppPrompt: Bool
     /// Pretty-printed JSON of the source bridge envelope, if available.
     let lastEnvelopeJSON: String?
+    let isAutoApproving: Bool
 
     init(
         sessionId: String,
@@ -54,7 +55,8 @@ struct HookEvent: Sendable {
         ingress: SessionIngress = .hookBridge,
         bridgeIntervention: SessionIntervention? = nil,
         suppressInAppPrompt: Bool = false,
-        lastEnvelopeJSON: String? = nil
+        lastEnvelopeJSON: String? = nil,
+        isAutoApproving: Bool = false
     ) {
         self.sessionId = sessionId
         self.cwd = cwd
@@ -73,6 +75,7 @@ struct HookEvent: Sendable {
         self.bridgeIntervention = bridgeIntervention
         self.suppressInAppPrompt = suppressInAppPrompt
         self.lastEnvelopeJSON = lastEnvelopeJSON
+        self.isAutoApproving = isAutoApproving
     }
 
     nonisolated var sessionPhase: SessionPhase {
@@ -139,7 +142,8 @@ extension HookEvent {
             ingress: ingress,
             bridgeIntervention: bridgeIntervention?.withResolvedToolUseId(toolUseId),
             suppressInAppPrompt: suppressInAppPrompt,
-            lastEnvelopeJSON: lastEnvelopeJSON
+            lastEnvelopeJSON: lastEnvelopeJSON,
+            isAutoApproving: isAutoApproving
         )
     }
 
@@ -161,7 +165,31 @@ extension HookEvent {
             ingress: ingress,
             bridgeIntervention: bridgeIntervention,
             suppressInAppPrompt: suppressInAppPrompt,
-            lastEnvelopeJSON: lastEnvelopeJSON
+            lastEnvelopeJSON: lastEnvelopeJSON,
+            isAutoApproving: isAutoApproving
+        )
+    }
+
+    nonisolated func withAutoApproving(_ isAutoApproving: Bool) -> HookEvent {
+        HookEvent(
+            sessionId: sessionId,
+            cwd: cwd,
+            event: event,
+            status: status,
+            provider: provider,
+            clientInfo: clientInfo,
+            pid: pid,
+            tty: tty,
+            tool: tool,
+            toolInput: toolInput,
+            toolUseId: toolUseId,
+            notificationType: notificationType,
+            message: message,
+            ingress: ingress,
+            bridgeIntervention: bridgeIntervention,
+            suppressInAppPrompt: suppressInAppPrompt,
+            lastEnvelopeJSON: lastEnvelopeJSON,
+            isAutoApproving: isAutoApproving
         )
     }
 }

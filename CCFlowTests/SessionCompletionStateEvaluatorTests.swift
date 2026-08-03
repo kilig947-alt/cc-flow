@@ -3,19 +3,38 @@ import XCTest
 @testable import CC_FLOW
 
 final class SessionCompletionStateEvaluatorTests: XCTestCase {
-    func testOnlyCompletedNotificationsSupportQuickReplies() {
-        XCTAssertTrue(SessionCompletionNotification.Kind.completed.supportsQuickReplies)
-        XCTAssertFalse(SessionCompletionNotification.Kind.ended.supportsQuickReplies)
-        XCTAssertFalse(SessionCompletionNotification.Kind.compacted.supportsQuickReplies)
-    }
-
-    func testQuickReplyDeliveryRouteUsesTmuxEvidence() {
+    func testFollowUpDeliveryRouteUsesTmuxEvidence() {
         var directSession = SessionState(sessionId: "tmux", cwd: "/tmp", provider: .claude)
         directSession.isInTmux = true
         let fallbackSession = SessionState(sessionId: "plain", cwd: "/tmp", provider: .codex)
 
-        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: directSession), .direct)
-        XCTAssertEqual(CompletionQuickReplyDeliveryRoute.resolve(for: fallbackSession), .focusPasteAndSubmit)
+        XCTAssertEqual(FollowUpMessageDeliveryRoute.resolve(for: directSession), .direct)
+        XCTAssertEqual(FollowUpMessageDeliveryRoute.resolve(for: fallbackSession), .focusPasteAndSubmit)
+    }
+
+    func testReturnToSessionDistinguishesTerminalFromApp() {
+        let terminalSession = SessionState(
+            sessionId: "terminal-return",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(
+                kind: .codex,
+                terminalBundleIdentifier: "com.mitchellh.ghostty"
+            ),
+            tty: "ttys010"
+        )
+        let appSession = SessionState(
+            sessionId: "app-return",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(
+                kind: .codex,
+                bundleIdentifier: "com.openai.codex"
+            )
+        )
+
+        XCTAssertTrue(SessionLauncher.isTerminalBacked(terminalSession))
+        XCTAssertFalse(SessionLauncher.isTerminalBacked(appSession))
     }
 
     func testCompletedAssistantReplyRejectsToolOnlyTail() {

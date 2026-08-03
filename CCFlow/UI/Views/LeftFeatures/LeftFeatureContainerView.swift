@@ -102,14 +102,16 @@ struct LeftFeatureContainerView: View {
     ) -> some View {
         let request = featureStore.expandedReentryRequest
         let generation = request?.featureID == feature.id ? request?.generation : nil
+        let bridgeRebuildGeneration = feature.loadsMineradioBridge ? generation : nil
         return CustomAreaWebView(
             source: source,
             cacheKey: .expanded(featureID: feature.id),
             keepsAlive: settings.keepWebURLAliveWhenCollapsed,
             keepsCrossDomainLoginInWebView: feature.keepsCrossDomainLoginInWebView,
+            loadsMineradioBridge: feature.loadsMineradioBridge,
             entryReloadGeneration: generation
         )
-        .id(feature.id)
+        .id("\(feature.id)-bridge-\(feature.loadsMineradioBridge)-reload-\(bridgeRebuildGeneration ?? 0)")
     }
 
     private var emptyState: some View {

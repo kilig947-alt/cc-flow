@@ -18,6 +18,7 @@ enum IslandExpandedRoute: Equatable {
     case attentionNotification(SessionState)
     case completionNotification(SessionCompletionNotification)
     case chat(SessionState)
+    case audit(SessionState)
     /// Spec 2.4: 自定义内容全屏面板，由点击 flow Island左半区触发
     case customExpanded
 }
@@ -50,6 +51,10 @@ enum IslandExpandedRouteResolver {
 
         if case .chat(let session) = contentType {
             return .chat(session)
+        }
+
+        if case .audit(let session) = contentType {
+            return .audit(session)
         }
 
         // Spec 2.4: 自定义内容全屏面板优先于默认列表/看板路由

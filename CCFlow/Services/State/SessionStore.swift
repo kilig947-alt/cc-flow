@@ -63,6 +63,8 @@ actor SessionStore {
     private var pendingHookResponseCancellationHandler: @Sendable (String, SessionIngress) -> Void = {
         SessionStore.cancelPendingHookResponse(toolUseId: $0, ingress: $1)
     }
+    private var lastCompletionPromptFingerprintBySessionID: [String: String] = [:]
+    private var codexSessionTitleIndex = CodexSessionTitleIndex()
 
     /// Periodic sweep that removes sessions whose Claude process has died
     /// without delivering `SessionEnd` (Ctrl-C kill, OOM, terminal closed) and
@@ -199,7 +201,54 @@ actor SessionStore {
             )
             return
         }
+        let hasNativeIntervention: Bool
+        if case .some = event.intervention {
+            hasNativeIntervention = true
+        } else {
+            hasNativeIntervention = false
+        }
+        let completionPromptConfiguration: (
+            rules: [CompletionPromptRegexRule],
+            routesPromptsToTerminal: Bool
+        )? = if event.event == "Stop", !hasNativeIntervention, event.message != nil {
+            await MainActor.run {
+                (
+                    AppSettings.shared.completionPromptRegexRules,
+                    AppSettings.shared.effectiveRoutePromptsToTerminal
+                )
+            }
+        } else {
+            nil
+        }
+        let completionPromptMatch: CompletionPromptRegexMatch? = if let completionPromptConfiguration,
+                                                                    !completionPromptConfiguration.routesPromptsToTerminal,
+                                                                    let message = event.message {
+            CompletionPromptRegexParser.match(
+                message: message,
+                rules: completionPromptConfiguration.rules
+            )
+        } else {
+            nil
+        }
         var session = sessions[sessionId] ?? createSession(from: event)
+        refreshCodexSessionName(&session)
+        if event.event == "UserPromptSubmit" {
+            lastCompletionPromptFingerprintBySessionID[sessionId] = nil
+        }
+        let completionPromptIntervention: SessionIntervention? = {
+            guard let completionPromptMatch else { return nil }
+            if lastCompletionPromptFingerprintBySessionID[sessionId] != completionPromptMatch.fingerprint {
+                lastCompletionPromptFingerprintBySessionID[sessionId] = completionPromptMatch.fingerprint
+                return nativeStopContinuationIntervention(
+                    completionPromptMatch.intervention,
+                    for: event
+                )
+            }
+            if session.intervention?.metadata["completionPromptFingerprint"] == completionPromptMatch.fingerprint {
+                return session.intervention
+            }
+            return nil
+        }()
 
         // Persist the session before await points so concurrent events (via actor
         // reentrancy) find it instead of creating a duplicate.  This avoids the
@@ -267,7 +316,15 @@ actor SessionStore {
 
         let previousPendingHookResponse = pendingHookResponse(in: session)
 
-        if event.status == "ended", !shouldPreserveEndedStopForAnsweredQuestion {
+        let hasCompletionPromptIntervention: Bool
+        if case .some = completionPromptIntervention {
+            hasCompletionPromptIntervention = true
+        } else {
+            hasCompletionPromptIntervention = false
+        }
+        if event.status == "ended",
+           !hasCompletionPromptIntervention,
+           !shouldPreserveEndedStopForAnsweredQuestion {
             markSessionEnded(&session)
             cancelOrphanedPendingHookResponse(
                 previousPendingHookResponse,
@@ -282,10 +339,14 @@ actor SessionStore {
             return
         }
 
-        let newPhase: SessionPhase = shouldPreserveEndedStopForAnsweredQuestion
+        let newPhase: SessionPhase = completionPromptIntervention != nil
             ? .waitingForInput
+            : shouldPreserveEndedStopForAnsweredQuestion
+            ? .waitingForInput
+            : event.isAutoApproving
+            ? .processing
             : event.determinePhase()
-        let intervention = event.intervention
+        let intervention = event.intervention ?? completionPromptIntervention
         let preservedPendingApproval = preservedPendingApprovalContext(
             for: event,
             session: session,
@@ -400,6 +461,33 @@ actor SessionStore {
         }
     }
 
+    private nonisolated func nativeStopContinuationIntervention(
+        _ intervention: SessionIntervention,
+        for event: HookEvent
+    ) -> SessionIntervention {
+        guard event.provider == .codex,
+              event.event == "Stop",
+              event.ingress == .hookBridge,
+              let toolUseId = event.toolUseId,
+              !toolUseId.isEmpty else {
+            return intervention
+        }
+
+        var metadata = intervention.metadata
+        metadata["responseMode"] = "stop_hook_continuation"
+        metadata["originalToolUseId"] = toolUseId
+        return SessionIntervention(
+            id: intervention.id,
+            kind: intervention.kind,
+            title: intervention.title,
+            message: intervention.message,
+            options: intervention.options,
+            questions: intervention.questions,
+            supportsSessionScope: intervention.supportsSessionScope,
+            metadata: metadata
+        )
+    }
+
     private nonisolated func shouldPreserveInlineIntervention(
         current: SessionIntervention?,
         proposed: SessionIntervention
@@ -445,6 +533,14 @@ actor SessionStore {
             || session.sessionName == Self.projectName(for: previousCwd, fallback: previousProjectName) {
             session.sessionName = nil
         }
+    }
+
+    private func refreshCodexSessionName(_ session: inout SessionState) {
+        guard session.provider == .codex,
+              let threadName = codexSessionTitleIndex.title(for: session.sessionId) else {
+            return
+        }
+        session.sessionName = threadName
     }
 
     private func processToolTracking(event: HookEvent, session: inout SessionState) {
@@ -1144,6 +1240,7 @@ actor SessionStore {
             explicitFilePath: session.clientInfo.sessionFilePath
         )
         session.conversationInfo = conversationInfo
+        refreshCodexSessionName(&session)
 
         // Handle /clear reconciliation - remove items that no longer exist in parser state
         if session.needsClearReconciliation {
@@ -1688,6 +1785,7 @@ actor SessionStore {
     private func archiveSession(sessionId: String) async {
         sessions.removeValue(forKey: sessionId)
         cancelPendingSync(sessionId: sessionId)
+        await SimilarOperationApprovalStore.shared.removeRules(forSessionID: sessionId)
     }
 
     /// When a new session starts for a provider, archive any active sessions from the
@@ -1889,6 +1987,7 @@ actor SessionStore {
 
         // Update conversationInfo (summary, lastMessage, etc.)
         session.conversationInfo = conversationInfo
+        refreshCodexSessionName(&session)
 
         // Convert messages to chat items
         let existingIds = Set(session.chatItems.map { $0.id })

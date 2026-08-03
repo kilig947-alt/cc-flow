@@ -30,8 +30,6 @@ struct ChatView: View {
     @State private var newMessageCount: Int = 0
     @State private var previousHistoryCount: Int = 0
     @State private var isBottomVisible: Bool = true
-    @State private var quickReplyInFlight: String?
-    @State private var quickReplyFeedback: String?
     @FocusState private var isInputFocused: Bool
 
     init(sessionId: String, initialSession: SessionState, sessionMonitor: SessionMonitor, viewModel: NotchViewModel) {
@@ -143,10 +141,6 @@ struct ChatView: View {
                         .transition(.opacity)
                 }
 
-                if shouldShowQuickReplies {
-                    quickReplyBar
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isWaitingForApproval)
@@ -382,101 +376,6 @@ struct ChatView: View {
         session.supportsTmuxCLIMessaging
     }
 
-    private var quickReplies: [String] {
-        guard settings.completionQuickRepliesEnabled else { return [] }
-        return settings.completionQuickReplies
-    }
-
-    private var shouldShowQuickReplies: Bool {
-        guard !quickReplies.isEmpty,
-              !isLoading,
-              session.isCompletionQuickReplyEligible,
-              !isProcessing,
-              activeQuestionIntervention == nil,
-              approvalTool == nil else { return false }
-        return true
-    }
-
-    private var quickReplyBar: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                ForEach(Array(quickReplies.prefix(3)), id: \.self) { reply in
-                    quickReplyButton(reply)
-                }
-
-                if quickReplies.count > 3 {
-                    Menu("更多") {
-                        ForEach(Array(quickReplies.dropFirst(3)), id: \.self) { reply in
-                            Button(reply) { sendQuickReply(reply) }
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .disabled(quickReplyInFlight != nil)
-                    .accessibilityLabel("更多快速回复")
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            if let quickReplyFeedback {
-                Text(quickReplyFeedback)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.62))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.black.opacity(0.2))
-    }
-
-    private func quickReplyButton(_ reply: String) -> some View {
-        Button {
-            sendQuickReply(reply)
-        } label: {
-            HStack(spacing: 5) {
-                if quickReplyInFlight == reply {
-                    ProgressView().controlSize(.mini)
-                }
-                Text(reply).lineLimit(1)
-            }
-            .frame(minHeight: 24)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .disabled(quickReplyInFlight != nil)
-        .accessibilityLabel("快速回复 \(reply)")
-    }
-
-    private func sendQuickReply(_ reply: String) {
-        guard quickReplyInFlight == nil else { return }
-        quickReplyInFlight = reply
-        quickReplyFeedback = nil
-
-        Task {
-            guard let liveSession = await SessionStore.shared.session(for: sessionId) else {
-                await MainActor.run {
-                    quickReplyFeedback = "原会话已不可用。"
-                    quickReplyInFlight = nil
-                }
-                return
-            }
-
-            do {
-                _ = try await sessionMonitor.deliverQuickReply(reply, to: liveSession)
-                await MainActor.run {
-                    quickReplyFeedback = "已发送“\(reply)”。"
-                    quickReplyInFlight = nil
-                }
-            } catch {
-                await MainActor.run {
-                    quickReplyFeedback = "发送失败：\(error.localizedDescription)"
-                    quickReplyInFlight = nil
-                }
-            }
-        }
-    }
-
     private var messagePlaceholder: String {
         AppLocalization.format("Message %@...", session.providerDisplayName)
     }
@@ -535,9 +434,12 @@ struct ChatView: View {
             tool: tool,
             toolInput: session.pendingToolInput,
             sessionAction: session.scopedApprovalAction,
+            supportsUnrestrictedSessionApproval: session.supportsUnrestrictedSessionApproval,
+            approvalIdentity: "\(session.sessionId):\(session.activePermission?.toolUseId ?? "")",
             suppressControls: shouldSuppressPromptControls,
             onApprove: { approvePermission() },
             onApproveForSession: { approvePermissionForSession() },
+            onApproveAllForSession: { approveAllPermissionsForSession() },
             onDeny: { denyPermission() }
         )
     }
@@ -670,7 +572,10 @@ struct ChatView: View {
 
                 SessionQuestionForm(
                     intervention: intervention,
-                    submitLabel: "提交所有回答",
+                    submitLabel: AppLocalization.format(
+                        "提交回 %@",
+                        session.messageBadgeDisplayName
+                    ),
                     initialDraft: sessionMonitor.questionDraft(
                         sessionId: sessionId,
                         interventionId: intervention.id
@@ -810,6 +715,10 @@ struct ChatView: View {
 
     private func approvePermissionForSession() {
         sessionMonitor.approvePermission(sessionId: sessionId, forSession: true)
+    }
+
+    private func approveAllPermissionsForSession() {
+        sessionMonitor.approveAllPermissionsForSession(sessionId: sessionId)
     }
 
     private func denyPermission() {
@@ -1624,9 +1533,12 @@ struct ChatApprovalBar: View {
     let tool: String
     let toolInput: String?
     let sessionAction: SessionScopedApprovalAction?
+    let supportsUnrestrictedSessionApproval: Bool
+    let approvalIdentity: String
     var suppressControls = false
     let onApprove: () -> Void
     let onApproveForSession: () -> Void
+    let onApproveAllForSession: () -> Void
     let onDeny: () -> Void
 
     @State private var showContent = false
@@ -1673,6 +1585,15 @@ struct ChatApprovalBar: View {
                 .buttonStyle(.plain)
                 .opacity(showDenyButton ? 1 : 0)
                 .scaleEffect(showDenyButton ? 1 : 0.8)
+
+                if supportsUnrestrictedSessionApproval {
+                    UnrestrictedSessionApprovalButton(
+                        approvalIdentity: approvalIdentity,
+                        onConfirmed: onApproveAllForSession
+                    )
+                    .opacity(showSessionButton ? 1 : 0)
+                    .scaleEffect(showSessionButton ? 1 : 0.8)
+                }
 
                 if let sessionAction {
                     Button {

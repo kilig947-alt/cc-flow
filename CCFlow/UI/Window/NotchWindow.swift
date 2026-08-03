@@ -50,8 +50,9 @@ class NotchPanel: NSPanel {
             .ignoresCycle
         ]
 
-        // Above the menu bar
-        level = .mainMenu + 3
+        // Above system menu bar (level 24) so the menu bar does not cover the Flow Island,
+        // but below IME candidate windows (level 101) so input candidate layer is not obscured.
+        level = .statusBar
 
         // Enable tooltips even when app is inactive (needed for panel windows)
         allowsToolTipsWhenApplicationIsInactive = true
@@ -66,5 +67,17 @@ class NotchPanel: NSPanel {
     }
 
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
+    override var canBecomeMain: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown || event.type == .rightMouseDown {
+            if !NSApp.isActive {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            if !isKeyWindow {
+                makeKey()
+            }
+        }
+        super.sendEvent(event)
+    }
 }

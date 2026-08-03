@@ -46,9 +46,6 @@ struct SessionCompletionNotification: Equatable, Identifiable {
             }
         }
 
-        var supportsQuickReplies: Bool {
-            self == .completed
-        }
     }
 
     let id: UUID
@@ -222,8 +219,6 @@ struct SessionCompletionNotificationView: View {
 
     @ObservedObject private var settings = AppSettings.shared
     @State private var measuredAssistantContentHeight: CGFloat = 0
-    @State private var quickReplyInFlight: String?
-    @State private var quickReplyFeedback: String?
 
     init(
         notification: SessionCompletionNotification,
@@ -423,95 +418,9 @@ struct SessionCompletionNotificationView: View {
         }
     }
 
-    private var availableQuickReplies: [String] {
-        guard notification.kind.supportsQuickReplies,
-              settings.completionQuickRepliesEnabled,
-              session.isCompletionQuickReplyEligible else { return [] }
-        return settings.completionQuickReplies
-    }
-
-    private var quickReplyActions: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                ForEach(Array(availableQuickReplies.prefix(3)), id: \.self) { reply in
-                    quickReplyButton(reply)
-                }
-
-                if availableQuickReplies.count > 3 {
-                    Menu("更多") {
-                        ForEach(Array(availableQuickReplies.dropFirst(3)), id: \.self) { reply in
-                            Button(reply) { sendQuickReply(reply) }
-                                .accessibilityLabel("快速回复 \(reply)")
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .disabled(quickReplyInFlight != nil)
-                    .accessibilityLabel("更多快速回复")
-                }
-            }
-
-            if let quickReplyFeedback {
-                Text(quickReplyFeedback)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.white.opacity(0.68))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func quickReplyButton(_ reply: String) -> some View {
-        Button {
-            sendQuickReply(reply)
-        } label: {
-            HStack(spacing: 5) {
-                if quickReplyInFlight == reply {
-                    ProgressView().controlSize(.mini)
-                }
-                Text(reply).lineLimit(1)
-            }
-            .frame(minHeight: 24)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .disabled(quickReplyInFlight != nil)
-        .accessibilityLabel("快速回复 \(reply)")
-    }
-
-    private func sendQuickReply(_ reply: String) {
-        guard quickReplyInFlight == nil else { return }
-        quickReplyInFlight = reply
-        quickReplyFeedback = nil
-
-        Task {
-            guard let liveSession = await SessionStore.shared.session(for: session.sessionId) else {
-                await MainActor.run {
-                    quickReplyFeedback = "原会话已不可用。"
-                    quickReplyInFlight = nil
-                }
-                return
-            }
-
-            do {
-                _ = try await sessionMonitor.deliverQuickReply(reply, to: liveSession)
-                await MainActor.run { onDismiss() }
-            } catch {
-                await MainActor.run {
-                    quickReplyFeedback = "发送失败：\(error.localizedDescription)"
-                    quickReplyInFlight = nil
-                }
-            }
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            contentCard
-                .onTapGesture { onDismiss() }
-
-            if !availableQuickReplies.isEmpty {
-                quickReplyActions
-            }
-        }
+        contentCard
+            .onTapGesture { onDismiss() }
         .padding(.horizontal, outerHorizontalPadding)
         .padding(.top, outerTopPadding)
         .padding(.bottom, outerBottomPadding)

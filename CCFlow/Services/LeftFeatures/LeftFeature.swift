@@ -66,6 +66,22 @@ enum LeftFeatureKind: Codable, Equatable, Hashable {
     case mineradio(pageURL: String)
 }
 
+extension LeftFeatureKind {
+    var isURLBacked: Bool {
+        switch self {
+        case .webURL, .newsnow, .mineradio:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var loadsMineradioBridgeByDefault: Bool {
+        if case .mineradio = self { return true }
+        return false
+    }
+}
+
 /// 左侧 flow Island"功能系统"基础数据模型
 /// 描述一个可在紧凑态/展开态展示的功能项（音乐 / 中转站 / 自定义 HTML / 网站 URL）
 struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
@@ -83,8 +99,10 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
     var customIconName: String?
     /// 自定义显示名称；仅 `.webURL` 使用，其他 kind 当前忽略
     var customDisplayName: String?
-    /// 跨域登录是否继续留在当前 WebView；仅 `.webURL` 使用，默认关闭。
+    /// 跨域登录是否继续留在当前 WebView；URL 型功能默认开启。
     var keepsCrossDomainLoginInWebView: Bool
+    /// 是否注入 Mineradio Bridge 兼容层；内置 Mineradio 默认开启，手动 URL 默认关闭。
+    var loadsMineradioBridge: Bool
     /// 自定义展开宽度（pt）；nil = 使用左侧功能默认宽度
     var expandedWidth: Double?
     /// 自定义展开高度（pt）；nil = 使用左侧功能默认高度
@@ -101,7 +119,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
          createdAt: Date = Date(),
          customIconName: String? = nil,
          customDisplayName: String? = nil,
-         keepsCrossDomainLoginInWebView: Bool = false,
+         keepsCrossDomainLoginInWebView: Bool? = nil,
+         loadsMineradioBridge: Bool? = nil,
          expandedWidth: Double? = nil,
          expandedHeight: Double? = nil,
          expandedPinned: Bool = false,
@@ -113,7 +132,8 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.createdAt = createdAt
         self.customIconName = customIconName
         self.customDisplayName = customDisplayName
-        self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+        self.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView ?? kind.isURLBacked
+        self.loadsMineradioBridge = loadsMineradioBridge ?? kind.loadsMineradioBridgeByDefault
         self.expandedWidth = expandedWidth
         self.expandedHeight = expandedHeight
         self.expandedPinned = expandedPinned
@@ -131,6 +151,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         case customIconName
         case customDisplayName
         case keepsCrossDomainLoginInWebView
+        case loadsMineradioBridge
         case expandedWidth
         case expandedHeight
         case expandedPinned
@@ -151,7 +172,11 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         self.keepsCrossDomainLoginInWebView = try c.decodeIfPresent(
             Bool.self,
             forKey: .keepsCrossDomainLoginInWebView
-        ) ?? false
+        ) ?? kind.isURLBacked
+        self.loadsMineradioBridge = try c.decodeIfPresent(
+            Bool.self,
+            forKey: .loadsMineradioBridge
+        ) ?? kind.loadsMineradioBridgeByDefault
         self.expandedWidth = try c.decodeIfPresent(Double.self, forKey: .expandedWidth)
         self.expandedHeight = try c.decodeIfPresent(Double.self, forKey: .expandedHeight)
         self.expandedPinned = try c.decodeIfPresent(Bool.self, forKey: .expandedPinned) ?? false
@@ -168,6 +193,7 @@ struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
         try c.encodeIfPresent(customIconName, forKey: .customIconName)
         try c.encodeIfPresent(customDisplayName, forKey: .customDisplayName)
         try c.encode(keepsCrossDomainLoginInWebView, forKey: .keepsCrossDomainLoginInWebView)
+        try c.encode(loadsMineradioBridge, forKey: .loadsMineradioBridge)
         try c.encodeIfPresent(expandedWidth, forKey: .expandedWidth)
         try c.encodeIfPresent(expandedHeight, forKey: .expandedHeight)
         try c.encode(expandedPinned, forKey: .expandedPinned)

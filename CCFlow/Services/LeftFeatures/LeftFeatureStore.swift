@@ -572,6 +572,13 @@ final class LeftFeatureStore: ObservableObject {
             setExpandedActiveFeature(id: id)
             return
         }
+        if let feature = features.first(where: { $0.id == id }),
+           feature.loadsMineradioBridge {
+            // Bridge 是 WKWebViewConfiguration 的 document-start script，同时其 API runtime
+            // 常驻 JSContext。再次进入必须同时驱逐页面缓存并重建 runtime，才能读取刚更新的脚本。
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
+            MineradioBridgeCoordinator.shared.reloadBridgeEngine()
+        }
         expandedReentryGeneration &+= 1
         expandedReentryRequest = LeftFeatureReentryRequest(
             featureID: id,
@@ -643,6 +650,7 @@ final class LeftFeatureStore: ObservableObject {
                              url: String,
                              iconName: String?,
                              keepsCrossDomainLoginInWebView: Bool,
+                             loadsMineradioBridge: Bool,
                              variant: TraeVariant) -> LeftFeature {
         let maxSortOrder = features.map(\.sortOrder).max() ?? -1
         let feature = LeftFeature(
@@ -651,7 +659,8 @@ final class LeftFeatureStore: ObservableObject {
             sortOrder: maxSortOrder + 1,
             customIconName: iconName,
             customDisplayName: name,
-            keepsCrossDomainLoginInWebView: keepsCrossDomainLoginInWebView
+            keepsCrossDomainLoginInWebView: keepsCrossDomainLoginInWebView,
+            loadsMineradioBridge: loadsMineradioBridge
         )
         features.append(feature)
         persist()
@@ -673,12 +682,18 @@ final class LeftFeatureStore: ObservableObject {
                              url: String?,
                              iconName: String?,
                              keepsCrossDomainLoginInWebView: Bool?,
+                             loadsMineradioBridge: Bool?,
                              variant: TraeVariant?) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         var copy = features[index]
         if let name { copy.customDisplayName = name }
         if let keepsCrossDomainLoginInWebView {
             copy.keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+        }
+        var bridgeSettingChanged = false
+        if let loadsMineradioBridge {
+            bridgeSettingChanged = copy.loadsMineradioBridge != loadsMineradioBridge
+            copy.loadsMineradioBridge = loadsMineradioBridge
         }
 
         var urlChanged = false
@@ -693,7 +708,7 @@ final class LeftFeatureStore: ObservableObject {
             newURLString = url
         }
 
-        if urlChanged {
+        if urlChanged || bridgeSettingChanged {
             CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
         }
 
@@ -792,6 +807,26 @@ final class LeftFeatureStore: ObservableObject {
     func setCustomDisplayName(id: String, name: String?) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         features[index].customDisplayName = name
+        persist()
+    }
+
+    /// 设置 URL 型功能的 WebView 能力。Bridge 注入变化需要重建 WKWebViewConfiguration。
+    func setWebViewCapabilities(
+        id: String,
+        keepsCrossDomainLoginInWebView: Bool,
+        loadsMineradioBridge: Bool? = nil
+    ) {
+        guard let index = features.firstIndex(where: { $0.id == id }),
+              features[index].kind.isURLBacked else { return }
+        var bridgeChanged = false
+        if let loadsMineradioBridge {
+            bridgeChanged = features[index].loadsMineradioBridge != loadsMineradioBridge
+            features[index].loadsMineradioBridge = loadsMineradioBridge
+        }
+        features[index].keepsCrossDomainLoginInWebView = keepsCrossDomainLoginInWebView
+        if bridgeChanged {
+            CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
+        }
         persist()
     }
 

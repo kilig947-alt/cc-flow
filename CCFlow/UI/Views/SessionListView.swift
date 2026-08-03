@@ -84,6 +84,7 @@ struct SessionListView: View {
                 VStack(spacing: 0) {
                     InstanceRow(
                         session: group.session,
+                        viewModel: viewModel,
                         isExpanded: expandedSessionStableID == group.session.stableId,
                         isSelected: selectedSessionStableID == group.session.stableId,
                         isHighlighted: highlightedSessionStableID == group.session.stableId,
@@ -97,8 +98,8 @@ struct SessionListView: View {
                         onArchive: { archiveSession(group.session) },
                         onApprove: { approveSession(group.session) },
                         onApproveForSession: { approveSessionForScope(group.session) },
-                        onReject: { rejectSession(group.session) },
-                        onQuickReply: { reply in sendQuickReply(reply, to: group.session) }
+                        onApproveAllForSession: { approveAllForSession(group.session) },
+                        onReject: { rejectSession(group.session) }
                     )
                     .id(group.session.stableId)
 
@@ -217,14 +218,6 @@ struct SessionListView: View {
         }
     }
 
-    private func sendQuickReply(_ reply: String, to session: SessionState) {
-        selectSession(session)
-        Task {
-            let targetSession = await interactionTargetSession(for: session)
-            _ = try? await sessionMonitor.deliverQuickReply(reply, to: targetSession)
-        }
-    }
-
     private func approveSession(_ session: SessionState) {
         selectSession(session)
         sessionMonitor.approvePermission(sessionId: session.sessionId)
@@ -233,6 +226,11 @@ struct SessionListView: View {
     private func approveSessionForScope(_ session: SessionState) {
         selectSession(session)
         sessionMonitor.approvePermission(sessionId: session.sessionId, forSession: true)
+    }
+
+    private func approveAllForSession(_ session: SessionState) {
+        selectSession(session)
+        sessionMonitor.approveAllPermissionsForSession(sessionId: session.sessionId)
     }
 
     private func rejectSession(_ session: SessionState) {
@@ -583,6 +581,7 @@ private struct SubagentAttachmentRow: View {
 
 struct InstanceRow: View {
     let session: SessionState
+    let viewModel: NotchViewModel
     let isExpanded: Bool
     let isSelected: Bool
     let isHighlighted: Bool
@@ -596,12 +595,14 @@ struct InstanceRow: View {
     let onArchive: () -> Void
     let onApprove: () -> Void
     let onApproveForSession: () -> Void
+    let onApproveAllForSession: () -> Void
     let onReject: () -> Void
-    let onQuickReply: (String) -> Void
 
     @State private var isHovered = false
+    @State private var copyFeedbackToken: UUID?
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var energyGovernor = EnergyGovernor.shared
+    @ObservedObject private var auditStore = SessionAuditStore.shared
 
     private let spinnerSymbols = ["·", "✢", "✳", "∗", "✻", "✽"]
 
@@ -669,12 +670,6 @@ struct InstanceRow: View {
 
     private var needsInAppResponse: Bool {
         session.needsQuestionResponse || isWaitingForApproval
-    }
-
-    private var availableQuickReplies: [String] {
-        guard settings.completionQuickRepliesEnabled,
-              session.isCompletionQuickReplyEligible else { return [] }
-        return settings.completionQuickReplies
     }
 
     private var projectTitleFontSize: CGFloat {
@@ -1245,12 +1240,17 @@ struct InstanceRow: View {
         if session.shouldSuppressInAppPromptControls(
             routePromptsToTerminal: settings.effectiveRoutePromptsToTerminal
         ) {
-            EmptyView()
+            HStack(spacing: 6) {
+                copySessionButton
+                auditButton
+            }
         } else if session.needsQuestionResponse {
             HStack(spacing: 6) {
                 IconButton(icon: "bubble.left") {
                     onChat()
                 }
+                copySessionButton
+                auditButton
 
                 if session.clientInfo.prefersAnsweredQuestionFollowupAction {
                     Button {
@@ -1274,36 +1274,27 @@ struct InstanceRow: View {
                 }
             }
         } else if isWaitingForApproval {
-            InlineApprovalButtons(
-                sessionAction: session.scopedApprovalAction,
-                onChat: onChat,
-                onApprove: onApprove,
-                onApproveForSession: onApproveForSession,
-                onReject: onReject
-            )
+            HStack(spacing: 6) {
+                InlineApprovalButtons(
+                    sessionAction: session.scopedApprovalAction,
+                    supportsUnrestrictedSessionApproval: session.supportsUnrestrictedSessionApproval,
+                    approvalIdentity: "\(session.sessionId):\(session.activePermission?.toolUseId ?? "")",
+                    onChat: onChat,
+                    onApprove: onApprove,
+                    onApproveForSession: onApproveForSession,
+                    onApproveAllForSession: onApproveAllForSession,
+                    onReject: onReject
+                )
+                copySessionButton
+                auditButton
+            }
         } else {
             HStack(spacing: 6) {
-                ForEach(Array(availableQuickReplies.prefix(3)), id: \.self) { reply in
-                    Button(reply) { onQuickReply(reply) }
-                        .buttonStyle(.bordered)
-                        .controlSize(.mini)
-                        .accessibilityLabel("快速回复 \(reply)")
-                }
-
-                if availableQuickReplies.count > 3 {
-                    Menu("更多") {
-                        ForEach(Array(availableQuickReplies.dropFirst(3)), id: \.self) { reply in
-                            Button(reply) { onQuickReply(reply) }
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .controlSize(.mini)
-                    .accessibilityLabel("更多快速回复")
-                }
-
                 IconButton(icon: "bubble.left") {
                     onChat()
                 }
+                copySessionButton
+                auditButton
 
                 if session.isInTmux && isYabaiAvailable {
                     IconButton(icon: "eye") {
@@ -1318,6 +1309,85 @@ struct InstanceRow: View {
                 }
             }
         }
+    }
+
+    private var copySessionButton: some View {
+        Button {
+            copySessionResumeCommand()
+        } label: {
+            Group {
+                if copyFeedbackToken != nil {
+                    Text("复制会话ID成功")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(TerminalColors.green)
+                        .padding(.horizontal, 6)
+                } else {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.46))
+                }
+            }
+            .frame(minWidth: 22, minHeight: 22)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(copyFeedbackToken != nil
+                        ? TerminalColors.green.opacity(0.1)
+                        : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(SessionResumeCommand.clipboardText(for: session))
+    }
+
+    private func copySessionResumeCommand() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(
+            SessionResumeCommand.clipboardText(for: session),
+            forType: .string
+        )
+
+        let token = UUID()
+        withAnimation(.easeInOut(duration: 0.14)) {
+            copyFeedbackToken = token
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            guard copyFeedbackToken == token else { return }
+            withAnimation(.easeInOut(duration: 0.14)) {
+                copyFeedbackToken = nil
+            }
+        }
+    }
+
+    private var auditButton: some View {
+        Button {
+            viewModel.presentAudit(for: session)
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "checkmark.shield")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.46))
+                    .frame(width: 22, height: 22)
+
+                let count = auditStore.records(for: session.sessionId).count
+                if count > 0 {
+                    Text(count > 99 ? "99+" : "\(count)")
+                        .font(.system(size: 6, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 3)
+                        .frame(minWidth: 10, minHeight: 10)
+                        .background(TerminalColors.green)
+                        .clipShape(Capsule())
+                        .offset(x: 3, y: -2)
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .help("查看审计记录")
     }
 
     private func metaBadge(
@@ -1452,9 +1522,12 @@ private struct QueuePreviewLine: Identifiable {
 /// Compact inline approval buttons with staggered animation
 struct InlineApprovalButtons: View {
     let sessionAction: SessionScopedApprovalAction?
+    let supportsUnrestrictedSessionApproval: Bool
+    let approvalIdentity: String
     let onChat: () -> Void
     let onApprove: () -> Void
     let onApproveForSession: () -> Void
+    let onApproveAllForSession: () -> Void
     let onReject: () -> Void
 
     @State private var showChatButton = false
@@ -1485,6 +1558,16 @@ struct InlineApprovalButtons: View {
             .buttonStyle(.plain)
             .opacity(showDenyButton ? 1 : 0)
             .scaleEffect(showDenyButton ? 1 : 0.8)
+
+            if supportsUnrestrictedSessionApproval {
+                UnrestrictedSessionApprovalButton(
+                    approvalIdentity: approvalIdentity,
+                    density: .compact,
+                    onConfirmed: onApproveAllForSession
+                )
+                .opacity(showSessionButton ? 1 : 0)
+                .scaleEffect(showSessionButton ? 1 : 0.8)
+            }
 
             if let sessionAction {
                 Button {

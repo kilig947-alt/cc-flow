@@ -173,6 +173,23 @@ actor SessionLauncher {
         return false
     }
 
+    /// Returns to the surface that owns the conversation: exact terminal
+    /// session when terminal evidence exists, otherwise the client app.
+    func returnToSession(_ session: SessionState) async -> Bool {
+        if Self.isTerminalBacked(session) {
+            return await activate(session)
+        }
+        return await activateClientApplication(session)
+    }
+
+    nonisolated static func isTerminalBacked(_ session: SessionState) -> Bool {
+        session.isInTmux
+            || session.tty?.isEmpty == false
+            || session.clientInfo.terminalBundleIdentifier?.isEmpty == false
+            || session.clientInfo.terminalSessionIdentifier?.isEmpty == false
+            || session.clientInfo.iTermSessionIdentifier?.isEmpty == false
+    }
+
     /// Selects the exact terminal tab/pane that owns a session. Unlike
     /// `activate(_:)`, this never reports success for merely bringing the host
     /// terminal application to the front, because callers may type immediately

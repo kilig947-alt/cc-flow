@@ -108,6 +108,13 @@ final class MineradioBridgeCoordinator: ObservableObject {
             }
     }
 
+    /// 从磁盘重新加载 Mineradio Bridge 运行时。
+    /// WKWebView 的重建由 `LeftFeatureStore` 同一次重新进入请求触发。
+    func reloadBridgeEngine() {
+        engine.reload()
+        refreshAllLoginStates()
+    }
+
     /// Spec: 处理 NowPlayingProvider 更新 —— 检测是否来自 Mineradio 播放。
     /// Mineradio 在 WKWebView 内播放 `<audio>`，系统 MediaRemote 会把 CC FLOW app 作为 source，
     /// title 通常是网页 `<title>`（"Mineradio — 在线音乐可视化播放器"）。
@@ -685,10 +692,11 @@ final class MineradioBridgeCoordinator: ObservableObject {
             NSLog("[MineradioBridge] Invalid API message: \(message.body)")
             return
         }
+        let targetWebView = message.webView
 
         engine.handleApi(payload) { [weak self] result in
             DispatchQueue.main.async {
-                self?.deliverResult(id: id, result: result)
+                self?.deliverResult(id: id, result: result, to: targetWebView)
             }
         }
     }
@@ -701,10 +709,11 @@ final class MineradioBridgeCoordinator: ObservableObject {
             NSLog("[MineradioBridge] Invalid binary message: \(message.body)")
             return
         }
+        let targetWebView = message.webView
 
         let query = payload["query"] as? [String: Any] ?? [:]
         guard let urlString = query["url"] as? String, let url = URL(string: urlString) else {
-            deliverError(id: id, error: "Missing or invalid url in binary request")
+            deliverError(id: id, error: "Missing or invalid url in binary request", to: targetWebView)
             return
         }
 
@@ -726,11 +735,11 @@ final class MineradioBridgeCoordinator: ObservableObject {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 if let error = error {
-                    self.deliverError(id: id, error: error.localizedDescription)
+                    self.deliverError(id: id, error: error.localizedDescription, to: targetWebView)
                     return
                 }
                 guard let httpResponse = response as? HTTPURLResponse else {
-                    self.deliverError(id: id, error: "Non-HTTP response")
+                    self.deliverError(id: id, error: "Non-HTTP response", to: targetWebView)
                     return
                 }
                 let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "application/octet-stream"
@@ -741,7 +750,7 @@ final class MineradioBridgeCoordinator: ObservableObject {
                     "contentType": contentType,
                     "buffer": bufferBase64,
                 ]
-                self.deliverResult(id: id, result: .success(result))
+                self.deliverResult(id: id, result: .success(result), to: targetWebView)
             }
         }
         task.resume()
@@ -1188,8 +1197,12 @@ final class MineradioBridgeCoordinator: ObservableObject {
 
     // MARK: - Delivery to WebView
 
-    private func deliverResult(id: String, result: Result<Any?, Error>) {
-        guard let webView = webView else { return }
+    private func deliverResult(
+        id: String,
+        result: Result<Any?, Error>,
+        to targetWebView: WKWebView? = nil
+    ) {
+        guard let webView = targetWebView ?? webView else { return }
         switch result {
         case .success(let data):
             let js = MineradioBridgeDelivery.makeDeliverCall(id: id, ok: true, data: data, error: nil)
@@ -1208,8 +1221,8 @@ final class MineradioBridgeCoordinator: ObservableObject {
         }
     }
 
-    private func deliverError(id: String, error: String) {
-        deliverResult(id: id, result: .failure(MineradioBridgeError.apiError(error)))
+    private func deliverError(id: String, error: String, to webView: WKWebView? = nil) {
+        deliverResult(id: id, result: .failure(MineradioBridgeError.apiError(error)), to: webView)
     }
 
     // MARK: - Login State

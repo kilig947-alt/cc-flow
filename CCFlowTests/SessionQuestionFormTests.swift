@@ -57,6 +57,21 @@ final class SessionQuestionFormTests: XCTestCase {
         XCTAssertEqual(SessionQuestionForm.optionSequenceLabel(for: 26), "AA")
     }
 
+    func testSingleConfirmationWithoutOtherInputUsesDirectActionButton() {
+        let question = SessionInterventionQuestion(
+            id: "confirm",
+            header: "确认",
+            prompt: "是否继续？",
+            detail: nil,
+            options: [.init(id: "confirm", title: "确认", detail: nil)],
+            allowsMultiple: false,
+            allowsOther: false,
+            isSecret: false
+        )
+
+        XCTAssertTrue(SessionQuestionForm.isSingleActionQuestion(question))
+    }
+
     func testLongOptionTitlesForceSingleColumnLayout() {
         let question = SessionInterventionQuestion(
             id: "deployment",

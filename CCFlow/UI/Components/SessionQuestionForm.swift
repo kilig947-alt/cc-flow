@@ -93,6 +93,14 @@ struct SessionQuestionForm: View {
         return label
     }
 
+    nonisolated static func isSingleActionQuestion(
+        _ question: SessionInterventionQuestion
+    ) -> Bool {
+        question.options.count == 1
+            && !question.allowsMultiple
+            && !question.allowsOther
+    }
+
     nonisolated static func nextQuestionIDToReveal(
         after questionID: String,
         in questions: [SessionInterventionQuestion],
@@ -193,7 +201,7 @@ struct SessionQuestionForm: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
             ScrollViewReader { scrollProxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     questionsContent(scrollProxy: scrollProxy)
@@ -209,16 +217,7 @@ struct SessionQuestionForm: View {
             .clipped()
 
             HStack(spacing: 8) {
-                if let submitLabel {
-                    Button {
-                        submitCurrentAnswers()
-                    }
-                    label: {
-                        Text(appLocalized: submitLabel)
-                    }
-                    .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.9), foreground: .black))
-                    .disabled(!canSubmit || !isEditable)
-                }
+                Spacer(minLength: 0)
 
                 if let secondaryActionTitle, let onSecondaryAction {
                     Button {
@@ -229,7 +228,23 @@ struct SessionQuestionForm: View {
                     }
                     .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.1)))
                 }
+
+                if let submitLabel, !usesSingleActionButton {
+                    Button {
+                        submitCurrentAnswers()
+                    }
+                    label: {
+                        Text(appLocalized: submitLabel)
+                    }
+                    .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.9), foreground: .black))
+                    .disabled(!canSubmit || !isEditable)
+                }
             }
+            .padding(.top, 12)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
+            .layoutPriority(2)
+            .zIndex(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: notifyInteractionState)
@@ -310,7 +325,21 @@ struct SessionQuestionForm: View {
         _ question: SessionInterventionQuestion,
         scrollProxy: ScrollViewProxy
     ) -> some View {
-        if !question.options.isEmpty {
+        if Self.isSingleActionQuestion(question), let option = question.options.first {
+            Button {
+                submitSingleAction(option.title, for: question)
+            } label: {
+                Text(option.title)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(
+                SessionQuestionButtonStyle(
+                    background: Color.white.opacity(0.9),
+                    foreground: .black
+                )
+            )
+            .disabled(!isEditable)
+        } else if !question.options.isEmpty {
             let reservesDetailSpace = question.options.contains { optionDetail(for: $0) != nil }
             LazyVGrid(columns: Self.optionColumns(for: question), spacing: 8) {
                 ForEach(Array(question.options.enumerated()), id: \.element.id) { optionIndex, option in
@@ -381,6 +410,16 @@ struct SessionQuestionForm: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(!isEditable)
+                    .highPriorityGesture(
+                        TapGesture(count: 2)
+                            .onEnded {
+                                submitOptionOnDoubleClick(
+                                    option.title,
+                                    for: question,
+                                    using: scrollProxy
+                                )
+                            }
+                    )
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -470,6 +509,11 @@ struct SessionQuestionForm: View {
         !displayQuestions.contains { finalAnswers(for: $0).isEmpty }
     }
 
+    private var usesSingleActionButton: Bool {
+        displayQuestions.count == 1
+            && displayQuestions.first.map(Self.isSingleActionQuestion) == true
+    }
+
     private var protectsDraftInteraction: Bool {
         Self.protectsDraftInteraction(
             questions: displayQuestions,
@@ -503,6 +547,54 @@ struct SessionQuestionForm: View {
 
         answers[question.id] = [title]
         otherAnswers[question.id] = nil
+    }
+
+    private func submitOptionOnDoubleClick(
+        _ title: String,
+        for question: SessionInterventionQuestion,
+        using scrollProxy: ScrollViewProxy
+    ) {
+        guard isEditable else { return }
+
+        // A double-click is an affirmative selection, not two toggle operations.
+        // This keeps multi-select answers selected before attempting submission.
+        var updatedAnswers = answers
+        var updatedOtherAnswers = otherAnswers
+        if question.allowsMultiple {
+            var current = updatedAnswers[question.id, default: []]
+            if !current.contains(title) {
+                current.append(title)
+            }
+            updatedAnswers[question.id] = current
+        } else {
+            updatedAnswers[question.id] = [title]
+            updatedOtherAnswers[question.id] = nil
+        }
+        answers = updatedAnswers
+        otherAnswers = updatedOtherAnswers
+
+        let hasAllAnswers = !displayQuestions.contains { currentQuestion in
+            Self.finalAnswers(
+                for: currentQuestion,
+                answers: updatedAnswers,
+                otherAnswers: updatedOtherAnswers
+            ).isEmpty
+        }
+        if hasAllAnswers {
+            let payload = displayQuestions.reduce(into: [String: [String]]()) {
+                partial, currentQuestion in
+                partial[currentQuestion.id] = Self.finalAnswers(
+                    for: currentQuestion,
+                    answers: updatedAnswers,
+                    otherAnswers: updatedOtherAnswers
+                )
+            }
+            onDraftCleared()
+            onInteractionStateChanged(false)
+            onSubmit(payload)
+        } else {
+            revealNextQuestion(after: question, using: scrollProxy)
+        }
     }
 
     private func setCustomAnswer(_ value: String, for question: SessionInterventionQuestion) {
@@ -556,6 +648,16 @@ struct SessionQuestionForm: View {
         onDraftCleared()
         onInteractionStateChanged(false)
         onSubmit(submissionPayload())
+    }
+
+    private func submitSingleAction(
+        _ title: String,
+        for question: SessionInterventionQuestion
+    ) {
+        guard isEditable else { return }
+        onDraftCleared()
+        onInteractionStateChanged(false)
+        onSubmit([question.id: [title]])
     }
 
     private func notifyInteractionState() {

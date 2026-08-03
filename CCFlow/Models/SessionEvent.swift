@@ -343,6 +343,10 @@ extension HookEvent {
             return .compacting
         }
 
+        if event == "UserPromptSubmit" {
+            return .processing
+        }
+
         if isAnsweredAskUserQuestionEvent {
             return .processing
         }

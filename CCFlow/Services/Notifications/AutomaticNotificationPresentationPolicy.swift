@@ -7,13 +7,19 @@ enum AutomaticNotificationPresentationDecision: Equatable {
     case discard
 }
 
+enum AutomaticNotificationPriority: Equatable {
+    case standard
+    case manualAttention
+}
+
 enum AutomaticNotificationPresentationPolicy {
     static func resolve(
         mode: NotificationPresentationMode,
         smartSuppressionTriggered: Bool,
         isPanelOpen: Bool,
         isFullscreenSuppressed: Bool,
-        isReminderMuted: Bool
+        isReminderMuted: Bool,
+        priority: AutomaticNotificationPriority = .standard
     ) -> AutomaticNotificationPresentationDecision {
         if isReminderMuted {
             return .discard
@@ -24,7 +30,9 @@ enum AutomaticNotificationPresentationPolicy {
         if mode == .quiet {
             return isPanelOpen ? .defer : .broadcast
         }
-        if !isPanelOpen && smartSuppressionTriggered {
+        if priority == .standard,
+           !isPanelOpen,
+           smartSuppressionTriggered {
             return .broadcast
         }
         return .expand

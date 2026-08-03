@@ -3,7 +3,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-enum CompletionQuickReplyDeliveryRoute: Equatable {
+enum FollowUpMessageDeliveryRoute: Equatable {
     case direct
     case focusPasteAndSubmit
 
@@ -12,12 +12,12 @@ enum CompletionQuickReplyDeliveryRoute: Equatable {
     }
 }
 
-enum QuickReplyDeliveryResult: Equatable {
+enum FollowUpMessageDeliveryResult: Equatable {
     case sentDirectly
     case sentViaTerminal
 }
 
-enum QuickReplyDeliveryError: LocalizedError {
+enum FollowUpMessageDeliveryError: LocalizedError {
     case accessibilityPermissionRequired
     case exactTerminalNotFound
     case keyboardEventUnavailable
@@ -35,14 +35,17 @@ enum QuickReplyDeliveryError: LocalizedError {
 }
 
 extension SessionMonitor {
-    /// Delivers a configured quick reply all the way to the target session.
+    /// Delivers a follow-up answer all the way to the target session.
     /// tmux sessions use the direct CLI route; other supported terminals are
     /// selected exactly before paste + Return is synthesized.
-    func deliverQuickReply(_ text: String, to session: SessionState) async throws -> QuickReplyDeliveryResult {
+    func deliverFollowUpMessage(
+        _ text: String,
+        to session: SessionState
+    ) async throws -> FollowUpMessageDeliveryResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return .sentDirectly }
 
-        if CompletionQuickReplyDeliveryRoute.resolve(for: session) == .direct {
+        if FollowUpMessageDeliveryRoute.resolve(for: session) == .direct {
             try await sendSessionMessage(sessionId: session.sessionId, text: trimmed)
             return .sentDirectly
         }
@@ -51,22 +54,22 @@ extension SessionMonitor {
         NSPasteboard.general.setString(trimmed, forType: .string)
 
         guard AXIsProcessTrusted() else {
-            throw QuickReplyDeliveryError.accessibilityPermissionRequired
+            throw FollowUpMessageDeliveryError.accessibilityPermissionRequired
         }
         guard await SessionLauncher.shared.focusForTextInput(session) else {
-            throw QuickReplyDeliveryError.exactTerminalNotFound
+            throw FollowUpMessageDeliveryError.exactTerminalNotFound
         }
 
         // Let the terminal finish changing its selected tab and key window
         // before posting input events.
         try? await Task.sleep(nanoseconds: 180_000_000)
-        guard Self.pasteAndSubmitQuickReply() else {
-            throw QuickReplyDeliveryError.keyboardEventUnavailable
+        guard Self.pasteAndSubmitFollowUpMessage() else {
+            throw FollowUpMessageDeliveryError.keyboardEventUnavailable
         }
         return .sentViaTerminal
     }
 
-    private static func pasteAndSubmitQuickReply() -> Bool {
+    private static func pasteAndSubmitFollowUpMessage() -> Bool {
         guard let source = CGEventSource(stateID: .hidSystemState),
               let pasteDown = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: true),
               let pasteUp = CGEvent(keyboardEventSource: source, virtualKey: 9, keyDown: false),
