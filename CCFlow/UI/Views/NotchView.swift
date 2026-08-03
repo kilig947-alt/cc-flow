@@ -2068,7 +2068,7 @@ struct NotchView: View {
             deduplicationKey: "auto_approve:\(session.stableId):\(toolName)",
             side: .session,
             target: .session(stableID: session.stableId),
-            iconName: "checkmark.shield.fill",
+            iconName: "checkmark.circle.fill",
             summary: summary
         ))
     }
