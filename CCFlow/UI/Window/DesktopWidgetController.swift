@@ -247,20 +247,21 @@ private struct DesktopWidgetRootView: View {
 
     @ObservedObject private var featureStore = LeftFeatureStore.shared
     @State private var webReloadGeneration: UInt64 = 0
+    @State private var isBorderless = true
+    @State private var isPointerInside = false
 
     private var feature: LeftFeature? {
         featureStore.features.first(where: { $0.id == featureID })
     }
 
+    private var showsWindowChrome: Bool {
+        !isBorderless || isPointerInside
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
+        Group {
             if let feature {
-                header(feature)
-                DesktopWidgetFeatureContent(
-                    feature: feature,
-                    reloadGeneration: webReloadGeneration
-                )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                featureLayout(feature)
             } else {
                 Text("功能已不可用")
                     .foregroundStyle(.secondary)
@@ -271,16 +272,53 @@ private struct DesktopWidgetRootView: View {
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(
+                    Color.white.opacity(isBorderless ? 0 : 0.12),
+                    lineWidth: 1
+                )
         )
         .overlay {
             DesktopWidgetResizeOverlay(
+                showsIndicators: showsWindowChrome,
                 onResizeBegan: onResizeBegan,
                 onResize: onResize,
                 onResizeEnded: onResizeEnded
             )
         }
-        .padding(1)
+        .padding(isBorderless ? 0 : 1)
+        .onHover { isInside in
+            withAnimation(.easeOut(duration: 0.16)) {
+                isPointerInside = isInside
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func featureLayout(_ feature: LeftFeature) -> some View {
+        if isBorderless {
+            ZStack(alignment: .top) {
+                featureContent(feature)
+                if showsWindowChrome {
+                    header(feature)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .zIndex(1)
+                }
+            }
+        } else {
+            VStack(spacing: 0) {
+                header(feature)
+                featureContent(feature)
+            }
+        }
+    }
+
+    private func featureContent(_ feature: LeftFeature) -> some View {
+        DesktopWidgetFeatureContent(
+            feature: feature,
+            reloadGeneration: webReloadGeneration,
+            isBorderless: isBorderless
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func header(_ feature: LeftFeature) -> some View {
@@ -297,9 +335,18 @@ private struct DesktopWidgetRootView: View {
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)
             Spacer()
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.white.opacity(0.35))
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isBorderless.toggle()
+                }
+            } label: {
+                Image(systemName: isBorderless ? "rectangle.inset.filled" : "rectangle")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+            }
+            .buttonStyle(.plain)
+            .help(isBorderless ? "固定显示窗口边框" : "切换为无边框模式")
             if feature.kind.supportsDesktopWidgetReload {
                 Button {
                     reload(feature)
@@ -323,7 +370,7 @@ private struct DesktopWidgetRootView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(Color.white.opacity(0.045))
+        .background(isBorderless ? Color.black.opacity(0.72) : Color.white.opacity(0.045))
     }
 
     private func reload(_ feature: LeftFeature) {
@@ -335,13 +382,14 @@ private struct DesktopWidgetRootView: View {
 private struct DesktopWidgetFeatureContent: View {
     let feature: LeftFeature
     let reloadGeneration: UInt64
+    let isBorderless: Bool
 
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
 
     var body: some View {
         if feature.kind.supportsDesktopWidgetReload {
             content
-                .padding(6)
+                .padding(isBorderless ? 0 : 6)
         } else {
             GeometryReader { proxy in
                 ScrollView(.vertical) {
@@ -397,7 +445,12 @@ private struct DesktopWidgetFeatureContent: View {
             loadsMineradioBridge: feature.loadsMineradioBridge,
             entryReloadGeneration: reloadGeneration
         )
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: isBorderless ? 18 : 12,
+                style: .continuous
+            )
+        )
     }
 
     private func unavailable(_ text: String) -> some View {
@@ -418,6 +471,7 @@ extension LeftFeatureKind {
 }
 
 private struct DesktopWidgetResizeOverlay: View {
+    let showsIndicators: Bool
     let onResizeBegan: () -> Void
     let onResize: (DesktopWidgetResizeEdge, CGSize) -> Void
     let onResizeEnded: () -> Void
@@ -447,9 +501,9 @@ private struct DesktopWidgetResizeOverlay: View {
                     .position(x: cornerSize / 2, y: cornerSize / 2)
                 cornerHandle(.topRight)
                     .position(x: width - cornerSize / 2, y: cornerSize / 2)
-                cornerHandle(.bottomLeft, showsIndicator: true)
+                cornerHandle(.bottomLeft, showsIndicator: showsIndicators)
                     .position(x: cornerSize / 2, y: height - cornerSize / 2)
-                cornerHandle(.bottomRight, showsIndicator: true)
+                cornerHandle(.bottomRight, showsIndicator: showsIndicators)
                     .position(x: width - cornerSize / 2, y: height - cornerSize / 2)
             }
         }
