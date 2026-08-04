@@ -71,10 +71,11 @@ final class DesktopWidgetController: NSObject, NSWindowDelegate {
     }
 
     func remove(featureID: String) {
-        guard let panel = windows.removeValue(forKey: featureID) else { return }
-        panel.delegate = nil
-        panel.orderOut(nil)
-        panel.close()
+        if let panel = windows.removeValue(forKey: featureID) {
+            panel.delegate = nil
+            panel.orderOut(nil)
+            panel.close()
+        }
         CustomAreaWebViewCache.shared.evict(for: .desktopWidget(featureID: featureID))
         persist()
     }
@@ -251,7 +252,7 @@ private struct DesktopWidgetRootView: View {
     @State private var isPointerInside = false
 
     private var feature: LeftFeature? {
-        featureStore.features.first(where: { $0.id == featureID })
+        featureStore.features.first(where: { $0.id == featureID && $0.isEnabled })
     }
 
     private var showsWindowChrome: Bool {

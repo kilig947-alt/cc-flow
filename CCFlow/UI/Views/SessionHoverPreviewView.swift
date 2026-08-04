@@ -628,26 +628,42 @@ private struct HoverQuestionInterventionCard: View {
                             sessionId: session.sessionId,
                             interventionId: intervention.id
                         )
-                    }
+                    },
+                    secondaryActionTitle: AppLocalization.string("Return to Session"),
+                    secondaryActionSystemImage: "arrow.turn.up.left",
+                    onSecondaryAction: returnToSession
                 )
             } else {
                 EmptyView()
             }
 
-            returnToSessionButton
+            if !showsInlineReturnAction {
+                returnToSessionButton
+            }
         }
         .padding(.top, 12)
         .padding(.bottom, intervention.metadata["responseMode"] == "external_only" ? 12 : 18)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var showsInlineReturnAction: Bool {
+        !suppressControls
+            && !intervention.awaitsExternalContinuation
+            && intervention.metadata["responseMode"] != "external_only"
+            && intervention.supportsInlineResponse
+    }
+
+    private func returnToSession() {
+        Task {
+            if await SessionLauncher.shared.returnToSession(session) {
+                onActionCompleted()
+            }
+        }
+    }
+
     private var returnToSessionButton: some View {
         Button {
-            Task {
-                if await SessionLauncher.shared.returnToSession(session) {
-                    onActionCompleted()
-                }
-            }
+            returnToSession()
         } label: {
             Label(AppLocalization.string("Return to Session"), systemImage: "arrow.turn.up.left")
         }

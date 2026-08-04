@@ -3,6 +3,7 @@ import Foundation
 enum SessionProvider: String, Codable, Equatable, Sendable {
     case claude
     case codex
+    case opencode
     case trae
     case antigravity
 
@@ -10,6 +11,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
         switch self {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
+        case .opencode: return "OpenCode"
         case .trae: return "TRAE"
         case .antigravity: return "Antigravity"
         }
@@ -26,6 +28,7 @@ enum SessionIngress: String, Equatable, Sendable {
 enum SessionClientKind: String, Codable, Equatable, Sendable {
     case claudeCode
     case codex
+    case opencode
     case trae
     case antigravity
     case custom
@@ -105,6 +108,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         switch provider {
         case .claude: return SessionClientInfo(kind: .claudeCode, name: "Claude Code")
         case .codex: return SessionClientInfo(kind: .codex, name: "Codex")
+        case .opencode: return SessionClientInfo(kind: .opencode, name: "OpenCode")
         case .trae: return SessionClientInfo(kind: .trae, name: "TRAE")
         case .antigravity: return SessionClientInfo(kind: .antigravity, name: "Antigravity")
         }
@@ -132,6 +136,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         switch kind {
         case .claudeCode: return .claude
         case .codex: return .codex
+        case .opencode: return .opencode
         case .trae: return .trae
         case .antigravity: return .antigravity
         case .custom, .unknown: return .neutral
@@ -228,6 +233,7 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         switch kind {
         case .claudeCode: return "claude"
         case .codex: return "codex"
+        case .opencode: return "opencode"
         case .trae: return "trae"
         case .antigravity: return "antigravity"
         case .custom, .unknown: return nil

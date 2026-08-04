@@ -22,6 +22,16 @@ final class SessionResumeCommandTests: XCTestCase {
         )
     }
 
+    func testOpenCodeCopiesSessionCommand() {
+        XCTAssertEqual(
+            SessionResumeCommand.clipboardText(
+                provider: .opencode,
+                sessionId: "opencode:ses_123"
+            ),
+            "opencode --session ses_123"
+        )
+    }
+
     func testClientsWithoutPublicResumeCommandCopySessionId() {
         XCTAssertEqual(
             SessionResumeCommand.clipboardText(

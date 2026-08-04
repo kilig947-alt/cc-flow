@@ -38,4 +38,17 @@ final class LeftFeaturePageStateCacheTests: XCTestCase {
         XCTAssertFalse(cache.consumeEntryReload(for: key, generation: 1))
         XCTAssertTrue(cache.consumeEntryReload(for: key, generation: 2))
     }
+
+    func testEvictionClearsAppliedReentryGeneration() {
+        let cache = CustomAreaWebViewCache.shared
+        let key = CustomAreaWebViewCache.Key.desktopWidget(featureID: "mineradio")
+        cache.clearAll()
+
+        XCTAssertTrue(cache.consumeEntryReload(for: key, generation: 7))
+        XCTAssertFalse(cache.consumeEntryReload(for: key, generation: 7))
+
+        cache.evict(for: key)
+
+        XCTAssertTrue(cache.consumeEntryReload(for: key, generation: 7))
+    }
 }

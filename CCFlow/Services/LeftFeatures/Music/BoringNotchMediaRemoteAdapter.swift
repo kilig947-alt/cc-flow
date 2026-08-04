@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 
 /// 直接复用 boring.notch 的 mediaremote-adapter.pl + MediaRemoteAdapter.framework
@@ -48,6 +49,15 @@ final class BoringNotchMediaRemoteAdapter: PlayerSource {
 
     deinit {
         stopStream()
+    }
+
+    /// 显式停止流式适配器。App 退出或音乐能力被关闭时必须调用，不能依赖 deinit：
+    /// `Process` 子进程不会随父进程自动结束，遗漏清理会留下 PPID=1 的孤儿进程。
+    func stop() {
+        onNowPlayingUpdate = nil
+        stopStream()
+        lastInfo = nil
+        isRunning = false
     }
 
     // MARK: - Resource Extraction
@@ -190,59 +200,48 @@ final class BoringNotchMediaRemoteAdapter: PlayerSource {
     }
 
     nonisolated private func stopStream() {
-        readTask?.cancel()
-        process?.terminate()
+        let activeReadTask = readTask
+        readTask = nil
+        activeReadTask?.cancel()
+
+        let activePipe = pipe
+        pipe = nil
+
+        guard let activeProcess = process else {
+            try? activePipe?.fileHandleForReading.close()
+            try? activePipe?.fileHandleForWriting.close()
+            return
+        }
+        process = nil
+        if activeProcess.isRunning {
+            activeProcess.terminate()
+            let deadline = Date().addingTimeInterval(0.25)
+            while activeProcess.isRunning && Date() < deadline {
+                usleep(10_000)
+            }
+            if activeProcess.isRunning {
+                Darwin.kill(activeProcess.processIdentifier, SIGKILL)
+            }
+        }
+
+        try? activePipe?.fileHandleForReading.close()
+        try? activePipe?.fileHandleForWriting.close()
     }
 
     private func readJSONLines(from pipe: Pipe) async {
         let handle = pipe.fileHandleForReading
-        // 行缓冲：一次 read 可能跨多行 / 截断半行，累积后按换行符切分完整行
-        var buffer = ""
-
-        // 循环读取直到任务被取消或 EOF
-        while !Task.isCancelled {
-            do {
-                let data = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
-                    handle.readabilityHandler = { h in
-                        let available = h.availableData
-                        h.readabilityHandler = nil
-                        continuation.resume(returning: available)
-                    }
+        do {
+            for try await line in handle.bytes.lines {
+                guard !Task.isCancelled else { break }
+                if !line.isEmpty {
+                    await handleJSONLine(line)
                 }
-
-                guard !data.isEmpty else {
-                    // EOF
-                    break
-                }
-
-                if let text = String(data: data, encoding: .utf8) {
-                    buffer.append(text)
-                    // 按换行符切分；最后一个片段可能不完整，保留到下次
-                    let lines = buffer.components(separatedBy: .newlines)
-                    if lines.count > 1 {
-                        // lines.last 是未结尾片段（可能为空字符串），保留到下次拼接
-                        buffer = lines.last ?? ""
-                        for line in lines.dropLast() where !line.isEmpty {
-                            await handleJSONLine(line)
-                        }
-                    }
-                    // lines.count == 1 表示本次 read 没有完整行，继续累积
-                }
-            } catch {
-                if !Task.isCancelled {
-                    NSLog("[BoringNotchMediaRemoteAdapter] 读取流失败: \(error)")
-                }
-                break
+            }
+        } catch {
+            if !Task.isCancelled {
+                NSLog("[BoringNotchMediaRemoteAdapter] 读取流失败: \(error)")
             }
         }
-
-        // EOF 后处理 buffer 中残留的最后一行
-        let trailing = buffer.trimmingCharacters(in: .newlines)
-        if !trailing.isEmpty {
-            await handleJSONLine(trailing)
-        }
-
-        handle.readabilityHandler = nil
         isRunning = false
     }
 

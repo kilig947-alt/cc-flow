@@ -9,6 +9,31 @@ import Foundation
 
 struct MCPToolFormatter {
 
+    /// Compact one-line description used after an automatic approval.
+    /// Command-style tools show the complete command (including its arguments);
+    /// other tools fall back to their most useful input fields.
+    static func formatAutoApprovalSummary(
+        toolName: String,
+        toolInput: [String: AnyCodable]?
+    ) -> String {
+        let displayName = formatToolName(toolName)
+        guard let toolInput, !toolInput.isEmpty else { return displayName }
+
+        if let rawCommand = (toolInput["command"]?.value as? String)
+            ?? (toolInput["cmd"]?.value as? String) {
+            let command = rawCommand
+                .components(separatedBy: .whitespacesAndNewlines)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            if !command.isEmpty {
+                return "\(displayName) · \(command)"
+            }
+        }
+
+        let arguments = formatArgs(toolInput.mapValues(\.value))
+        return arguments.isEmpty ? displayName : "\(displayName) · \(arguments)"
+    }
+
     /// Tool aliases for friendlier display names
     private static let toolAliases: [String: String] = [
         "AgentOutputTool": "Await Agent",

@@ -163,6 +163,6 @@ func sessionStoreKeepsSameRawSessionIDSeparateAcrossProviders() async throws {
     }
 
     let sessions = await MainActor.run { recorder.sessions }
-    #expect(sessions.count == 4)
-    #expect(Set(sessions.map(\.id)) == ["claude:same", "codex:same", "trae:same", "antigravity:same"])
+    #expect(sessions.count == AgentProvider.allCases.count)
+    #expect(Set(sessions.map(\.id)) == ["claude:same", "codex:same", "opencode:same", "trae:same", "antigravity:same"])
 }

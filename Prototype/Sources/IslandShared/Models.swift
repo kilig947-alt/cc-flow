@@ -3,6 +3,7 @@ import Foundation
 public enum AgentProvider: String, Codable, CaseIterable, Sendable {
     case claude
     case codex
+    case opencode
     case trae
     case antigravity
 }

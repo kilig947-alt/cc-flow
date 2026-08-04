@@ -43,4 +43,37 @@ final class HookEventResponseRoutingTests: XCTestCase {
 
         XCTAssertFalse(event.expectsResponse)
     }
+
+    func testAutoApprovingPermissionDoesNotExposeIslandIntervention() {
+        let approval = SessionIntervention(
+            id: "tool-1",
+            kind: .approval,
+            title: "Approval Needed",
+            message: "Run Bash?",
+            options: [],
+            questions: [],
+            supportsSessionScope: true,
+            metadata: [:]
+        )
+        let event = HookEvent(
+            sessionId: "auto-approved-session",
+            cwd: "/tmp/project",
+            event: "PermissionRequest",
+            status: "waiting_for_approval",
+            provider: .codex,
+            clientInfo: SessionClientInfo(kind: .codex, name: "Codex"),
+            pid: nil,
+            tty: nil,
+            tool: "Bash",
+            toolInput: nil,
+            toolUseId: "tool-1",
+            notificationType: nil,
+            message: nil,
+            bridgeIntervention: approval,
+            isAutoApproving: true
+        )
+
+        XCTAssertNil(event.intervention)
+        XCTAssertEqual(event.sessionPhase.isWaitingForApproval, true)
+    }
 }

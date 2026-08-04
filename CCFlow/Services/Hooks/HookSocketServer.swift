@@ -219,6 +219,7 @@ private extension SessionIntervention {
 private enum BridgeProvider: String, Codable, Sendable {
     case claude
     case codex
+    case opencode
     case trae
     case antigravity
 }
@@ -956,6 +957,7 @@ private extension BridgeProvider {
         switch self {
         case .claude: return .claude
         case .codex: return .codex
+        case .opencode: return .opencode
         case .trae: return .trae
         case .antigravity: return .antigravity
         }
@@ -967,6 +969,7 @@ private extension SessionProvider {
         switch self {
         case .claude: return .claudeCode
         case .codex: return .codex
+        case .opencode: return .opencode
         case .trae: return .trae
         case .antigravity: return .antigravity
         }

@@ -31,6 +31,21 @@ final class ManagedHookProfileTests: XCTestCase {
         }
     }
 
+    func testOpenCodeUsesManagedPluginAndIsOptIn() throws {
+        let profile = try XCTUnwrap(ClientProfileRegistry.managedHookProfile(id: "opencode-plugin"))
+
+        XCTAssertEqual(profile.installationKind, .pluginFile)
+        XCTAssertTrue(profile.primaryConfigurationURL.path.hasSuffix("/.config/opencode/plugins/cc-flow.ts"))
+        XCTAssertFalse(profile.defaultEnabled)
+        XCTAssertTrue(profile.alwaysVisibleInSettings)
+
+        let source = HookInstaller.managedPluginSource(for: profile)
+        XCTAssertTrue(source.contains("CC FLOW managed integration: opencode-plugin"))
+        XCTAssertTrue(source.contains(#"event.type === "permission.asked""#))
+        XCTAssertTrue(source.contains(#"event.type === "question.asked""#))
+        XCTAssertTrue(source.contains(#""--source", "opencode""#))
+    }
+
     func testPersistedEmptyHookSelectionDoesNotRestoreDefaults() {
         XCTAssertTrue(HookInstaller.resolvedPreferredTargets(persistedValues: []).isEmpty)
         XCTAssertEqual(

@@ -5,7 +5,7 @@
   <a href="README.md">简体中文</a> · <b>English</b>
 </p>
 <p align="center">
-  <b>A macOS menu bar hub for Claude Code, Codex, and TRAE sessions</b><br>
+  <b>A macOS menu bar hub for Claude Code, Codex, OpenCode, and TRAE sessions</b><br>
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#productivity-features">Productivity</a> •
@@ -16,7 +16,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Swift-6.1-FA7343?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.1">
-  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20TRAE-111827?style=flat-square" alt="Claude Code, Codex, and TRAE support">
+  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20OpenCode%20%7C%20TRAE-111827?style=flat-square" alt="Claude Code, Codex, OpenCode, and TRAE support">
   <img src="https://img.shields.io/badge/License-Apache%202.0-4F46E5?style=flat-square" alt="Apache 2.0 license">
 </p>
 
@@ -30,15 +30,15 @@
 
 ## What is CC FLOW?
 
-CC FLOW is a native macOS menu bar app. When a Claude Code, Codex, or TRAE session needs attention, it expands into a compact Dynamic Island-style panel. It receives approval, question, tool, compaction, subagent, and lifecycle events through each client's supported hook interface.
+CC FLOW is a native macOS menu bar app. When a Claude Code, Codex, OpenCode, or TRAE session needs attention, it expands into a compact Dynamic Island-style panel. It receives approval, question, tool, compaction, subagent, and lifecycle events through each client's supported hook or plugin interface.
 
 Beyond session monitoring, CC FLOW provides independently enabled and ordered productivity features, media controls, a temporary file shelf, local HTML panels, and remote web panels.
 
-Claude Code and Codex are enabled by default. TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN appear when the corresponding app or an existing hook profile is detected. CC FLOW uses its own app identity and runtime directories and does not import legacy TRAE FLOW settings or assets.
+Claude Code and Codex are enabled by default. OpenCode is opt-in from Hook settings. TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN appear when the corresponding app or an existing hook profile is detected. CC FLOW uses its own app identity and runtime directories and does not import legacy TRAE FLOW settings or assets.
 
 ## Features
 
-- **Claude Code, Codex, and TRAE support** — Claude Code and Codex are first-class defaults, with compatibility for four TRAE variants.
+- **Multi-client sessions** — Claude Code and Codex are first-class defaults, OpenCode is optional, and four TRAE variants are supported.
 - **Split Flow Island layout** — the left side displays a feature or session detail; the right side aggregates attention counts and jump-back actions.
 - **Independent left features** — enable, disable, select, and reorder built-in or custom features, with per-feature expanded sizes.
 - **Productivity workspace** — File Watch, Download Monitor, Browser Resources, Mail Assistant, Calendar, GitHub, and AI HOT.
@@ -46,7 +46,7 @@ Claude Code and Codex are enabled by default. TRAE, TRAE CN, TRAE WORK, and TRAE
 - **Music controls** — artwork, metadata, progress, and playback controls for system media players.
 - **File shelf** — temporarily hold files and share them through AirDrop.
 - **Custom HTML and websites** — embed local panels or remote pages with configurable icons, names, network access, and compact hints.
-- **Official hook profiles** — manage Claude Code, Codex, and detected TRAE hook configuration without deleting user-owned hooks.
+- **Hook profiles** — manage Claude Code, Codex, the OpenCode plugin, and detected TRAE hook configuration without deleting user-owned settings.
 - **Jump back to context** — return to the captured terminal, tmux pane, IDE, or client deep link.
 - **In-island actions** — approve tools, reject requests, and answer supported questions without hunting for the original window.
 - **Animated pets** — spritesheet themes, desktop detachment, scroll-to-resize, and Codex pet compatibility.
@@ -57,6 +57,7 @@ Claude Code and Codex are enabled by default. TRAE, TRAE CN, TRAE WORK, and TRAE
 | --- | --- | --- | --- |
 | Claude Code | Yes | `~/.claude/settings.json` | Approvals and AskUserQuestion |
 | Codex | Yes | `~/.codex/hooks.json` | PermissionRequest approval; general questions jump back to the terminal |
+| OpenCode | No (opt-in) | `~/.config/opencode/plugins/cc-flow.ts` | Permission approvals and Question answers |
 | TRAE family | When detected | See below | Approvals and questions supported by official hooks |
 
 TRAE compatibility variants:
@@ -247,9 +248,9 @@ Create a local unsigned test package with:
 ## How it works
 
 ```text
-Claude Code / Codex / TRAE variants
-  -> Official hook profiles
-    -> CCFlowBridge (--source <claude|codex|trae>)
+Claude Code / Codex / OpenCode / TRAE variants
+  -> Hook profiles / OpenCode plugin
+    -> CCFlowBridge (--source <claude|codex|opencode|trae>)
       -> Unix socket (/tmp/cc-flow.sock)
         -> HookSocketServer (provider + client routing)
           -> SessionStore
@@ -267,7 +268,7 @@ Claude Code / Codex / TRAE variants
 
 - macOS 14.0 or later
 - A MacBook with a notch provides the most natural layout, but external displays are supported
-- Claude Code, Codex, or one of the supported TRAE variants
+- Claude Code, Codex, OpenCode, or one of the supported TRAE variants
 
 ## Testing
 

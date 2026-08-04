@@ -207,6 +207,8 @@ final class AppSettingsPersistenceTests: XCTestCase {
 
         XCTAssertEqual(store.completionPromptRegexRules, CompletionPromptRegexRule.defaultTemplates)
         XCTAssertEqual(store.completionPromptRegexRules.map(\.id), [
+            "builtin-question-followed-by-recommendation",
+            "builtin-final-line-explicit-confirmation",
             "builtin-review-confirmation",
             "builtin-listed-options",
             "builtin-inline-or-options",
@@ -228,8 +230,10 @@ final class AppSettingsPersistenceTests: XCTestCase {
 
         let reloadedStore = makeStore(defaults: defaults)
         XCTAssertEqual(reloadedStore.completionPromptRegexRules.map(\.id), [
-            "builtin-listed-options",
+            "builtin-final-line-explicit-confirmation",
+            "builtin-question-followed-by-recommendation",
             "builtin-review-confirmation",
+            "builtin-listed-options",
             "builtin-inline-or-options",
             "builtin-freeform-input",
             "builtin-trailing-question-confirmation"
@@ -340,6 +344,49 @@ final class AppSettingsPersistenceTests: XCTestCase {
         let reloadedStore = makeStore(defaults: defaults)
         XCTAssertFalse(reloadedStore.completionPromptRegexRules.contains {
             $0.id == "builtin-trailing-question-confirmation"
+        })
+    }
+
+    func testV3RepairAddsNewConfirmationRulesAndReviewWordingOnce() throws {
+        let defaults = makeDefaults()
+        let legacyReviewPattern = #"(?is)(?:请|请先|请你).{0,32}(?:审阅|审核)|(?:你|请).{0,12}确认后|确认后.{0,24}(?:继续|进入|开始)"#
+        var legacyRules = CompletionPromptRegexRule.defaultTemplates.filter {
+            $0.id != "builtin-question-followed-by-recommendation"
+                && $0.id != "builtin-final-line-explicit-confirmation"
+        }
+        let reviewIndex = try XCTUnwrap(legacyRules.firstIndex {
+            $0.id == "builtin-review-confirmation"
+        })
+        legacyRules[reviewIndex].triggerPattern = legacyReviewPattern
+        let legacyListedOptionsPattern = #"(?is)(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m)^\s*(?:A|1)[.．、)]\s+\S+"#
+        let listedOptionsIndex = try XCTUnwrap(legacyRules.firstIndex {
+            $0.id == "builtin-listed-options"
+        })
+        legacyRules[listedOptionsIndex].triggerPattern = legacyListedOptionsPattern
+        defaults.set(
+            try JSONEncoder().encode(legacyRules),
+            forKey: "completionPromptRegexRules"
+        )
+        defaults.set(true, forKey: "completionPromptDefaultTemplatesRepairMigrationV2Completed")
+
+        let repairedStore = makeStore(defaults: defaults)
+        XCTAssertEqual(
+            repairedStore.completionPromptRegexRules.map(\.id),
+            CompletionPromptRegexRule.defaultTemplates.map(\.id)
+        )
+        XCTAssertTrue(repairedStore.completionPromptRegexRules.first {
+            $0.id == "builtin-review-confirmation"
+        }?.triggerPattern.contains("评审") == true)
+        XCTAssertTrue(repairedStore.completionPromptRegexRules.first {
+            $0.id == "builtin-listed-options"
+        }?.triggerPattern.contains("(?=.*请)") == true)
+
+        repairedStore.completionPromptRegexRules.removeAll {
+            $0.id == "builtin-final-line-explicit-confirmation"
+        }
+        let reloadedStore = makeStore(defaults: defaults)
+        XCTAssertFalse(reloadedStore.completionPromptRegexRules.contains {
+            $0.id == "builtin-final-line-explicit-confirmation"
         })
     }
 

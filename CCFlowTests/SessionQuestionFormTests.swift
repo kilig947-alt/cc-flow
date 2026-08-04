@@ -72,6 +72,24 @@ final class SessionQuestionFormTests: XCTestCase {
         XCTAssertTrue(SessionQuestionForm.isSingleActionQuestion(question))
     }
 
+    func testQuestionHeaderIsHiddenWhenItDuplicatesInterventionTitle() {
+        let question = makeQuestion(id: "choice", header: "字母或数字选项")
+
+        XCTAssertFalse(SessionQuestionForm.shouldShowQuestionHeader(
+            question,
+            interventionTitle: "字母或数字选项"
+        ))
+    }
+
+    func testQuestionHeaderRemainsVisibleWhenItAddsContext() {
+        let question = makeQuestion(id: "choice", header: "数据库模板")
+
+        XCTAssertTrue(SessionQuestionForm.shouldShowQuestionHeader(
+            question,
+            interventionTitle: "请选择配置"
+        ))
+    }
+
     func testLongOptionTitlesForceSingleColumnLayout() {
         let question = SessionInterventionQuestion(
             id: "deployment",
@@ -110,6 +128,7 @@ final class SessionQuestionFormTests: XCTestCase {
         )
 
         XCTAssertFalse(SessionQuestionForm.shouldUseSingleColumnOptions(for: question))
+        XCTAssertEqual(SessionQuestionForm.optionColumns(for: question).count, 2)
     }
 
     func testFourOptionsUseTwoColumns() {
@@ -270,11 +289,12 @@ final class SessionQuestionFormTests: XCTestCase {
 
     private func makeQuestion(
         id: String,
+        header: String? = nil,
         allowsOther: Bool = false
     ) -> SessionInterventionQuestion {
         SessionInterventionQuestion(
             id: id,
-            header: id,
+            header: header ?? id,
             prompt: id,
             detail: nil,
             options: [

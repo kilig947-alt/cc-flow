@@ -26,6 +26,7 @@ enum UserHomeDirectoryResolver {
 enum HookProtocolFamily: Sendable {
     case claudeHooks
     case codexHooks
+    case opencodePlugin
     case traeHooks
     case antigravityHooks
 
@@ -34,6 +35,7 @@ enum HookProtocolFamily: Sendable {
         switch rawValue.lowercased() {
         case "claudehooks": self = .claudeHooks
         case "codexhooks": self = .codexHooks
+        case "opencodeplugin": self = .opencodePlugin
         case "traehooks": self = .traeHooks
         case "antigravityhooks": self = .antigravityHooks
         default: return nil
@@ -44,6 +46,7 @@ enum HookProtocolFamily: Sendable {
 enum SessionClientBrand: String, Codable, Equatable, Sendable {
     case claude
     case codex
+    case opencode
     case trae
     case antigravity
     case neutral
@@ -508,6 +511,26 @@ enum ClientProfileRegistry {
             supportsHookIntegration: true
         ),
         ManagedHookClientProfile(
+            id: "opencode-plugin",
+            title: "OpenCode",
+            subtitle: "管理 ~/.config/opencode/plugins/cc-flow.ts，接收 OpenCode 会话、工具、审批与提问事件",
+            installationKind: .pluginFile,
+            alwaysVisibleInSettings: true,
+            iconSymbolName: "chevron.left.forwardslash.chevron.right",
+            configurationRelativePath: ".config/opencode/plugins/cc-flow.ts",
+            activationConfigurationRelativePath: ".config/opencode/opencode.json",
+            bridgeSource: "opencode",
+            bridgeExtraArguments: [
+                "--client-kind", "opencode",
+                "--client-name", "OpenCode",
+                "--client-originator", "OpenCode"
+            ],
+            defaultEnabled: false,
+            brand: .opencode,
+            events: [],
+            supportsHookIntegration: true
+        ),
+        ManagedHookClientProfile(
             id: "antigravity-hooks",
             title: "Antigravity",
             subtitle: "管理 ~/.gemini/config/hooks.json，接收 Antigravity 工具、调用与停止事件",
@@ -694,6 +717,21 @@ enum ClientProfileRegistry {
             bundleIdentifiers: []
         ),
         SessionClientProfile(
+            id: "opencode",
+            provider: .opencode,
+            family: .opencodePlugin,
+            kind: .opencode,
+            displayName: "OpenCode",
+            assistantLabelMode: .badgeLabel,
+            brand: .opencode,
+            defaultBundleIdentifier: nil,
+            defaultOrigin: "terminal",
+            recognizedKinds: ["opencode", "open-code"],
+            exactAliases: ["opencode", "open code", "open-code"],
+            keywordAliases: ["opencode"],
+            bundleIdentifiers: []
+        ),
+        SessionClientProfile(
             id: "antigravity",
             provider: .antigravity,
             family: .antigravityHooks,
@@ -761,6 +799,7 @@ enum ClientProfileRegistry {
         switch provider {
         case .claude: return runtimeProfile(id: "claude")
         case .codex: return runtimeProfile(id: "codex")
+        case .opencode: return runtimeProfile(id: "opencode")
         case .trae: return runtimeProfile(id: "trae")
         case .antigravity: return runtimeProfile(id: "antigravity")
         }

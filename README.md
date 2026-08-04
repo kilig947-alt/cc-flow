@@ -5,7 +5,7 @@
   <b>简体中文</b> · <a href="README.en.md">English</a>
 </p>
 <p align="center">
-  <b>macOS 菜单栏里的 Claude Code、Codex 与 TRAE 会话中枢</b><br>
+  <b>macOS 菜单栏里的 Claude Code、Codex、OpenCode 与 TRAE 会话中枢</b><br>
   <a href="#安装">安装</a> •
   <a href="#功能">功能</a> •
   <a href="#生产力功能">生产力</a> •
@@ -16,7 +16,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 或更高">
   <img src="https://img.shields.io/badge/Swift-6.1-FA7343?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.1">
-  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20TRAE-111827?style=flat-square" alt="支持 Claude Code、Codex 与 TRAE">
+  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20OpenCode%20%7C%20TRAE-111827?style=flat-square" alt="支持 Claude Code、Codex、OpenCode 与 TRAE">
   <img src="https://img.shields.io/badge/License-Apache%202.0-4F46E5?style=flat-square" alt="Apache 2.0 许可证">
 </p>
 
@@ -30,15 +30,15 @@
 
 ## 什么是 CC FLOW？
 
-CC FLOW 是一款 macOS 菜单栏应用。当 Claude Code、Codex 或 TRAE 会话需要关注时，它会展开为紧凑的灵动岛风格面板。应用通过各客户端的正式 Hook 接口接收审批、提问、工具执行、压缩、子代理和生命周期事件。
+CC FLOW 是一款 macOS 菜单栏应用。当 Claude Code、Codex、OpenCode 或 TRAE 会话需要关注时，它会展开为紧凑的灵动岛风格面板。应用通过各客户端支持的 Hook 或插件接口接收审批、提问、工具执行、压缩、子代理和生命周期事件。
 
 除了会话监控，CC FLOW 还提供可独立启用、排序和选择的生产力功能、音乐控制、文件中转站，并支持在 Flow Island 中嵌入自定义 HTML 页面或远程网页。
 
-Claude Code 与 Codex 是默认集成；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK CN 在检测到对应应用或既有 Hook 安装后展示。CC FLOW 使用全新的应用身份和运行目录，不读取旧 TRAE FLOW 设置或用户资产。
+Claude Code 与 Codex 是默认集成；OpenCode 可在 Hook 设置中按需启用；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK CN 在检测到对应应用或既有 Hook 安装后展示。CC FLOW 使用全新的应用身份和运行目录，不读取旧 TRAE FLOW 设置或用户资产。
 
 ## 功能
 
-- **三类客户端** — Claude Code、Codex 默认启用，兼容四个 TRAE 变体。
+- **多客户端会话** — Claude Code、Codex 默认启用，OpenCode 可选，并兼容四个 TRAE 变体。
 - **Flow Island 左右分区** — 左侧展示内置功能或会话内容，右侧聚合 Claude、Codex、TRAE 待处理数；TRAE 可展开到四个变体。
 - **自定义组件** — Flow Island 左侧可组合音乐、中转站、AI HOT、Mineradio、本地 HTML 和远程网页，支持排序、开关和展开尺寸记忆。
 - **生产力工作台** — File Watch、下载监控、浏览器资源、邮件助手、日历、GitHub 和 AI HOT 均可独立启用、排序与选择。
@@ -47,7 +47,7 @@ Claude Code 与 Codex 是默认集成；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK
 - **📦 中转站** — 文件暂存区，支持拖入文件暂存，展开态显示文件网格，可通过 AirDrop 一键分享全部文件。
 - **🤖 AI HOT 与 ⛏ Mineradio** — 聚合 AI 行业动态，或在岛内播放音乐并显示歌词；收起后通过离屏 WebView 保持运行。
 - **📄 自定义区域与网页嵌入** — 渲染本地 HTML 或远程网页，支持 JS Bridge 提示、自定义名称、URL 和图标。
-- **正式 Hook profiles** — 管理 `~/.claude/settings.json`、`~/.codex/hooks.json` 与检测到的 TRAE Hook 配置，同时保留用户自己的 Hook。
+- **Hook profiles** — 管理 Claude Code、Codex、OpenCode 插件与检测到的 TRAE Hook 配置，同时保留用户自己的配置。
 - **一键跳回** — Claude/Codex 优先返回捕获到的终端、tmux pane 或 IDE；Codex 有 deep link 时优先使用；TRAE 保留逐变体跳回。
 - **关注优先 UI** — 在会话需要审批、输入、审查或干预之前保持紧凑状态。
 - **从灵动岛操作** — 无需切换标签页即可审批工具、拒绝请求和回复追问。
@@ -61,6 +61,7 @@ Claude Code 与 Codex 是默认集成；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK
 | --- | --- | --- | --- |
 | Claude Code | 是 | `~/.claude/settings.json` | 审批与 AskUserQuestion |
 | Codex | 是 | `~/.codex/hooks.json`（首次安装后需在 Codex `/hooks` 中信任） | PermissionRequest 审批；通用提问跳回终端 |
+| OpenCode | 否（可选） | `~/.config/opencode/plugins/cc-flow.ts` | 权限审批与 Question 回答 |
 | TRAE 系列 | 检测后展示 | 见下表 | 官方 Hook 支持的审批与提问 |
 
 TRAE 兼容变体：
@@ -291,9 +292,9 @@ xcodebuild -project CCFlow.xcodeproj -scheme CCFlow \
 ## 工作原理
 
 ```text
-Claude Code / Codex / TRAE variants
-  -> Official Hook profiles
-    -> CCFlowBridge (--source <claude|codex|trae>)
+Claude Code / Codex / OpenCode / TRAE variants
+  -> Hook profiles / OpenCode plugin
+    -> CCFlowBridge (--source <claude|codex|opencode|trae>)
       -> Unix socket (/tmp/cc-flow.sock)
         -> HookSocketServer (provider + client profile routing)
           -> SessionStore
@@ -313,7 +314,7 @@ Claude Code / Codex / TRAE variants
 
 - macOS 14.0 或更高
 - 带刘海的 MacBook 体验最佳，但也支持外接显示器
-- 安装 Claude Code、Codex 或任一 TRAE 变体
+- 安装 Claude Code、Codex、OpenCode 或任一 TRAE 变体
 
 <br />
 

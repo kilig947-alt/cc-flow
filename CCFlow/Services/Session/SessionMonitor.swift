@@ -154,7 +154,11 @@ class SessionMonitor: ObservableObject {
                 userInfo: [
                     "sessionId": effectiveEvent.sessionId,
                     "toolName": effectiveEvent.tool ?? "unknown",
-                    "resultLabel": "自动允许"
+                    "resultLabel": "自动允许",
+                    "summary": MCPToolFormatter.formatAutoApprovalSummary(
+                        toolName: effectiveEvent.tool ?? "unknown",
+                        toolInput: effectiveEvent.toolInput
+                    )
                 ]
             )
             await TelemetryService.shared.recordAttentionResolved(
@@ -190,7 +194,11 @@ class SessionMonitor: ObservableObject {
                 userInfo: [
                     "sessionId": effectiveEvent.sessionId,
                     "toolName": effectiveEvent.tool ?? "unknown",
-                    "resultLabel": "允许相同操作 · 自动"
+                    "resultLabel": "允许相同操作 · 自动",
+                    "summary": MCPToolFormatter.formatAutoApprovalSummary(
+                        toolName: effectiveEvent.tool ?? "unknown",
+                        toolInput: effectiveEvent.toolInput
+                    )
                 ]
             )
             await TelemetryService.shared.recordAttentionResolved(

@@ -589,11 +589,11 @@ struct NotchView: View {
                 guard let userInfo = note.userInfo,
                       let sessionId = userInfo["sessionId"] as? String,
                       let toolName = userInfo["toolName"] as? String,
-                      let resultLabel = userInfo["resultLabel"] as? String else {
+                      let summary = userInfo["summary"] as? String else {
                     return
                 }
                 if let session = sessionMonitor.instances.first(where: { $0.sessionId == sessionId }) {
-                    enqueueAutoApprovalBroadcast(for: session, toolName: toolName, resultLabel: resultLabel)
+                    enqueueAutoApprovalBroadcast(for: session, toolName: toolName, summary: summary)
                 }
             }
             .onPreferenceChange(OpenedPanelContentHeightPreferenceKey.self) { height in
@@ -2060,15 +2060,14 @@ struct NotchView: View {
     private func enqueueAutoApprovalBroadcast(
         for session: SessionState,
         toolName: String,
-        resultLabel: String
+        summary: String
     ) {
-        let suffix = resultLabel == "允许相同操作 · 自动" ? " (相同操作)" : ""
-        let summary = "已自动允许：\(toolName)\(suffix)"
         compactBroadcasts.enqueue(CompactBroadcast(
             deduplicationKey: "auto_approve:\(session.stableId):\(toolName)",
             side: .session,
             target: .session(stableID: session.stableId),
             iconName: "checkmark.circle.fill",
+            iconTone: .success,
             summary: summary
         ))
     }
@@ -2576,8 +2575,17 @@ private struct CompactBroadcastView: View {
     private var icon: some View {
         Image(systemName: broadcast.iconName)
             .font(.system(size: 9, weight: .semibold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(iconColor)
             .fixedSize()
+    }
+
+    private var iconColor: Color {
+        switch broadcast.iconTone {
+        case .accent:
+            Color.accentColor
+        case .success:
+            Color.green
+        }
     }
 
     private var message: some View {

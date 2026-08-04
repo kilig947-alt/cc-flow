@@ -465,6 +465,7 @@ final class LeftFeatureStore: ObservableObject {
         // Spec: 禁用远程 URL / Mineradio 功能时驱逐保活缓存，避免 WKWebView 残留占用资源
         if !isEnabled {
             CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
+            DesktopWidgetController.shared.remove(featureID: id)
             switch features[index].kind {
             case .usage:
                 UsageService.shared.stop()
@@ -485,6 +486,7 @@ final class LeftFeatureStore: ObservableObject {
         }
         features[index].isEnabled = isEnabled
         persist()
+        updateNowPlayingProviderLifecycleIfNeeded(for: features[index].kind)
         NotificationCenter.default.post(name: .ccFlowLeftFeaturesChanged, object: nil)
         if id == LeftFeature.usageID, isEnabled {
             UsageService.shared.start()
@@ -621,6 +623,7 @@ final class LeftFeatureStore: ObservableObject {
 
         for featureID in removedFeatureIDs {
             CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: featureID))
+            DesktopWidgetController.shared.remove(featureID: featureID)
         }
 
         // 移除
@@ -738,10 +741,35 @@ final class LeftFeatureStore: ObservableObject {
     func removeWebURLFeature(id: String) {
         guard let index = features.firstIndex(where: { $0.id == id }) else { return }
         CustomAreaWebViewCache.shared.evict(for: .expanded(featureID: id))
+        DesktopWidgetController.shared.remove(featureID: id)
         features.remove(at: index)
         if compactFeatureID == id { compactFeatureID = nil }
         if expandedActiveFeatureID == id { expandedActiveFeatureID = nil }
         persist()
+    }
+
+    private func updateNowPlayingProviderLifecycleIfNeeded(for changedKind: LeftFeatureKind) {
+        let affectsNowPlaying: Bool
+        switch changedKind {
+        case .music, .mineradio:
+            affectsNowPlaying = true
+        default:
+            affectsNowPlaying = false
+        }
+        guard affectsNowPlaying else { return }
+
+        let shouldRun = features.contains { feature in
+            guard feature.isEnabled else { return false }
+            switch feature.kind {
+            case .music, .mineradio: return true
+            default: return false
+            }
+        }
+        if shouldRun {
+            NowPlayingProvider.shared.start()
+        } else {
+            NowPlayingProvider.shared.stop()
+        }
     }
 
     /// Spec: 异步获取网站 favicon 并写入 `customIconName`。

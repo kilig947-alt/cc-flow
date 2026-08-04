@@ -11,12 +11,18 @@ enum CompactBroadcastTarget: Equatable, Sendable {
     case session(stableID: String)
 }
 
+enum CompactBroadcastIconTone: Equatable, Sendable {
+    case accent
+    case success
+}
+
 struct CompactBroadcast: Equatable, Identifiable, Sendable {
     let id: UUID
     let deduplicationKey: String
     let side: CompactBroadcastSide
     let target: CompactBroadcastTarget
     let iconName: String
+    let iconTone: CompactBroadcastIconTone
     let summary: String
     let createdAt: Date
     let expiresAt: Date
@@ -27,6 +33,7 @@ struct CompactBroadcast: Equatable, Identifiable, Sendable {
         side: CompactBroadcastSide,
         target: CompactBroadcastTarget,
         iconName: String,
+        iconTone: CompactBroadcastIconTone = .accent,
         summary: String,
         createdAt: Date = Date(),
         expiresAt: Date? = nil
@@ -36,6 +43,7 @@ struct CompactBroadcast: Equatable, Identifiable, Sendable {
         self.side = side
         self.target = target
         self.iconName = iconName
+        self.iconTone = iconTone
         self.summary = summary
         self.createdAt = createdAt
         self.expiresAt = expiresAt ?? createdAt.addingTimeInterval(5)

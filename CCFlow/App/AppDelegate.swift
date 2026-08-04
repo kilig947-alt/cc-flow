@@ -154,6 +154,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         screenObserver = nil
+        NowPlayingProvider.shared.stop()
+        CustomAreaWebViewCache.shared.clearAll()
         GeneratedPanelScanner.shared.stop()
         UsageService.shared.stop()
         UserIdleAutoProtection.shared.stop()

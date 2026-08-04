@@ -37,6 +37,43 @@ final class CompactBroadcastCoordinatorTests: XCTestCase {
         XCTAssertNil(state.activeSession)
     }
 
+    func testBroadcastIconToneDefaultsToAccentAndCanUseSuccess() {
+        let accent = makeBroadcast(key: "accent", side: .session)
+        let success = CompactBroadcast(
+            deduplicationKey: "success",
+            side: .session,
+            target: .session(stableID: "success"),
+            iconName: "checkmark.circle.fill",
+            iconTone: .success,
+            summary: "已自动允许"
+        )
+
+        XCTAssertEqual(accent.iconTone, .accent)
+        XCTAssertEqual(success.iconTone, .success)
+    }
+
+    func testAutoApprovalSummaryShowsToolCommandAndArgumentsWithoutStatusPrefix() {
+        let summary = MCPToolFormatter.formatAutoApprovalSummary(
+            toolName: "Bash",
+            toolInput: ["command": AnyCodable("git status --short\n")]
+        )
+
+        XCTAssertEqual(summary, "Bash · git status --short")
+        XCTAssertFalse(summary.contains("已自动允许"))
+    }
+
+    func testAutoApprovalSummaryFallsBackToToolArguments() {
+        let summary = MCPToolFormatter.formatAutoApprovalSummary(
+            toolName: "Read",
+            toolInput: [
+                "file_path": AnyCodable("/tmp/example.swift"),
+                "limit": AnyCodable(20),
+            ]
+        )
+
+        XCTAssertEqual(summary, "Read · file_path: \"/tmp/example.swift\", limit: \"20\"")
+    }
+
     func testExpiredAndInvalidNewBroadcastsDoNotReplaceCurrentSlot() {
         let now = Date()
         var state = CompactBroadcastQueueState()

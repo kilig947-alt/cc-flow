@@ -84,9 +84,43 @@ struct CompletionPromptRegexRule: Codable, Equatable, Identifiable, Sendable {
 
     nonisolated static let defaultTemplates: [CompletionPromptRegexRule] = [
         CompletionPromptRegexRule(
+            id: "builtin-question-followed-by-recommendation",
+            name: "建议确认",
+            triggerPattern: #"(?is)(?:^|\n)[^\r\n]*[？?][ \t]*(?:\r?\n[ \t]*)+[^\r\n]*我建议[^\r\n]*[ \t]*$"#,
+            staticOptions: [
+                CompletionPromptStaticOption(
+                    id: "confirm",
+                    title: "确认，继续",
+                    reply: "确认按建议继续。"
+                ),
+                CompletionPromptStaticOption(
+                    id: "revise",
+                    title: "需要调整",
+                    reply: "我需要调整当前选择，请先不要继续。"
+                )
+            ]
+        ),
+        CompletionPromptRegexRule(
+            id: "builtin-final-line-explicit-confirmation",
+            name: "明确确认",
+            triggerPattern: #"(?is)(?:^|\n)[^\r\n]*是否确认[？?][^\r\n]*$"#,
+            staticOptions: [
+                CompletionPromptStaticOption(
+                    id: "confirm",
+                    title: "确认，继续",
+                    reply: "确认，请继续。"
+                ),
+                CompletionPromptStaticOption(
+                    id: "revise",
+                    title: "需要修改",
+                    reply: "我需要先补充修改意见，请暂不要继续。"
+                )
+            ]
+        ),
+        CompletionPromptRegexRule(
             id: "builtin-review-confirmation",
             name: "审阅与确认",
-            triggerPattern: #"(?is)(?:请|请先|请你).{0,32}(?:审阅|审核)|(?:你|请).{0,12}确认后|确认后.{0,24}(?:继续|进入|开始)"#,
+            triggerPattern: #"(?is)(?:请|请先|请你).{0,32}(?:审阅|审核|评审)|(?:你|请).{0,12}确认后|确认后.{0,24}(?:继续|进入|开始)"#,
             staticOptions: [
                 CompletionPromptStaticOption(
                     id: "confirm",
@@ -103,7 +137,7 @@ struct CompletionPromptRegexRule: Codable, Equatable, Identifiable, Sendable {
         CompletionPromptRegexRule(
             id: "builtin-listed-options",
             name: "字母或数字选项",
-            triggerPattern: #"(?is)(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m)^\s*(?:A|1)[.．、)]\s+\S+"#,
+            triggerPattern: #"(?is)(?=.*请)(?:(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m:^\s*(?:A|1)[.．、)]\s+\S+))"#,
             optionPattern: #"(?m)^\s*([A-Z]|\d{1,2})[.．、)]\s*(\S.*)$"#,
             replyTemplate: "选择 {key}：{option}"
         ),
@@ -213,7 +247,7 @@ enum CompletionPromptRegexParser {
                 id: "completion-regex-\(fingerprint)",
                 kind: .question,
                 title: rule.name,
-                message: prompt,
+                message: source,
                 options: options,
                 questions: [question],
                 supportsSessionScope: false,
@@ -356,7 +390,12 @@ enum CompletionPromptRegexParser {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         let candidate = paragraphs.last ?? promptSource
-        return String(candidate.suffix(maximumPromptLength))
+        let withoutMarkdownHeading = replacingMatches(
+            pattern: #"(?m)^\s{0,3}#{1,6}\s+"#,
+            in: candidate,
+            with: ""
+        )
+        return String(withoutMarkdownHeading.suffix(maximumPromptLength))
     }
 
     private nonisolated static func replacingMatches(

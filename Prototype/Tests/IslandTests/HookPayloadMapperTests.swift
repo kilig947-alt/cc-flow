@@ -3,6 +3,32 @@ import IslandShared
 import Testing
 
 @Test
+func mapsOpenCodeQuestionAndFormatsAnswerResponse() throws {
+    let payload = #"{"hook_event_name":"PreToolUse","opencode_event_type":"question.asked","session_id":"ses_open","cwd":"/tmp/project","tool_name":"AskUserQuestion","questions":[{"header":"Choice","question":"Pick one","options":[{"label":"A","description":"first"},{"label":"B","description":"second"}]}],"tool_input":{"questions":[{"question":"Pick one"}]}}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .opencode,
+        arguments: ["bridge", "--source", "opencode", "--client-kind", "opencode"],
+        environment: [:],
+        stdinData: payload
+    )
+
+    #expect(envelope.sessionKey == "opencode:ses_open")
+    #expect(envelope.status?.kind == .waitingForInput)
+    #expect(envelope.intervention?.kind == .question)
+    #expect(envelope.intervention?.options.map(\.title) == ["A", "B"])
+    #expect(envelope.expectsResponse)
+
+    let output = HookPayloadMapper.stdoutPayload(
+        for: .opencode,
+        response: BridgeResponse(requestID: UUID(), decision: .answer(["Pick one": "B"])),
+        eventType: "question.asked",
+        metadata: [:]
+    )
+    let json = try #require(JSONSerialization.jsonObject(with: Data(output.utf8)) as? [String: Any])
+    #expect((json["answers"] as? [String: String])?["Pick one"] == "B")
+}
+
+@Test
 func mapsApprovalEventFromHookPayload() throws {
     let payload = """
     {

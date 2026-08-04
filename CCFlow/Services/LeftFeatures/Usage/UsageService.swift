@@ -94,7 +94,7 @@ final class UsageService: ObservableObject {
                 case .claude: provider = .claude
                 case .codex: provider = .codex
                 case .antigravity: provider = .antigravity
-                case .trae: continue
+                case .trae, .opencode: continue
                 }
                 guard currentSessionIDs[provider] == nil else { continue }
                 currentSessionIDs[provider] = session.sessionId

@@ -159,6 +159,22 @@ public enum HookPayloadMapper {
             case .answer:
                 return "{}"
             }
+        case .opencode:
+            switch decision {
+            case .approve:
+                return #"{"reply":"once"}"#
+            case .approveForSession:
+                return #"{"reply":"always"}"#
+            case .deny, .cancel:
+                return #"{"reply":"reject"}"#
+            case .answer(let answers):
+                guard JSONSerialization.isValidJSONObject(answers),
+                      let data = try? JSONSerialization.data(withJSONObject: ["answers": answers], options: [.sortedKeys]),
+                      let json = String(data: data, encoding: .utf8) else {
+                    return "{}"
+                }
+                return json
+            }
         case .antigravity:
             switch decision {
             case .approve, .approveForSession:
@@ -1079,6 +1095,8 @@ private extension AgentProvider {
             return "Claude Code"
         case .codex:
             return "Codex"
+        case .opencode:
+            return "OpenCode"
         case .trae:
             return "TRAE"
         case .antigravity:

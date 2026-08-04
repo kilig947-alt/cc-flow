@@ -3,10 +3,11 @@ import XCTest
 @testable import CC_FLOW
 
 final class HookSocketServerClientInfoTests: XCTestCase {
-    func testDecodesClaudeCodexAndTraeProvidersWithoutCollapsingThem() throws {
+    func testDecodesClaudeCodexOpenCodeAndTraeProvidersWithoutCollapsingThem() throws {
         let cases: [(String, SessionProvider, SessionClientKind)] = [
             ("claude", .claude, .claudeCode),
             ("codex", .codex, .codex),
+            ("opencode", .opencode, .opencode),
             ("trae", .trae, .trae)
         ]
 

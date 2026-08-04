@@ -22,9 +22,18 @@ final class MineradioBridgeEngine {
 
     // MARK: - State
 
+    private typealias APICallback = (Result<Any?, Error>) -> Void
+
+    private struct PendingAPICallback {
+        let completion: APICallback
+        let timeoutWorkItem: DispatchWorkItem
+    }
+
+    private static let apiCallbackTimeout: TimeInterval = 75
+
     private var jsContext: JSContext?
     private let urlSession: URLSession
-    private var apiCallbacks: [String: (Result<Any?, Error>) -> Void] = [:]
+    private var apiCallbacks: [String: PendingAPICallback] = [:]
     private let lock = NSLock()
 
     // MARK: - Init
@@ -176,7 +185,10 @@ final class MineradioBridgeEngine {
         lock.unlock()
 
         let reloadError = MineradioBridgeError.apiError("Bridge reloaded")
-        callbacks.forEach { $0(.failure(reloadError)) }
+        callbacks.forEach {
+            $0.timeoutWorkItem.cancel()
+            $0.completion(.failure(reloadError))
+        }
         jsContext = nil
         setupContext()
     }
@@ -188,9 +200,7 @@ final class MineradioBridgeEngine {
             return
         }
         let requestId = "api_\(UUID().uuidString.prefix(8))"
-        lock.lock()
-        apiCallbacks[requestId] = completion
-        lock.unlock()
+        registerApiCallback(requestId: requestId, completion: completion)
 
         guard let invokeFn = context.objectForKeyedSubscript("__mineradioInvokeApi") else {
             self.rejectApiCallback(requestId: requestId, error: MineradioBridgeError.invokeFunctionMissing)
@@ -211,9 +221,7 @@ final class MineradioBridgeEngine {
             return
         }
         let requestId = "status_\(UUID().uuidString.prefix(8))"
-        lock.lock()
-        apiCallbacks[requestId] = completion
-        lock.unlock()
+        registerApiCallback(requestId: requestId, completion: completion)
 
         guard let invokeFn = context.objectForKeyedSubscript("__mineradioInvokeBridgeStatus") else {
             self.rejectApiCallback(requestId: requestId, error: MineradioBridgeError.invokeFunctionMissing)
@@ -224,18 +232,39 @@ final class MineradioBridgeEngine {
 
     // MARK: - API Callback Resolution
 
+    private func registerApiCallback(requestId: String, completion: @escaping APICallback) {
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            self?.rejectApiCallback(
+                requestId: requestId,
+                error: MineradioBridgeError.apiError("Bridge request timed out")
+            )
+        }
+        lock.lock()
+        apiCallbacks[requestId] = PendingAPICallback(
+            completion: completion,
+            timeoutWorkItem: timeoutWorkItem
+        )
+        lock.unlock()
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.apiCallbackTimeout,
+            execute: timeoutWorkItem
+        )
+    }
+
     private func resolveApiCallback(requestId: String, result: Any) {
         lock.lock()
         let callback = apiCallbacks.removeValue(forKey: requestId)
         lock.unlock()
-        callback?(.success(result))
+        callback?.timeoutWorkItem.cancel()
+        callback?.completion(.success(result))
     }
 
     private func rejectApiCallback(requestId: String, error: Error) {
         lock.lock()
         let callback = apiCallbacks.removeValue(forKey: requestId)
         lock.unlock()
-        callback?(.failure(error))
+        callback?.timeoutWorkItem.cancel()
+        callback?.completion(.failure(error))
     }
 
     // MARK: - Native fetch Polyfill

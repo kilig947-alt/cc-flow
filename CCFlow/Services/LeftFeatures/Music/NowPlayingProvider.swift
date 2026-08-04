@@ -19,7 +19,7 @@ final class NowPlayingProvider: ObservableObject {
     @Published private(set) var isStarted = false
 
     /// 主数据源：boring.notch 适配器
-    private lazy var boringNotchSource = BoringNotchMediaRemoteAdapter()
+    private var boringNotchSource: BoringNotchMediaRemoteAdapter?
     /// 备用数据源：AppleScript
     private lazy var appleScriptSource = AppleScriptPlayerSource()
     /// 最近一次识别到的播放器，用于展开态空状态快速唤起。
@@ -44,6 +44,9 @@ final class NowPlayingProvider: ObservableObject {
         guard !isStarted else { return }
         isStarted = true
         NSLog("[NowPlayingProvider] 启动")
+        if boringNotchSource == nil {
+            boringNotchSource = BoringNotchMediaRemoteAdapter()
+        }
         // 在启动轮询前先注册流式回调，避免错过首批推送
         boringNotchSource?.onNowPlayingUpdate = { [weak self] info in
             self?.handleStreamUpdate(info)
@@ -52,11 +55,15 @@ final class NowPlayingProvider: ObservableObject {
     }
 
     func stop() {
+        guard isStarted else { return }
         pollTimer?.cancel()
         pollTimer = nil
         stopProgressTimer()
-        boringNotchSource?.onNowPlayingUpdate = nil
+        boringNotchSource?.stop()
+        boringNotchSource = nil
+        nowPlaying = nil
         isStarted = false
+        NSLog("[NowPlayingProvider] 已停止")
     }
 
     // MARK: - Polling

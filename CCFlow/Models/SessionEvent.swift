@@ -238,7 +238,7 @@ extension HookEvent {
     }
 
     nonisolated var intervention: SessionIntervention? {
-        if suppressInAppPrompt {
+        if suppressInAppPrompt || isAutoApproving {
             return nil
         }
         if let bridgeIntervention,

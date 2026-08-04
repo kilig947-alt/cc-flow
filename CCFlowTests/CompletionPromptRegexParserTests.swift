@@ -95,9 +95,55 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         )
     }
 
+    func testReviewTemplateRecognizesPleaseReviewWording() throws {
+        let match = try XCTUnwrap(CompletionPromptRegexParser.match(
+            message: "方案已经整理完成，请评审。",
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
+
+        XCTAssertEqual(match.intervention.title, "审阅与确认")
+    }
+
+    func testQuestionFollowedByRecommendationCreatesConfirmation() throws {
+        let message = """
+        选择 SQL 模板后，再点击更新查询条件时，应继续使用刚选中的模板，还是恢复默认数据库模板？
+
+        我建议继续使用刚选中的模板；这样后续切换变量时，可以基于用户明确选择的模板重新解析。
+        """
+
+        let match = try XCTUnwrap(CompletionPromptRegexParser.match(
+            message: message,
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
+        let question = try XCTUnwrap(match.intervention.resolvedQuestions.first)
+
+        XCTAssertEqual(match.intervention.title, "建议确认")
+        XCTAssertEqual(question.options.map(\.title), ["确认，继续", "需要调整"])
+    }
+
+    func testFinalLineContainingExplicitConfirmationCreatesConfirmation() throws {
+        let message = """
+        ### 设计三：异常处理与兼容策略
+
+        数据库加载失败时保留 SQL 草稿和已有结果。
+
+        这一节是否确认？确认后我会整理完整中文设计规格并提交。
+        """
+
+        let match = try XCTUnwrap(CompletionPromptRegexParser.match(
+            message: message,
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
+        let question = try XCTUnwrap(match.intervention.resolvedQuestions.first)
+
+        XCTAssertEqual(match.intervention.title, "明确确认")
+        XCTAssertEqual(question.prompt, "这一节是否确认？确认后我会整理完整中文设计规格并提交。")
+        XCTAssertEqual(question.options.map(\.title), ["确认，继续", "需要修改"])
+    }
+
     func testListedOptionsAreExtractedAndRenderedAsExplicitReply() throws {
         let message = """
-        局部关系图希望包含哪些关系？
+        请选择局部关系图需要包含的关系：
 
         A. 仅结构关系：库→表、表间 Join/外键。
         B. 仅知识关系：业务概念、指标、Wiki 页面关联。
@@ -111,6 +157,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         let question = try XCTUnwrap(match.intervention.resolvedQuestions.first)
 
         XCTAssertEqual(question.header, "字母或数字选项")
+        XCTAssertEqual(match.intervention.message, message)
         XCTAssertEqual(question.options.map(\.title), [
             "A. 仅结构关系：库→表、表间 Join/外键。",
             "B. 仅知识关系：业务概念、指标、Wiki 页面关联。",
@@ -123,6 +170,22 @@ final class CompletionPromptRegexParserTests: XCTestCase {
             ),
             "选择 C：两者结合（推荐）：默认突出结构关系，同时显示少量概念/指标节点。"
         )
+    }
+
+    func testNumberedAnalysisWithoutPleaseDoesNotCreateQuestion() {
+        let message = """
+        需要注意的实际问题有两个：
+
+        1. pool_size=20 是全局通用配置，每个进程都有自己的池。
+        2. 数据库故障时，消费者会定期重试，但不会累计成存活连接。
+
+        结论：这里展示的是分析结果，并非向用户发起选择。
+        """
+
+        XCTAssertNil(CompletionPromptRegexParser.match(
+            message: message,
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
     }
 
     func testCodeFenceOptionsAreIgnored() {
@@ -191,7 +254,9 @@ final class CompletionPromptRegexParserTests: XCTestCase {
     }
 
     func testExtractedRuleCanAllowMultipleSelections() throws {
-        var rule = CompletionPromptRegexRule.defaultTemplates[1]
+        var rule = try XCTUnwrap(CompletionPromptRegexRule.defaultTemplates.first {
+            $0.id == "builtin-listed-options"
+        })
         rule.allowsMultiple = true
         let match = try XCTUnwrap(CompletionPromptRegexParser.match(
             message: """

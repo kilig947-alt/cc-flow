@@ -8,6 +8,7 @@ struct SessionQuestionForm: View {
     var onDraftChanged: (SessionQuestionFormDraft) -> Void = { _ in }
     var onDraftCleared: () -> Void = {}
     var secondaryActionTitle: String? = nil
+    var secondaryActionSystemImage: String? = nil
     var onSecondaryAction: (() -> Void)? = nil
     var isEditable: Bool = true
 
@@ -33,6 +34,13 @@ struct SessionQuestionForm: View {
 
         if shouldUseSingleColumnOptions(for: question) {
             return [GridItem(.flexible(minimum: 0), spacing: 8)]
+        }
+
+        if question.options.count == 2 {
+            return [
+                GridItem(.flexible(minimum: 0), spacing: 8),
+                GridItem(.flexible(minimum: 0), spacing: 8),
+            ]
         }
 
         return [GridItem(.adaptive(minimum: 150), spacing: 8)]
@@ -99,6 +107,14 @@ struct SessionQuestionForm: View {
         question.options.count == 1
             && !question.allowsMultiple
             && !question.allowsOther
+    }
+
+    nonisolated static func shouldShowQuestionHeader(
+        _ question: SessionInterventionQuestion,
+        interventionTitle: String
+    ) -> Bool {
+        question.header.trimmingCharacters(in: .whitespacesAndNewlines)
+            != interventionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated static func nextQuestionIDToReveal(
@@ -170,6 +186,17 @@ struct SessionQuestionForm: View {
         )
     }
 
+    private var completionResponseText: String? {
+        guard intervention.metadata["source"] == "completionRegex" else { return nil }
+        return SessionTextSanitizer.boundedDisplayText(
+            intervention.message,
+            maxCharacters: 6_000,
+            truncationNotice: AppLocalization.string(
+                SessionDetailDisplayStrings.truncationNoticeKey
+            )
+        )
+    }
+
     private var questionContainerShadowColor: Color {
         Color.black.opacity(0.2)
     }
@@ -184,6 +211,7 @@ struct SessionQuestionForm: View {
         onDraftChanged: @escaping (SessionQuestionFormDraft) -> Void = { _ in },
         onDraftCleared: @escaping () -> Void = {},
         secondaryActionTitle: String? = nil,
+        secondaryActionSystemImage: String? = nil,
         onSecondaryAction: (() -> Void)? = nil,
         isEditable: Bool = true
     ) {
@@ -194,6 +222,7 @@ struct SessionQuestionForm: View {
         self.onDraftChanged = onDraftChanged
         self.onDraftCleared = onDraftCleared
         self.secondaryActionTitle = secondaryActionTitle
+        self.secondaryActionSystemImage = secondaryActionSystemImage
         self.onSecondaryAction = onSecondaryAction
         self.isEditable = isEditable
         _answers = State(initialValue: isEditable ? (initialDraft?.answers ?? initialAnswers) : initialAnswers)
@@ -202,6 +231,11 @@ struct SessionQuestionForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let completionResponseText {
+                completionResponsePreview(completionResponseText)
+                    .padding(.bottom, 12)
+            }
+
             ScrollViewReader { scrollProxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     questionsContent(scrollProxy: scrollProxy)
@@ -217,17 +251,21 @@ struct SessionQuestionForm: View {
             .clipped()
 
             HStack(spacing: 8) {
-                Spacer(minLength: 0)
-
                 if let secondaryActionTitle, let onSecondaryAction {
                     Button {
                         onSecondaryAction()
                     }
                     label: {
-                        Text(verbatim: secondaryActionTitle)
+                        if let secondaryActionSystemImage {
+                            Label(secondaryActionTitle, systemImage: secondaryActionSystemImage)
+                        } else {
+                            Text(verbatim: secondaryActionTitle)
+                        }
                     }
                     .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.1)))
                 }
+
+                Spacer(minLength: 0)
 
                 if let submitLabel, !usesSingleActionButton {
                     Button {
@@ -262,6 +300,25 @@ struct SessionQuestionForm: View {
         }
     }
 
+    private func completionResponsePreview(_ response: String) -> some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            MarkdownContentView(
+                response,
+                color: .white.opacity(0.88),
+                fontSize: 11
+            )
+            .padding(10)
+        }
+        .defaultScrollAnchor(.bottom)
+        .frame(maxWidth: .infinity, minHeight: 72, maxHeight: 140, alignment: .topLeading)
+        .background(Color.black.opacity(0.18))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+
     @ViewBuilder
     private var questionContentBottomShadow: some View {
         if showsQuestionBottomShadow {
@@ -284,26 +341,37 @@ struct SessionQuestionForm: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(displayQuestions) { question in
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text(question.header)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundColor(TerminalColors.blue.opacity(0.9))
+                    let showsQuestionHeader = Self.shouldShowQuestionHeader(
+                        question,
+                        interventionTitle: intervention.title
+                    )
 
-                        if question.allowsMultiple {
-                            Text("多选")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(TerminalColors.amber.opacity(0.95))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(TerminalColors.amber.opacity(0.14))
-                                .clipShape(Capsule())
+                    if showsQuestionHeader || question.allowsMultiple {
+                        HStack(spacing: 8) {
+                            if showsQuestionHeader {
+                                Text(question.header)
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundColor(TerminalColors.blue.opacity(0.9))
+                            }
+
+                            if question.allowsMultiple {
+                                Text("多选")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(TerminalColors.amber.opacity(0.95))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(TerminalColors.amber.opacity(0.14))
+                                    .clipShape(Capsule())
+                            }
                         }
                     }
 
-                    Text(question.prompt)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if completionResponseText == nil {
+                        Text(question.prompt)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
                     if let detail = question.detail, !detail.isEmpty {
                         Text(detail)

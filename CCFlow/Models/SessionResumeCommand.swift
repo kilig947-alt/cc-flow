@@ -20,6 +20,8 @@ enum SessionResumeCommand {
             return "codex resume \(argument)"
         case .claude:
             return "claude --resume \(argument)"
+        case .opencode:
+            return "opencode --session \(argument)"
         case .trae, .antigravity:
             // These clients do not expose a stable public CLI resume command.
             return normalizedSessionId

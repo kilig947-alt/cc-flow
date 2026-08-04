@@ -2024,6 +2024,7 @@ private struct SettingsPanelContentView: View {
         switch brand {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
+        case .opencode: return "OpenCode"
         case .trae: return "TRAE"
         case .antigravity: return "Antigravity"
         case .neutral: return "其他"

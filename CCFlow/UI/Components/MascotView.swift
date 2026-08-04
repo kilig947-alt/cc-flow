@@ -76,6 +76,7 @@ enum MascotClient: String, CaseIterable, Identifiable, Sendable {
         case .codex: self = .codex
         case .trae: self = .trae
         case .antigravity: self = .codex
+        case .opencode: self = .codex
         }
     }
 
@@ -106,6 +107,8 @@ enum MascotClient: String, CaseIterable, Identifiable, Sendable {
         case .trae:
             self = .trae
         case .antigravity:
+            self = .codex
+        case .opencode:
             self = .codex
         case .neutral:
             self = MascotClient(provider: provider)

@@ -439,6 +439,8 @@ final class AppSettingsStore: ObservableObject {
             "completionPromptTrailingQuestionOptionsMigrationCompleted"
         static let completionPromptDefaultTemplatesRepairMigrationV2Completed =
             "completionPromptDefaultTemplatesRepairMigrationV2Completed"
+        static let completionPromptDefaultTemplatesRepairMigrationV3Completed =
+            "completionPromptDefaultTemplatesRepairMigrationV3Completed"
     }
 
     // MARK: - Published Settings
@@ -1825,6 +1827,40 @@ final class AppSettingsStore: ObservableObject {
                 initialCompletionPromptRegexRules.insert(template, at: insertionIndex)
             }
         }
+        if persistedCompletionPromptRegexRules != nil,
+           !defaults.bool(forKey: Keys.completionPromptDefaultTemplatesRepairMigrationV3Completed) {
+            let defaultTemplates = CompletionPromptRegexRule.defaultTemplates
+            for (defaultIndex, template) in defaultTemplates.enumerated()
+            where !initialCompletionPromptRegexRules.contains(where: { $0.id == template.id }) {
+                let laterDefaultIDs = Set(defaultTemplates.dropFirst(defaultIndex + 1).map(\.id))
+                let insertionIndex = initialCompletionPromptRegexRules.firstIndex {
+                    laterDefaultIDs.contains($0.id)
+                } ?? initialCompletionPromptRegexRules.endIndex
+                initialCompletionPromptRegexRules.insert(template, at: insertionIndex)
+            }
+
+            let legacyReviewPattern = #"(?is)(?:请|请先|请你).{0,32}(?:审阅|审核)|(?:你|请).{0,12}确认后|确认后.{0,24}(?:继续|进入|开始)"#
+            if let reviewIndex = initialCompletionPromptRegexRules.firstIndex(where: {
+                $0.id == "builtin-review-confirmation"
+            }),
+               initialCompletionPromptRegexRules[reviewIndex].triggerPattern == legacyReviewPattern,
+               let updatedReviewRule = defaultTemplates.first(where: {
+                   $0.id == "builtin-review-confirmation"
+               }) {
+                initialCompletionPromptRegexRules[reviewIndex].triggerPattern = updatedReviewRule.triggerPattern
+            }
+
+            let legacyListedOptionsPattern = #"(?is)(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m)^\s*(?:A|1)[.．、)]\s+\S+"#
+            if let listedOptionsIndex = initialCompletionPromptRegexRules.firstIndex(where: {
+                $0.id == "builtin-listed-options"
+            }),
+               initialCompletionPromptRegexRules[listedOptionsIndex].triggerPattern == legacyListedOptionsPattern,
+               let updatedListedOptionsRule = defaultTemplates.first(where: {
+                   $0.id == "builtin-listed-options"
+               }) {
+                initialCompletionPromptRegexRules[listedOptionsIndex].triggerPattern = updatedListedOptionsRule.triggerPattern
+            }
+        }
         if let persistedCompletionPromptRegexRules,
            initialCompletionPromptRegexRules != persistedCompletionPromptRegexRules {
             Self.persistValue(
@@ -1849,6 +1885,10 @@ final class AppSettingsStore: ObservableObject {
         defaults.set(
             true,
             forKey: Keys.completionPromptDefaultTemplatesRepairMigrationV2Completed
+        )
+        defaults.set(
+            true,
+            forKey: Keys.completionPromptDefaultTemplatesRepairMigrationV3Completed
         )
         defaults.removeObject(forKey: "completionQuickRepliesEnabled")
         defaults.removeObject(forKey: "completionQuickReplies")

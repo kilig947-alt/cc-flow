@@ -65,9 +65,11 @@ final class CustomAreaWebViewCache {
     }
 
     func evict(for key: Key) {
+        appliedEntryReloadGenerations.removeValue(forKey: key)
         if let entry = cache.removeValue(forKey: key) {
             entry.webView.removeFromSuperview()
         }
+        releaseOffscreenHostIfUnused()
     }
 
     /// 兼容旧调用：查找 URL 对应的 legacy 缓存。
@@ -126,6 +128,14 @@ final class CustomAreaWebViewCache {
         window.contentView?.addSubview(webView)
         // 给一个非零 frame，确保 WebView 不因 zero-size 被系统判定为不可见
         webView.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
+    }
+
+    private func releaseOffscreenHostIfUnused() {
+        guard let window = offscreenHostWindow else { return }
+        let stillHostsCachedView = cache.values.contains { $0.webView.window === window }
+        guard !stillHostsCachedView else { return }
+        window.orderOut(nil)
+        offscreenHostWindow = nil
     }
 
     /// Spec: 懒创建离屏宿主窗口。窗口无边框、透明、不可交互、定位在屏幕外，
