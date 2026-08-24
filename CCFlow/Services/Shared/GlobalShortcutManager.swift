@@ -8,6 +8,9 @@ extension Notification.Name {
     static let ccFlowOpenRecentLeftFeatureShortcut = Notification.Name("ccFlowOpenRecentLeftFeatureShortcut")
     static let ccFlowOpenLeftFeatureShortcut = Notification.Name("ccFlowOpenLeftFeatureShortcut")
     static let ccFlowPresentNotchDetachmentHint = Notification.Name("ccFlowPresentNotchDetachmentHint")
+    static let ccFlowGiflowSelectionCaptureShortcut = Notification.Name("ccFlowGiflowSelectionCaptureShortcut")
+    static let ccFlowGiflowFullScreenCaptureShortcut = Notification.Name("ccFlowGiflowFullScreenCaptureShortcut")
+    static let ccFlowGiflowOpenRecordingsShortcut = Notification.Name("ccFlowGiflowOpenRecordingsShortcut")
 }
 
 @MainActor
@@ -30,12 +33,15 @@ final class GlobalShortcutManager: ObservableObject {
     private init() {
         installEventHandlerIfNeeded()
 
-        Publishers.CombineLatest3(
-            AppSettings.shared.$openActiveSessionShortcut,
-            AppSettings.shared.$openLeftFeatureShortcut,
-            AppSettings.shared.$openSessionListShortcut
+        Publishers.MergeMany(
+            AppSettings.shared.$openActiveSessionShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$openLeftFeatureShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$openSessionListShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$giflowSelectionCaptureShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$giflowFullScreenCaptureShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$giflowOpenRecordingsShortcut.map { _ in () }.eraseToAnyPublisher()
         )
-        .sink { [weak self] _, _, _ in
+        .sink { [weak self] _ in
             self?.refreshRegistrations()
         }
         .store(in: &cancellables)
@@ -172,6 +178,12 @@ final class GlobalShortcutManager: ObservableObject {
                 NotificationCenter.default.post(name: .ccFlowOpenRecentLeftFeatureShortcut, object: nil)
             case .openSessionList:
                 NotificationCenter.default.post(name: .ccFlowOpenSessionListShortcut, object: nil)
+            case .giflowSelectionCapture:
+                GiflowStore.shared.triggerSelectionCapture()
+            case .giflowFullScreenCapture:
+                GiflowStore.shared.triggerFullScreenCapture()
+            case .giflowOpenRecordings:
+                GiflowStore.shared.openRecordingsList()
             }
         case .leftFeature(let featureID):
             NotificationCenter.default.post(

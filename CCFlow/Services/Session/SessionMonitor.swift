@@ -115,10 +115,11 @@ class SessionMonitor: ObservableObject {
     func handleIncomingHookEvent(_ event: HookEvent) async {
         let effectiveEvent = event
         let existingSession = await SessionStore.shared.session(for: effectiveEvent.sessionId)
+        let auditMode = SessionAuditStore.shared.mode(for: effectiveEvent.sessionId)
         let shouldAutoApproveAllOperations =
             effectiveEvent.event == "PermissionRequest"
             && effectiveEvent.status == "waiting_for_approval"
-            && existingSession?.autoApprovePermissions == true
+            && (existingSession?.autoApprovePermissions == true || auditMode == .skipped)
         let similarOperationRule = effectiveEvent.similarOperationApprovalRule
         let shouldAutoApproveSimilarOperation: Bool
         if let similarOperationRule {
@@ -133,13 +134,24 @@ class SessionMonitor: ObservableObject {
         let isAutoApproving = shouldAutoApproveAllOperations || shouldAutoApproveSimilarOperation
         await SessionStore.shared.process(.hookReceived(effectiveEvent.withAutoApproving(isAutoApproving)))
 
+        if auditMode == .skipped,
+           let session = await SessionStore.shared.session(for: effectiveEvent.sessionId),
+           let intervention = session.intervention,
+           intervention.kind == .question,
+           intervention.metadata["source"] == "completionRegex" {
+            skipCompletionPrompt(sessionId: effectiveEvent.sessionId, automatically: true)
+            return
+        }
+
         if shouldAutoApproveAllOperations,
            let toolUseId = effectiveEvent.toolUseId,
            let session = await SessionStore.shared.session(for: effectiveEvent.sessionId) {
             appendApprovalAudit(
                 session: session,
-                resultLabel: "自动允许",
-                submittedMessage: "允许（本会话已启用自动审批）"
+                resultLabel: auditMode == .skipped ? "已跳过 · 自动允许" : "自动允许",
+                submittedMessage: auditMode == .skipped
+                    ? "收到 \(effectiveEvent.event)；跳过人工审计并自动允许"
+                    : "允许（本会话已启用自动审批）"
             )
             HookSocketServer.shared.respondToPermission(
                 toolUseId: toolUseId,
@@ -154,11 +166,14 @@ class SessionMonitor: ObservableObject {
                 userInfo: [
                     "sessionId": effectiveEvent.sessionId,
                     "toolName": effectiveEvent.tool ?? "unknown",
-                    "resultLabel": "自动允许",
-                    "summary": MCPToolFormatter.formatAutoApprovalSummary(
-                        toolName: effectiveEvent.tool ?? "unknown",
-                        toolInput: effectiveEvent.toolInput
-                    )
+                    "resultLabel": auditMode == .skipped ? "已跳过 · 自动允许" : "自动允许",
+                    "iconName": auditMode == .skipped ? "forward.end.fill" : "checkmark.circle.fill",
+                    "summary": auditMode == .skipped
+                        ? "\(effectiveEvent.event) · \(effectiveEvent.tool ?? "工具") → 自动允许"
+                        : MCPToolFormatter.formatAutoApprovalSummary(
+                            toolName: effectiveEvent.tool ?? "unknown",
+                            toolInput: effectiveEvent.toolInput
+                        )
                 ]
             )
             await TelemetryService.shared.recordAttentionResolved(
@@ -288,7 +303,28 @@ class SessionMonitor: ObservableObject {
 
     // MARK: - Permission Handling
 
+    func setAuditMode(_ mode: SessionAuditMode, sessionId: String) {
+        SessionAuditStore.shared.setMode(mode, for: sessionId)
+        Task {
+            await SessionStore.shared.process(
+                .permissionAutoApprovalChanged(
+                    sessionId: sessionId,
+                    isEnabled: mode == .unrestricted || mode == .skipped
+                )
+            )
+
+            if mode == .skipped,
+               let session = await SessionStore.shared.session(for: sessionId),
+               session.intervention?.metadata["source"] == "completionRegex" {
+                await MainActor.run {
+                    self.skipCompletionPrompt(sessionId: sessionId, automatically: true)
+                }
+            }
+        }
+    }
+
     func approveAllPermissionsForSession(sessionId: String) {
+        SessionAuditStore.shared.setMode(.unrestricted, for: sessionId)
         Task {
             guard let session = await SessionStore.shared.session(for: sessionId),
                   session.supportsUnrestrictedSessionApproval,
@@ -613,6 +649,85 @@ class SessionMonitor: ObservableObject {
             )
             onSubmitted?()
         }
+    }
+
+    /// Dismisses a completion-regex prompt without selecting or sending an
+    /// answer. Codex Stop hooks receive an empty response so the originating
+    /// process can finish instead of remaining blocked on the socket.
+    func skipCompletionPrompt(
+        sessionId: String,
+        automatically: Bool = false,
+        onSkipped: (() -> Void)? = nil
+    ) {
+        Task {
+            guard let session = await SessionStore.shared.session(for: sessionId),
+                  let intervention = session.intervention,
+                  intervention.kind == .question,
+                  intervention.metadata["source"] == "completionRegex" else {
+                return
+            }
+
+            let isStopHookContinuation =
+                intervention.metadata["responseMode"] == "stop_hook_continuation"
+            if isStopHookContinuation,
+               let toolUseId = intervention.metadata["originalToolUseId"] {
+                HookSocketServer.shared.completePendingHookWithoutDecision(
+                    toolUseId: toolUseId
+                )
+            }
+
+
+            appendQuestionSkipAudit(
+                session: session,
+                intervention: intervention,
+                automatically: automatically
+            )
+
+            if automatically {
+                NotificationCenter.default.post(
+                    name: .ccFlowSessionAutoApproved,
+                    object: nil,
+                    userInfo: [
+                        "sessionId": sessionId,
+                        "toolName": intervention.title,
+                        "resultLabel": "已跳过 · 自动",
+                        "iconName": "forward.end.fill",
+                        "summary": "审计问题 · \(intervention.title) → 自动跳过"
+                    ]
+                )
+            }
+
+            await SessionStore.shared.process(
+                .interventionResolved(
+                    sessionId: sessionId,
+                    nextPhase: isStopHookContinuation ? .ended : .idle,
+                    submittedAnswers: nil
+                )
+            )
+            await TelemetryService.shared.recordAttentionResolved(session, resolution: "skip")
+            onSkipped?()
+        }
+    }
+
+    private func appendQuestionSkipAudit(
+        session: SessionState,
+        intervention: SessionIntervention,
+        automatically: Bool
+    ) {
+        let message = intervention.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        SessionAuditStore.shared.append(
+            SessionAuditRecord(
+                sessionId: session.sessionId,
+                kind: .question,
+                platformName: session.messageBadgeDisplayName,
+                requestTitle: intervention.title,
+                requestContent: message.isEmpty ? intervention.title : message,
+                submittedMessage: automatically
+                    ? "收到审计问题；本会话已开启完全跳过，动作：自动跳过"
+                    : "跳过本次审计",
+                resultLabel: automatically ? "已跳过 · 自动" : "已跳过"
+            )
+        )
     }
 
     private func appendApprovalAudit(

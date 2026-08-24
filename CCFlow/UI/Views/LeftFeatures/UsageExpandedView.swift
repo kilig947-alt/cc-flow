@@ -141,11 +141,29 @@ struct UsageExpandedView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            ProgressView(value: window.remainingPercentage, total: 100)
-                .tint(window.remainingPercentage < 10 ? .red : (window.remainingPercentage < 30 ? .orange : .green))
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                    Capsule()
+                        .fill(usageBarColor(for: window.remainingPercentage))
+                        .frame(
+                            width: proxy.size.width
+                                * CGFloat(min(max(window.remainingPercentage, 0), 100)) / 100
+                        )
+                }
+            }
+                .frame(height: 8)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(appLocalized: window.label))
                 .accessibilityValue(Text("剩余 \(Int(window.remainingPercentage.rounded()))%"))
         }
+    }
+
+    private func usageBarColor(for remainingPercentage: Double) -> Color {
+        if remainingPercentage < 10 { return .red }
+        if remainingPercentage < 30 { return .orange }
+        return .green
     }
 
     private func tokenMetric(_ label: String, _ value: Int) -> some View {

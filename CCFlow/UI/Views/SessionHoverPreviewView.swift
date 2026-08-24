@@ -631,7 +631,21 @@ private struct HoverQuestionInterventionCard: View {
                     },
                     secondaryActionTitle: AppLocalization.string("Return to Session"),
                     secondaryActionSystemImage: "arrow.turn.up.left",
-                    onSecondaryAction: returnToSession
+                    onSecondaryAction: returnToSession,
+                    onSkip: intervention.metadata["source"] == "completionRegex"
+                        ? {
+                            sessionMonitor.skipCompletionPrompt(
+                                sessionId: session.sessionId,
+                                onSkipped: onActionCompleted
+                            )
+                        }
+                        : nil,
+                    onSkipAllForSession: intervention.metadata["source"] == "completionRegex"
+                        ? {
+                            sessionMonitor.setAuditMode(.skipped, sessionId: session.sessionId)
+                            onActionCompleted()
+                        }
+                        : nil
                 )
             } else {
                 EmptyView()
@@ -1397,6 +1411,12 @@ private struct HoverEmptyShortcutHint: View {
             return "sidebar.left"
         case .openSessionList:
             return "list.bullet"
+        case .giflowSelectionCapture:
+            return "crop"
+        case .giflowFullScreenCapture:
+            return "macwindow"
+        case .giflowOpenRecordings:
+            return "record.circle"
         }
     }
 }

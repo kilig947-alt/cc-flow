@@ -44,6 +44,21 @@ final class ManagedHookProfileTests: XCTestCase {
         XCTAssertTrue(source.contains(#"event.type === "permission.asked""#))
         XCTAssertTrue(source.contains(#"event.type === "question.asked""#))
         XCTAssertTrue(source.contains(#""--source", "opencode""#))
+        XCTAssertTrue(
+            source.contains("const deliveryQueues = new Map()"),
+            "OpenCode dispatches plugin events without awaiting async handlers, so deliveries must be serialized per session"
+        )
+        XCTAssertTrue(source.contains("const sessionStatuses = new Map()"))
+        XCTAssertTrue(
+            source.contains("const messageRoles = new Map()"),
+            "OpenCode part events need the role from their preceding message.updated event"
+        )
+        XCTAssertTrue(source.contains("const lastAssistantMessages = new Map()"))
+        XCTAssertTrue(source.contains("payload.message_role = messageRole"))
+        XCTAssertTrue(source.contains("payload.last_assistant_message = lastAssistantMessage"))
+        XCTAssertTrue(source.contains("if (!deliveredEventTypes.has(event?.type)) return Promise.resolve()"))
+        XCTAssertFalse(source.contains(#""message.part.delta""#))
+        XCTAssertTrue(source.contains("enqueueDelivery(event, directory, client)"))
     }
 
     func testPersistedEmptyHookSelectionDoesNotRestoreDefaults() {

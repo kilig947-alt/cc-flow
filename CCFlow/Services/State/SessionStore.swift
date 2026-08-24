@@ -207,10 +207,12 @@ actor SessionStore {
         } else {
             hasNativeIntervention = false
         }
+        let isCompletionPromptEvent = event.event == "Stop"
+            || (event.provider == .opencode && event.event == "session.idle")
         let completionPromptConfiguration: (
             rules: [CompletionPromptRegexRule],
             routesPromptsToTerminal: Bool
-        )? = if event.event == "Stop", !hasNativeIntervention, event.message != nil {
+        )? = if isCompletionPromptEvent, !hasNativeIntervention, event.message != nil {
             await MainActor.run {
                 (
                     AppSettings.shared.completionPromptRegexRules,
@@ -303,6 +305,7 @@ actor SessionStore {
         }
         if let hookMessage = Self.normalizedHookMessage(event.message) {
             session.latestHookMessage = hookMessage
+            Self.applyOpenCodeHookMessage(hookMessage, event: event, to: &session)
         }
         if let envelopeJSON = event.lastEnvelopeJSON {
             session.lastEnvelopeJSON = envelopeJSON
@@ -1186,7 +1189,8 @@ actor SessionStore {
         submittedAnswers: [String: [String]]?
     ) async {
         guard var session = sessions[sessionId] else { return }
-        if let intervention = session.intervention,
+        if submittedAnswers != nil,
+           let intervention = session.intervention,
            shouldAwaitExternalContinuationAfterResolving(intervention, in: session) {
             removePendingIntervention(intervention, from: &session)
             session.intervention = intervention.markingAwaitingExternalContinuation(
@@ -2229,6 +2233,44 @@ actor SessionStore {
 
     private nonisolated static func normalizedHookMessage(_ message: String?) -> String? {
         SessionTextSanitizer.sanitizedDisplayText(message)
+    }
+
+    static func applyOpenCodeHookMessage(
+        _ message: String,
+        event: HookEvent,
+        to session: inout SessionState
+    ) {
+        guard event.provider == .opencode else { return }
+        let role = event.messageRole?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard role == "assistant" || role == "user" else { return }
+
+        let itemType: ChatHistoryItemType = role == "assistant" ? .assistant(message) : .user(message)
+        let itemID = event.messageId ?? "opencode-\(role ?? "message")-\(session.sessionId)"
+        if let index = session.chatItems.firstIndex(where: { $0.id == itemID }) {
+            let existing = session.chatItems[index]
+            switch existing.type {
+            case .assistant, .user:
+                session.chatItems[index] = ChatHistoryItem(
+                    id: itemID,
+                    type: itemType,
+                    timestamp: existing.timestamp
+                )
+            case .thinking, .toolCall, .interrupted:
+                break
+            }
+        } else {
+            session.chatItems.append(ChatHistoryItem(id: itemID, type: itemType, timestamp: Date()))
+        }
+
+        let current = session.conversationInfo
+        session.conversationInfo = ConversationInfo(
+            summary: current.summary,
+            lastMessage: message,
+            lastMessageRole: role,
+            lastToolName: role == "assistant" ? nil : current.lastToolName,
+            firstUserMessage: role == "user" ? (current.firstUserMessage ?? message) : current.firstUserMessage,
+            lastUserMessageDate: role == "user" ? Date() : current.lastUserMessageDate
+        )
     }
 
     private func persistedAssociation(for provider: SessionProvider, sessionId: String) -> PersistedSessionAssociation? {

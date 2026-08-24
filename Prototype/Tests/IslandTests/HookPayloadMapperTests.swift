@@ -3,6 +3,21 @@ import IslandShared
 import Testing
 
 @Test
+func preservesOpenCodeAssistantMessageMetadata() throws {
+    let payload = #"{"hook_event_name":"message.part.updated","session_id":"ses_open","message":"选哪个？","message_id":"msg-1","message_role":"assistant"}"#.data(using: .utf8)!
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .opencode,
+        arguments: ["bridge", "--source", "opencode"],
+        environment: ["PWD": "/tmp/project"],
+        stdinData: payload
+    )
+
+    #expect(envelope.preview == "选哪个？")
+    #expect(envelope.metadata["message_id"] == "msg-1")
+    #expect(envelope.metadata["message_role"] == "assistant")
+}
+
+@Test
 func mapsOpenCodeQuestionAndFormatsAnswerResponse() throws {
     let payload = #"{"hook_event_name":"PreToolUse","opencode_event_type":"question.asked","session_id":"ses_open","cwd":"/tmp/project","tool_name":"AskUserQuestion","questions":[{"header":"Choice","question":"Pick one","options":[{"label":"A","description":"first"},{"label":"B","description":"second"}]}],"tool_input":{"questions":[{"question":"Pick one"}]}}"#.data(using: .utf8)!
     let envelope = HookPayloadMapper.makeEnvelope(

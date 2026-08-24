@@ -3,6 +3,19 @@ import XCTest
 
 @MainActor
 final class SessionAuditStoreTests: XCTestCase {
+    func testAuditModeIsSessionLocalAndDefaultsToPartial() {
+        let store = SessionAuditStore.shared
+        let firstSessionID = "audit-mode-a-\(UUID().uuidString)"
+        let secondSessionID = "audit-mode-b-\(UUID().uuidString)"
+
+        XCTAssertEqual(store.mode(for: firstSessionID), .partial)
+        XCTAssertTrue(store.allowsAutomaticPresentation(for: firstSessionID))
+        store.setMode(.skipped, for: firstSessionID)
+        XCTAssertEqual(store.mode(for: firstSessionID), .skipped)
+        XCTAssertFalse(store.allowsAutomaticPresentation(for: firstSessionID))
+        XCTAssertEqual(store.mode(for: secondSessionID), .partial)
+    }
+
     func testRecordsRoundTripAndRemainGroupedBySession() throws {
         let first = SessionAuditRecord(
             sessionId: "session-a",

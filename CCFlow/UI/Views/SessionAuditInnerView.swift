@@ -4,6 +4,7 @@ struct SessionAuditInnerView: View {
     let session: SessionState
     @ObservedObject var auditStore: SessionAuditStore
     @ObservedObject var viewModel: NotchViewModel
+    @ObservedObject var sessionMonitor: SessionMonitor
 
     @State private var isHeaderHovered = false
 
@@ -72,6 +73,30 @@ struct SessionAuditInnerView: View {
             .onHover { isHeaderHovered = $0 }
 
             Spacer()
+
+            Menu {
+                ForEach(SessionAuditMode.allCases, id: \.rawValue) { mode in
+                    Button {
+                        sessionMonitor.setAuditMode(mode, sessionId: session.sessionId)
+                    } label: {
+                        Label(mode.title, systemImage: mode.systemImage)
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: auditStore.mode(for: session.sessionId).systemImage)
+                    Text(auditStore.mode(for: session.sessionId).title)
+                }
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white.opacity(0.82))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.1))
+                .clipShape(Capsule())
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("切换当前会话审计状态")
 
             Text("\(records.count)")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))

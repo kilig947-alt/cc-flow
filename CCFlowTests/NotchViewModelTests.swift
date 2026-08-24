@@ -101,6 +101,34 @@ final class NotchViewModelTests: XCTestCase {
         }
     }
 
+    func testEscapeDismissesHoverOpenedNotch() async {
+        await MainActor.run { [self] in
+            let viewModel = makeViewModel()
+
+            viewModel.notchOpen(reason: .hover)
+            viewModel.handleKeyDown(makeKeyDownEvent(keyCode: 53))
+
+            XCTAssertEqual(viewModel.status, .closed)
+            XCTAssertEqual(viewModel.contentType, .instances)
+        }
+    }
+
+    func testEscapeDismissesClickOpenedNotchEvenWhenPinned() async {
+        await MainActor.run { [self] in
+            let originalKeepIslandOpen = AppSettings.keepIslandOpen
+            defer { AppSettings.keepIslandOpen = originalKeepIslandOpen }
+
+            let viewModel = makeViewModel()
+            AppSettings.keepIslandOpen = true
+            viewModel.notchOpen(reason: .click)
+
+            viewModel.handleKeyDown(makeKeyDownEvent(keyCode: 53))
+
+            XCTAssertEqual(viewModel.status, .closed)
+            XCTAssertEqual(viewModel.contentType, .instances)
+        }
+    }
+
     func testResolvedAttentionDismissalClosesInsteadOfShowingSessionList() async {
         await MainActor.run {
             let originalKeepIslandOpen = AppSettings.keepIslandOpen
@@ -858,16 +886,16 @@ final class NotchViewModelTests: XCTestCase {
                 monitorFactory: recorder.makeMonitor(mask:handler:)
             )
 
-            XCTAssertEqual(recorder.createdMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp])
-            XCTAssertEqual(recorder.startedMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp])
+            XCTAssertEqual(recorder.createdMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown])
+            XCTAssertEqual(recorder.startedMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown])
 
             workspaceNotificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
 
             XCTAssertEqual(
                 recorder.createdMasks,
-                [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp]
+                [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown, .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown]
             )
-            XCTAssertEqual(recorder.stopCallCount, 4)
+            XCTAssertEqual(recorder.stopCallCount, 5)
             XCTAssertEqual(monitors.mouseLocation.value, CGPoint(x: 40, y: 24))
         }
     }
@@ -887,10 +915,10 @@ final class NotchViewModelTests: XCTestCase {
 
             notificationCenter.post(name: NSApplication.didBecomeActiveNotification, object: nil)
 
-            XCTAssertEqual(recorder.stopCallCount, 4)
+            XCTAssertEqual(recorder.stopCallCount, 5)
             XCTAssertEqual(
                 recorder.startedMasks,
-                [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp]
+                [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown, .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown]
             )
             XCTAssertEqual(monitors.mouseLocation.value, .zero)
         }
@@ -913,10 +941,10 @@ final class NotchViewModelTests: XCTestCase {
 
             policySubject.send(EnergyPolicy.policy(for: .quietBackground))
 
-            XCTAssertEqual(recorder.stopCallCount, 4)
+            XCTAssertEqual(recorder.stopCallCount, 5)
             XCTAssertEqual(
-                Array(recorder.startedMasks.suffix(3)),
-                [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+                Array(recorder.startedMasks.suffix(4)),
+                [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown]
             )
             XCTAssertEqual(monitors.mouseLocation.value, .zero)
         }
@@ -939,10 +967,10 @@ final class NotchViewModelTests: XCTestCase {
 
             policySubject.send(EnergyPolicy.policy(for: .idleVisible))
 
-            XCTAssertEqual(recorder.stopCallCount, 4)
+            XCTAssertEqual(recorder.stopCallCount, 5)
             XCTAssertEqual(
-                Array(recorder.startedMasks.suffix(3)),
-                [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+                Array(recorder.startedMasks.suffix(4)),
+                [.leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown]
             )
             XCTAssertEqual(monitors.mouseLocation.value, .zero)
         }
@@ -965,8 +993,8 @@ final class NotchViewModelTests: XCTestCase {
 
             policySubject.send(EnergyPolicy.policy(for: .systemSuspended))
 
-            XCTAssertEqual(recorder.stopCallCount, 4)
-            XCTAssertEqual(recorder.startedMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp])
+            XCTAssertEqual(recorder.stopCallCount, 5)
+            XCTAssertEqual(recorder.startedMasks, [.mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp, .keyDown])
             XCTAssertEqual(monitors.mouseLocation.value, .zero)
         }
     }
@@ -989,6 +1017,21 @@ final class NotchViewModelTests: XCTestCase {
             sessionId: id,
             cwd: "/tmp/\(id)"
         )
+    }
+
+    private func makeKeyDownEvent(keyCode: UInt16) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "",
+            charactersIgnoringModifiers: "",
+            isARepeat: false,
+            keyCode: keyCode
+        )!
     }
 }
 

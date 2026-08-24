@@ -474,7 +474,7 @@ struct EditableCustomAreaView: View {
             switch feature.kind {
             case .usage: defaultName = "用量"
             case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-                 .downloadMonitor, .browserResources, .mailAssistant:
+                 .downloadMonitor, .browserResources, .mailAssistant, .giflow:
                 defaultName = feature.displayName
             case .music: defaultName = "音乐"
             case .shelf: defaultName = "中转站"

@@ -14,9 +14,13 @@ struct FileCardsFeatureView: View {
             } else { fileList }
         }
         .onAppear {
-            if service.cards.isEmpty { service.scan() }
-            if !compact { service.requestDefaultFolderAuthorizationIfNeeded() }
+            if !compact {
+                service.start()
+                if service.cards.isEmpty { service.scan() }
+                service.requestDefaultFolderAuthorizationIfNeeded()
+            }
         }
+        .onDisappear { if !compact { service.stop() } }
         .confirmationDialog("确认执行整理建议？", isPresented: Binding(get: { pendingPlan != nil }, set: { if !$0 { pendingPlan = nil } }),
                             titleVisibility: .visible, presenting: pendingPlan) { plan in
             Button("确认移动", role: .destructive) { execute(plan) }
@@ -132,9 +136,16 @@ struct NaturalSearchFeatureView: View {
                             }.buttonStyle(.plain)
                         }
                     } }
-                }.padding(16).onAppear { if service.cards.isEmpty { service.scan() } }
+                }.padding(16)
             }
         }
+        .onAppear {
+            if !compact {
+                service.start()
+                if service.cards.isEmpty { service.scan() }
+            }
+        }
+        .onDisappear { if !compact { service.stop() } }
     }
 }
 
@@ -177,7 +188,20 @@ struct DownloadMonitorFeatureView: View {
                 ScrollView { LazyVStack(spacing: 7) { ForEach(downloads.prefix(100)) { card in
                     Button { service.reveal(card) } label: { HStack { Image(systemName: "arrow.down.doc"); Text(card.name).lineLimit(1); Spacer(); Text(card.modifiedAt, style: .relative).font(.caption2) }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9)) }.buttonStyle(.plain)
                 } } }
-            }.padding(16).onAppear { if service.cards.isEmpty { service.scan() } } }
+            }.padding(16) }
+        }
+        .onAppear {
+            if !compact {
+                bridge.start()
+                service.start()
+                if service.cards.isEmpty { service.scan() }
+            }
+        }
+        .onDisappear {
+            if !compact {
+                bridge.stop()
+                service.stop()
+            }
         }
     }
 }

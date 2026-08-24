@@ -5,7 +5,7 @@
   <a href="README.md">简体中文</a> · <b>English</b>
 </p>
 <p align="center">
-  <b>A macOS menu bar hub for Claude Code, Codex, OpenCode, and TRAE sessions</b><br>
+  <b>A macOS menu bar hub for Claude Code, Codex, Antigravity, OpenCode, and TRAE sessions</b><br>
   <a href="#installation">Installation</a> •
   <a href="#features">Features</a> •
   <a href="#productivity-features">Productivity</a> •
@@ -16,7 +16,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-14%2B-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Swift-6.1-FA7343?style=flat-square&logo=swift&logoColor=white" alt="Swift 6.1">
-  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20OpenCode%20%7C%20TRAE-111827?style=flat-square" alt="Claude Code, Codex, OpenCode, and TRAE support">
+  <img src="https://img.shields.io/badge/Clients-Claude%20%7C%20Codex%20%7C%20Antigravity%20%7C%20OpenCode%20%7C%20TRAE-111827?style=flat-square" alt="Claude Code, Codex, Antigravity, OpenCode, and TRAE support">
   <img src="https://img.shields.io/badge/License-Apache%202.0-4F46E5?style=flat-square" alt="Apache 2.0 license">
 </p>
 
@@ -30,26 +30,28 @@
 
 ## What is CC FLOW?
 
-CC FLOW is a native macOS menu bar app. When a Claude Code, Codex, OpenCode, or TRAE session needs attention, it expands into a compact Dynamic Island-style panel. It receives approval, question, tool, compaction, subagent, and lifecycle events through each client's supported hook or plugin interface.
+CC FLOW is a native macOS menu bar app. When a Claude Code, Codex, Antigravity, OpenCode, or TRAE session needs attention, it expands into a compact Dynamic Island-style panel. It receives approval, question, tool, compaction, subagent, and lifecycle events through each client's supported hook or plugin interface.
 
-Beyond session monitoring, CC FLOW provides independently enabled and ordered productivity features, media controls, a temporary file shelf, local HTML panels, and remote web panels.
+Beyond session monitoring, CC FLOW provides independently enabled and ordered productivity features, media controls, a temporary file shelf, Giflow screen recording, local HTML panels, and remote web panels.
 
-Claude Code and Codex are enabled by default. OpenCode is opt-in from Hook settings. TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN appear when the corresponding app or an existing hook profile is detected. CC FLOW uses its own app identity and runtime directories and does not import legacy TRAE FLOW settings or assets.
+Claude Code, Codex, and Antigravity are enabled by default. OpenCode is opt-in from Hook settings. TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN appear when the corresponding app or an existing hook profile is detected. CC FLOW uses its own app identity and runtime directories and does not import legacy TRAE FLOW settings or assets.
 
 ## Features
 
-- **Multi-client sessions** — Claude Code and Codex are first-class defaults, OpenCode is optional, and four TRAE variants are supported.
-- **Split Flow Island layout** — the left side displays a feature or session detail; the right side aggregates attention counts and jump-back actions.
-- **Independent left features** — enable, disable, select, and reorder built-in or custom features, with per-feature expanded sizes.
-- **Productivity workspace** — File Watch, Download Monitor, Browser Resources, Mail Assistant, Calendar, GitHub, and AI HOT.
+- **Multi-client sessions** — Claude Code, Codex, and Antigravity are first-class defaults, OpenCode is optional, and four TRAE variants are supported.
+- **Split Flow Island layout** — the left side displays a feature or session detail; the right side aggregates attention counts and jump-back actions across clients.
+- **Independent left features & widgets** — enable, disable, select, and reorder built-in or custom features, with per-feature expanded sizes.
+- **Productivity workspace** — Account Usage (Claude / Codex / Antigravity), System Monitor, File Watch, Download Monitor, Browser Resources, Mail Assistant, Calendar, GitHub, and AI HOT.
+- **🎬 Giflow screen recording** — fast GIF / MP4 area and full-screen recording with mouse click ripples, keystroke visualization (Keycast), and Flow Island countdown/status indicators.
+- **🛡️ Session audit modes** — full audit, unrestricted auto-approval, and skip audit modes with audit history review and one-click question skipping.
 - **Proactive notifications** — new downloads, completed downloads, browser resources, local mail signals, and due reminders can open their matching feature.
 - **Music controls** — artwork, metadata, progress, and playback controls for system media players.
 - **File shelf** — temporarily hold files and share them through AirDrop.
 - **Custom HTML and websites** — embed local panels or remote pages with configurable icons, names, network access, and compact hints.
-- **Hook profiles** — manage Claude Code, Codex, the OpenCode plugin, and detected TRAE hook configuration without deleting user-owned settings.
+- **Hook profiles** — manage Claude Code, Codex, Antigravity, the OpenCode plugin, and detected TRAE hook configuration without deleting user-owned settings.
 - **Jump back to context** — return to the captured terminal, tmux pane, IDE, or client deep link.
 - **In-island actions** — approve tools, reject requests, and answer supported questions without hunting for the original window.
-- **Animated pets** — spritesheet themes, desktop detachment, scroll-to-resize, and Codex pet compatibility.
+- **Animated pets & desktop widget** — spritesheet themes, desktop detachment, scroll-to-resize, and borderless desktop widget mode.
 
 ## Supported clients
 
@@ -57,8 +59,9 @@ Claude Code and Codex are enabled by default. OpenCode is opt-in from Hook setti
 | --- | --- | --- | --- |
 | Claude Code | Yes | `~/.claude/settings.json` | Approvals and AskUserQuestion |
 | Codex | Yes | `~/.codex/hooks.json` | PermissionRequest approval; general questions jump back to the terminal |
+| Antigravity | Yes | `~/.gemini/antigravity/hooks.json` | Permission approvals, AskUserQuestion, and usage quota |
 | OpenCode | No (opt-in) | `~/.config/opencode/plugins/cc-flow.ts` | Permission approvals and Question answers |
-| TRAE family | When detected | See below | Approvals and questions supported by official hooks |
+| TRAE family | When detected | See below | Approvals and questions supported by official hooks |d questions supported by official hooks |
 
 TRAE compatibility variants:
 
@@ -93,11 +96,20 @@ Compact mode can show the remaining Codex quota on the left while keeping the pe
 
 - **Top:** a feature switcher with enablement, selection, and drag ordering.
 - **Content:** the active feature or session detail, including approvals, questions, and completion results.
-- **Client routing:** Claude, Codex, and TRAE counts with jump-back actions; TRAE expands to its four variants.
+- **Client routing:** Claude, Codex, Antigravity, OpenCode, and TRAE counts with jump-back actions; TRAE expands to its four variants.
 
 ## Built-in features
 
-### Music
+### 🎬 Giflow
+
+A lightweight screen recorder and GIF exporter designed for developers creating demos, guides, or bug reproduction clips.
+
+- **Recording modes**: Interactive area selection or full-screen capture.
+- **Keycast & ripple effects**: Real-time visualization for mouse clicks and keyboard shortcuts.
+- **Export formats**: High-quality GIF and MP4 exports with automatic file size and resolution metrics.
+- **Flow Island integration**: Compact mode automatically displays recording countdown and dynamic status; expanded mode offers instant replay and file management.
+
+### 🎵 Music
 
 The system now-playing panel supports Music.app, Spotify, NetEase Cloud Music, and QQ Music. Compact mode shows artwork and track information; expanded mode adds metadata, a seekable progress bar, and playback controls.
 
@@ -248,9 +260,9 @@ Create a local unsigned test package with:
 ## How it works
 
 ```text
-Claude Code / Codex / OpenCode / TRAE variants
+Claude Code / Codex / Antigravity / OpenCode / TRAE variants
   -> Hook profiles / OpenCode plugin
-    -> CCFlowBridge (--source <claude|codex|opencode|trae>)
+    -> CCFlowBridge (--source <claude|codex|antigravity|opencode|trae>)
       -> Unix socket (/tmp/cc-flow.sock)
         -> HookSocketServer (provider + client routing)
           -> SessionStore
@@ -268,7 +280,7 @@ Claude Code / Codex / OpenCode / TRAE variants
 
 - macOS 14.0 or later
 - A MacBook with a notch provides the most natural layout, but external displays are supported
-- Claude Code, Codex, OpenCode, or one of the supported TRAE variants
+- Claude Code, Codex, Antigravity, OpenCode, or one of the supported TRAE variants
 
 ## Testing
 

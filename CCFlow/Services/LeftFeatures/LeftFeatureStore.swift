@@ -49,6 +49,7 @@ final class LeftFeatureStore: ObservableObject {
     private var expandedReentryGeneration: UInt64 = 0
 
     private let defaults: UserDefaults
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Keys
 
@@ -80,6 +81,13 @@ final class LeftFeatureStore: ObservableObject {
     ///    b. 否则 `enabledFeatures.first`
     ///    c. 都无则 nil
     var compactFeature: LeftFeature? {
+        // 0. 录制中/导出中优先展示 Giflow
+        if GiflowStore.shared.isRecording || GiflowStore.shared.isExporting {
+            if let giflow = features.first(where: { $0.id == LeftFeature.giflowID }) {
+                return giflow
+            }
+            return LeftFeature(id: LeftFeature.giflowID, kind: .giflow, isEnabled: true, sortOrder: 0)
+        }
         // 1. 显式选择优先
         if let id = compactFeatureID,
            let feature = features.first(where: { $0.id == id && $0.isEnabled }) {
@@ -118,7 +126,24 @@ final class LeftFeatureStore: ObservableObject {
         migrateNaturalSearchIntoFileWatch()
         ensureBuiltinAIHotFeature()
         ensureBuiltinMineradioFeature()
+        ensureBuiltinGiflowFeature()
         normalizeBuiltinDefaultExpandedWidths()
+        applyLocalConfiguration()
+
+        GiflowStore.shared.$isRecording
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        GiflowStore.shared.$isExporting
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        GiflowStore.shared.$elapsedSeconds
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Loading & Persistence
@@ -147,6 +172,12 @@ final class LeftFeatureStore: ObservableObject {
         } catch {
             // 持久化失败不应阻塞 UI；下次启动会重新尝试
         }
+    }
+
+    private func applyLocalConfiguration() {
+        guard let configuration = LocalLeftFeatureConfiguration.load() else { return }
+        features = configuration.merging(into: features)
+        persist()
     }
 
     // MARK: - Legacy Migration
@@ -319,7 +350,8 @@ final class LeftFeatureStore: ObservableObject {
             (LeftFeature.fileCardsID, .fileCards, 560),
             (LeftFeature.downloadMonitorID, .downloadMonitor, 480),
             (LeftFeature.browserResourcesID, .browserResources, 540),
-            (LeftFeature.mailAssistantID, .mailAssistant, 500)
+            (LeftFeature.mailAssistantID, .mailAssistant, 500),
+            (LeftFeature.giflowID, .giflow, 520)
         ]
         var result = source
         var nextSortOrder = (source.map(\.sortOrder).max() ?? -1) + 1
@@ -327,7 +359,7 @@ final class LeftFeatureStore: ObservableObject {
             result.append(LeftFeature(
                 id: id,
                 kind: kind,
-                isEnabled: false,
+                isEnabled: id == LeftFeature.giflowID,
                 sortOrder: nextSortOrder,
                 expandedHeight: height
             ))
@@ -399,6 +431,26 @@ final class LeftFeatureStore: ObservableObject {
         ))
         persist()
         fetchBuiltinFaviconIfNeeded(LeftFeature.mineradioID)
+    }
+
+    /// 确保 Giflow 内置功能存在且默认启用
+    private func ensureBuiltinGiflowFeature() {
+        if let idx = features.firstIndex(where: { $0.id == LeftFeature.giflowID }) {
+            if !features[idx].isEnabled {
+                features[idx].isEnabled = true
+                persist()
+            }
+            return
+        }
+        let maxSortOrder = features.map(\.sortOrder).max() ?? -1
+        features.append(LeftFeature(
+            id: LeftFeature.giflowID,
+            kind: .giflow,
+            isEnabled: true,
+            sortOrder: maxSortOrder + 1,
+            expandedHeight: 520
+        ))
+        persist()
     }
 
     /// Clears shipped width presets so every built-in feature follows the shared 900pt baseline.
@@ -496,11 +548,7 @@ final class LeftFeatureStore: ObservableObject {
         if id == LeftFeature.calendarID {
             isEnabled ? CalendarService.shared.startReminderMonitoring() : CalendarService.shared.stopReminderMonitoring()
         }
-        if (id == LeftFeature.downloadMonitorID || id == LeftFeature.browserResourcesID), isEnabled { BrowserBridgeService.shared.start() }
         if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
-        if (id == LeftFeature.fileCardsID || id == LeftFeature.downloadMonitorID), isEnabled {
-            LocalFileIndexService.shared.start()
-        }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

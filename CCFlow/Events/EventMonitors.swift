@@ -16,11 +16,13 @@ final class EventMonitors {
     let mouseDown = PassthroughSubject<NSEvent, Never>()
     let mouseDragged = PassthroughSubject<NSEvent, Never>()
     let mouseUp = PassthroughSubject<NSEvent, Never>()
+    let keyDown = PassthroughSubject<NSEvent, Never>()
 
     private var mouseMoveMonitor: EventMonitoring?
     private var mouseDownMonitor: EventMonitoring?
     private var mouseDraggedMonitor: EventMonitoring?
     private var mouseUpMonitor: EventMonitoring?
+    private var keyDownMonitor: EventMonitoring?
     private let notificationCenter: NotificationCenter
     private let workspaceNotificationCenter: NotificationCenter
     private let currentMouseLocation: () -> CGPoint
@@ -131,6 +133,13 @@ final class EventMonitors {
             self?.mouseUp.send(event)
         }
         mouseUpMonitor?.start()
+
+        // A global key monitor is required for hover-opened panels because the
+        // non-activating Flow Island does not own keyboard focus in that state.
+        keyDownMonitor = monitorFactory(.keyDown) { [weak self] event in
+            self?.keyDown.send(event)
+        }
+        keyDownMonitor?.start()
     }
 
     private func stopMonitoring() {
@@ -142,5 +151,7 @@ final class EventMonitors {
         mouseDraggedMonitor = nil
         mouseUpMonitor?.stop()
         mouseUpMonitor = nil
+        keyDownMonitor?.stop()
+        keyDownMonitor = nil
     }
 }

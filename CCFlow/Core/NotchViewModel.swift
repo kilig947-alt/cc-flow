@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import Carbon.HIToolbox
 import Combine
 import SwiftUI
 import UniformTypeIdentifiers
@@ -646,6 +647,13 @@ class NotchViewModel: ObservableObject {
                 self?.handleMouseUp(event)
             }
             .store(in: &cancellables)
+
+        events.keyDown
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] event in
+                self?.handleKeyDown(event)
+            }
+            .store(in: &cancellables)
     }
 
     /// Whether we're in chat mode.
@@ -742,6 +750,12 @@ class NotchViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func handleKeyDown(_ event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard event.keyCode == UInt16(kVK_Escape), modifiers.isEmpty else { return }
+        dismissExpandedPresentationWithEscape()
     }
 
     private func handleMouseDragged(_ event: NSEvent) {
@@ -1027,6 +1041,13 @@ class NotchViewModel: ObservableObject {
         // “固定显示 flow Island”或当前功能设置「展开即固定」时，保持面板展开直到用户取消固定。
         // per-feature 的 expandedPinned 仅对当前激活功能生效，切换到其他功能时自动跟随全局配置。
         guard !currentPanelPinned else { return }
+        resetDockedPresentationToClosed()
+    }
+
+    /// Escape is an explicit dismissal, so it closes an expanded docked panel
+    /// even when automatic collapse is disabled or the current panel is pinned.
+    func dismissExpandedPresentationWithEscape() {
+        guard status == .opened else { return }
         resetDockedPresentationToClosed()
     }
 

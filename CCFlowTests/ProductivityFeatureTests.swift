@@ -276,4 +276,22 @@ final class ProductivityFeatureTests: XCTestCase {
         let json = String(decoding: data, as: UTF8.self)
         XCTAssertFalse(json.contains("fileContents"))
     }
+
+    func testLocalLeftFeatureConfigurationCreatesWebFeatureAndOptionShortcut() throws {
+        let data = Data(#"{"webFeatures":[{"id":"local-tool","name":"Local Tool","url":"http://127.0.0.1:8080/tool","shortcut":{"key":"p","modifiers":["alt"]}}]}"#.utf8)
+        let configuration = try JSONDecoder().decode(LocalLeftFeatureConfiguration.self, from: data)
+        let features = configuration.merging(into: [])
+        let feature = try XCTUnwrap(features.first)
+
+        XCTAssertEqual(feature.id, "local-tool")
+        XCTAssertEqual(feature.displayName, "Local Tool")
+        XCTAssertEqual(feature.kind, .webURL(url: "http://127.0.0.1:8080/tool"))
+        XCTAssertEqual(feature.globalShortcut?.displayString, "⌥ P")
+    }
+
+    func testLocalLeftFeatureConfigurationRejectsUnsafeURLScheme() throws {
+        let data = Data(#"{"webFeatures":[{"id":"script","name":"Script","url":"javascript:alert(1)"}]}"#.utf8)
+        let configuration = try JSONDecoder().decode(LocalLeftFeatureConfiguration.self, from: data)
+        XCTAssertTrue(configuration.merging(into: []).isEmpty)
+    }
 }

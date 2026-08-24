@@ -598,7 +598,17 @@ struct ChatView: View {
                         )
                     },
                     secondaryActionTitle: secondaryActionTitle,
-                    onSecondaryAction: onSecondaryAction
+                    onSecondaryAction: onSecondaryAction,
+                    onSkip: intervention.metadata["source"] == "completionRegex"
+                        ? {
+                            sessionMonitor.skipCompletionPrompt(sessionId: sessionId)
+                        }
+                        : nil,
+                    onSkipAllForSession: intervention.metadata["source"] == "completionRegex"
+                        ? {
+                            sessionMonitor.setAuditMode(.skipped, sessionId: sessionId)
+                        }
+                        : nil
                 )
             } else {
                 HStack(spacing: 8) {

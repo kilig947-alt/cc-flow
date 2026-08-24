@@ -47,6 +47,7 @@ struct NotchView: View {
     @ObservedObject private var compactBroadcasts = CompactBroadcastCoordinator.shared
     // Spec: 紧凑态左半区根据 LeftFeatureStore.compactFeature 分发到对应功能视图
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
+    @ObservedObject private var giflowStore = GiflowStore.shared
     // Spec: 观察 NowPlayingProvider —— `compactFeature` 自动规则依赖 `nowPlaying.isPlaying`，
     // 播放状态变化时需重新渲染紧凑态左半区（决定是否切到音乐视图）
     @ObservedObject private var nowPlayingProvider = NowPlayingProvider.shared
@@ -593,7 +594,12 @@ struct NotchView: View {
                     return
                 }
                 if let session = sessionMonitor.instances.first(where: { $0.sessionId == sessionId }) {
-                    enqueueAutoApprovalBroadcast(for: session, toolName: toolName, summary: summary)
+                    enqueueAutoApprovalBroadcast(
+                        for: session,
+                        toolName: toolName,
+                        summary: summary,
+                        iconName: userInfo["iconName"] as? String ?? "checkmark.circle.fill"
+                    )
                 }
             }
             .onPreferenceChange(OpenedPanelContentHeightPreferenceKey.self) { height in
@@ -915,7 +921,8 @@ struct NotchView: View {
     /// - `usesClosedIconOnlyLayout`（极窄关闭态）时也返回 8pt
     private var flowIslandLeftCompactWidth: CGFloat {
         guard !usesClosedIconOnlyLayout else { return 8 }
-        return leftFeatureStore.compactFeature != nil ? flowIslandLeftCompactAvailableWidth : 8
+        let hasActiveGiflow = giflowStore.isRecording || giflowStore.isExporting
+        return (hasActiveGiflow || leftFeatureStore.compactFeature != nil) ? flowIslandLeftCompactAvailableWidth : 8
     }
 
     /// Spec: 紧凑态左半区可用宽度 —— 横向占满"宠物/任务计数区左侧"剩余空间，
@@ -926,13 +933,17 @@ struct NotchView: View {
     }
 
     /// Spec: 紧凑态左半区分发入口 —— 优先级：
+    /// 0. Giflow 录制中或导出中 → 强制展示 Giflow 录制/导出状态
     /// 1. `showCompactHintEnabled` 开启且 `CustomAreaHintStore` 有活跃提示 → 显示提示（覆盖原选中功能）
     /// 2. `compactFeature` 存在 → 渲染对应功能视图
     /// 3. 无功能 → `placeholderContent`
     /// 提示到期或被清除后自动回退到原选中功能，无需切换 `compactFeatureID`。
     @ViewBuilder
     private var compactLeftRegion: some View {
-        if settings.showCompactHintEnabled, let hint = hintStore.mostRecentHint {
+        if giflowStore.isRecording || giflowStore.isExporting {
+            GiflowCompactView()
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        } else if settings.showCompactHintEnabled, let hint = hintStore.mostRecentHint {
             let _ = NSLog("[ccFlowHint] compactLeftRegion 显示提示（覆盖原功能）text=\(hint.text)")
             CustomAreaHintCompactView(hint: hint)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -967,6 +978,8 @@ struct NotchView: View {
             BrowserResourcesFeatureView(compact: true)
         case .mailAssistant:
             MailAssistantFeatureView(compact: true)
+        case .giflow:
+            GiflowCompactView()
         case .music:
             MusicCompactView()
         case .shelf:
@@ -1420,6 +1433,7 @@ struct NotchView: View {
     }
 
     private func handlePendingSessionsChange(_ sessions: [SessionState]) {
+        let sessions = sessions.filter { shouldAutomaticallyPresentSession($0) }
         let currentIds = Set(sessions.map { $0.stableId })
         let undeliveredIds = pendingSessionDeliveryState.undelivered(currentIDs: currentIds)
 
@@ -1518,7 +1532,8 @@ struct NotchView: View {
     }
 
     private func handleManualAttentionChange(_ instances: [SessionState]) {
-        guard let targetSession = manualAttentionTracker.nextAttentionSession(from: instances) else {
+        let presentableInstances = instances.filter { shouldAutomaticallyPresentSession($0) }
+        guard let targetSession = manualAttentionTracker.nextAttentionSession(from: presentableInstances) else {
             cancelManualAttentionRetry()
             return
         }
@@ -1555,7 +1570,8 @@ struct NotchView: View {
     }
 
     private func scheduleRetryForRemainingManualAttention(in instances: [SessionState]) {
-        if manualAttentionTracker.nextAttentionSession(from: instances) != nil {
+        let presentableInstances = instances.filter { shouldAutomaticallyPresentSession($0) }
+        if manualAttentionTracker.nextAttentionSession(from: presentableInstances) != nil {
             scheduleManualAttentionRetry()
         } else {
             cancelManualAttentionRetry()
@@ -1599,7 +1615,10 @@ struct NotchView: View {
     }
 
     private func handleCompletedReadyChange(_ instances: [SessionState]) {
-        let completedSessions = instances.filter { SessionCompletionStateEvaluator.isCompletedReadySession($0) }
+        let completedSessions = instances.filter {
+            shouldAutomaticallyPresentSession($0)
+                && SessionCompletionStateEvaluator.isCompletedReadySession($0)
+        }
         let completedIds = Set(completedSessions.map(\.stableId))
         let newCompletedIds = completedIds.subtracting(previousCompletedReadyIds)
 
@@ -1673,6 +1692,7 @@ struct NotchView: View {
         var newlyCompletedSessions: [SessionState] = []
 
         for session in instances {
+            guard shouldAutomaticallyPresentSession(session) else { continue }
             let previousPhase = previousSessionPhases[session.stableId]
             guard let previousPhase = previousPhase else {
                 continue
@@ -1699,6 +1719,13 @@ struct NotchView: View {
         }
     }
 
+    /// A fully-skipped session still receives events, executes automatic
+    /// actions, and emits compact broadcasts. It must never enter any of the
+    /// attention/completion paths that expand the Island.
+    private func shouldAutomaticallyPresentSession(_ session: SessionState) -> Bool {
+        SessionAuditStore.shared.allowsAutomaticPresentation(for: session.sessionId)
+    }
+
     private func primeCompletionNotificationTracking(_ instances: [SessionState]) {
         previousCompletionNotificationPhases = Dictionary(
             uniqueKeysWithValues: instances.map { ($0.stableId, $0.phase) }
@@ -1707,6 +1734,7 @@ struct NotchView: View {
     }
 
     private func handleCompletionNotificationChange(_ instances: [SessionState]) {
+        let instances = instances.filter { shouldAutomaticallyPresentSession($0) }
         synchronizeCompletionNotifications(with: instances)
 
         if areReminderNotificationsSuppressed {
@@ -2060,13 +2088,14 @@ struct NotchView: View {
     private func enqueueAutoApprovalBroadcast(
         for session: SessionState,
         toolName: String,
-        summary: String
+        summary: String,
+        iconName: String
     ) {
         compactBroadcasts.enqueue(CompactBroadcast(
             deduplicationKey: "auto_approve:\(session.stableId):\(toolName)",
             side: .session,
             target: .session(stableID: session.stableId),
-            iconName: "checkmark.circle.fill",
+            iconName: iconName,
             iconTone: .success,
             summary: summary
         ))

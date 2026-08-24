@@ -423,6 +423,12 @@ final class AppSettingsStore: ObservableObject {
         static let openLeftFeatureShortcutDisabled = "openLeftFeatureShortcutDisabled"
         static let openSessionListShortcut = "openSessionListShortcut"
         static let openSessionListShortcutDisabled = "openSessionListShortcutDisabled"
+        static let giflowSelectionCaptureShortcut = "giflowSelectionCaptureShortcut"
+        static let giflowSelectionCaptureShortcutDisabled = "giflowSelectionCaptureShortcutDisabled"
+        static let giflowFullScreenCaptureShortcut = "giflowFullScreenCaptureShortcut"
+        static let giflowFullScreenCaptureShortcutDisabled = "giflowFullScreenCaptureShortcutDisabled"
+        static let giflowOpenRecordingsShortcut = "giflowOpenRecordingsShortcut"
+        static let giflowOpenRecordingsShortcutDisabled = "giflowOpenRecordingsShortcutDisabled"
         static let routePromptsToTerminal = "routePromptsToTerminal"
         static let autoRoutePromptsToTerminalWhenIdleEnabled = "autoRoutePromptsToTerminalWhenIdleEnabled"
         static let autoRoutePromptsIdleDelay = "autoRoutePromptsIdleDelay"
@@ -679,7 +685,7 @@ final class AppSettingsStore: ObservableObject {
     /// flow Island `closedNotchSize.height` 跟随该值动态扩展以避免内容被截断。
     @Published var compactLeftHeight: CGFloat = 24 {
         didSet {
-            let clamped = min(max(compactLeftHeight, 30), 80)
+            let clamped = min(max(compactLeftHeight, 24), 80)
             if compactLeftHeight != clamped {
                 compactLeftHeight = clamped
                 return
@@ -990,6 +996,42 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    @Published var giflowSelectionCaptureShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                giflowSelectionCaptureShortcut,
+                defaults: defaults,
+                key: Keys.giflowSelectionCaptureShortcut,
+                disabledKey: Keys.giflowSelectionCaptureShortcutDisabled
+            )
+        }
+    }
+
+    @Published var giflowFullScreenCaptureShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                giflowFullScreenCaptureShortcut,
+                defaults: defaults,
+                key: Keys.giflowFullScreenCaptureShortcut,
+                disabledKey: Keys.giflowFullScreenCaptureShortcutDisabled
+            )
+        }
+    }
+
+    @Published var giflowOpenRecordingsShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                giflowOpenRecordingsShortcut,
+                defaults: defaults,
+                key: Keys.giflowOpenRecordingsShortcut,
+                disabledKey: Keys.giflowOpenRecordingsShortcutDisabled
+            )
+        }
+    }
+
     @Published var routePromptsToTerminal: Bool {
         didSet {
             guard !isBootstrapping else { return }
@@ -1167,6 +1209,12 @@ final class AppSettingsStore: ObservableObject {
             return openLeftFeatureShortcut
         case .openSessionList:
             return openSessionListShortcut
+        case .giflowSelectionCapture:
+            return giflowSelectionCaptureShortcut
+        case .giflowFullScreenCapture:
+            return giflowFullScreenCaptureShortcut
+        case .giflowOpenRecordings:
+            return giflowOpenRecordingsShortcut
         }
     }
 
@@ -1179,18 +1227,54 @@ final class AppSettingsStore: ObservableObject {
             if normalized != nil {
                 if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
                 if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
+                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
+                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
             }
         case .openLeftFeature:
             openLeftFeatureShortcut = normalized
             if normalized != nil {
                 if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
                 if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
+                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
+                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
             }
         case .openSessionList:
             openSessionListShortcut = normalized
             if normalized != nil {
                 if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
                 if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
+                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
+                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
+                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
+            }
+        case .giflowSelectionCapture:
+            giflowSelectionCaptureShortcut = normalized
+            if normalized != nil {
+                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
+                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
+                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
+                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
+            }
+        case .giflowFullScreenCapture:
+            giflowFullScreenCaptureShortcut = normalized
+            if normalized != nil {
+                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
+                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
+                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
+                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
+            }
+        case .giflowOpenRecordings:
+            giflowOpenRecordingsShortcut = normalized
+            if normalized != nil {
+                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
+                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
+                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
+                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
+                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
             }
         }
     }
@@ -1472,6 +1556,24 @@ final class AppSettingsStore: ObservableObject {
             disabledKey: Keys.openSessionListShortcutDisabled,
             action: .openSessionList
         )
+        let giflowSelectionCaptureShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.giflowSelectionCaptureShortcut,
+            disabledKey: Keys.giflowSelectionCaptureShortcutDisabled,
+            action: .giflowSelectionCapture
+        )
+        let giflowFullScreenCaptureShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.giflowFullScreenCaptureShortcut,
+            disabledKey: Keys.giflowFullScreenCaptureShortcutDisabled,
+            action: .giflowFullScreenCapture
+        )
+        let giflowOpenRecordingsShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.giflowOpenRecordingsShortcut,
+            disabledKey: Keys.giflowOpenRecordingsShortcutDisabled,
+            action: .giflowOpenRecordings
+        )
         let temporarilyMuteNotificationsUntil = temporarilyMuteNotificationsUntilTimestamp.map {
             Date(timeIntervalSince1970: $0)
         }
@@ -1605,11 +1707,11 @@ final class AppSettingsStore: ObservableObject {
             exists: persistedKeys.contains(Keys.autoOpenCompactedNotificationPanel),
             default: true
         ))
-        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(30, Self.doubleValue(
+        _compactLeftHeight = Published(initialValue: CGFloat(min(80, max(24, Self.doubleValue(
             from: defaults,
             key: Keys.compactLeftHeight,
             exists: persistedKeys.contains(Keys.compactLeftHeight),
-            default: 30
+            default: 24
         )))))
         _showCompactHintEnabled = Published(initialValue: Self.boolValue(
             from: defaults,
@@ -1728,6 +1830,9 @@ final class AppSettingsStore: ObservableObject {
         _openActiveSessionShortcut = Published(initialValue: openActiveSessionShortcut)
         _openLeftFeatureShortcut = Published(initialValue: openLeftFeatureShortcut)
         _openSessionListShortcut = Published(initialValue: openSessionListShortcut)
+        _giflowSelectionCaptureShortcut = Published(initialValue: giflowSelectionCaptureShortcut)
+        _giflowFullScreenCaptureShortcut = Published(initialValue: giflowFullScreenCaptureShortcut)
+        _giflowOpenRecordingsShortcut = Published(initialValue: giflowOpenRecordingsShortcut)
         let routePromptsToTerminal = Self.boolValue(
             from: defaults,
             key: Keys.routePromptsToTerminal,

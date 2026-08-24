@@ -10,6 +10,8 @@ struct SessionQuestionForm: View {
     var secondaryActionTitle: String? = nil
     var secondaryActionSystemImage: String? = nil
     var onSecondaryAction: (() -> Void)? = nil
+    var onSkip: (() -> Void)? = nil
+    var onSkipAllForSession: (() -> Void)? = nil
     var isEditable: Bool = true
 
     @ObservedObject private var settings = AppSettings.shared
@@ -213,6 +215,8 @@ struct SessionQuestionForm: View {
         secondaryActionTitle: String? = nil,
         secondaryActionSystemImage: String? = nil,
         onSecondaryAction: (() -> Void)? = nil,
+        onSkip: (() -> Void)? = nil,
+        onSkipAllForSession: (() -> Void)? = nil,
         isEditable: Bool = true
     ) {
         self.intervention = intervention
@@ -224,6 +228,8 @@ struct SessionQuestionForm: View {
         self.secondaryActionTitle = secondaryActionTitle
         self.secondaryActionSystemImage = secondaryActionSystemImage
         self.onSecondaryAction = onSecondaryAction
+        self.onSkip = onSkip
+        self.onSkipAllForSession = onSkipAllForSession
         self.isEditable = isEditable
         _answers = State(initialValue: isEditable ? (initialDraft?.answers ?? initialAnswers) : initialAnswers)
         _otherAnswers = State(initialValue: isEditable ? (initialDraft?.otherAnswers ?? [:]) : [:])
@@ -276,6 +282,31 @@ struct SessionQuestionForm: View {
                     }
                     .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.9), foreground: .black))
                     .disabled(!canSubmit || !isEditable)
+                }
+
+                if let onSkip {
+                    Button {
+                        onDraftCleared()
+                        onInteractionStateChanged(false)
+                        onSkip()
+                    } label: {
+                        Text(appLocalized: "跳过")
+                    }
+                    .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.1)))
+                    .disabled(!isEditable)
+                }
+
+                if let onSkipAllForSession {
+                    Button {
+                        onDraftCleared()
+                        onInteractionStateChanged(false)
+                        onSkipAllForSession()
+                    } label: {
+                        Text("本会话全部跳过")
+                    }
+                    .buttonStyle(SessionQuestionButtonStyle(background: TerminalColors.amber.opacity(0.22)))
+                    .disabled(!isEditable)
+                    .help("自动跳过本会话后续审计问题，但仍保留审计记录")
                 }
             }
             .padding(.top, 12)

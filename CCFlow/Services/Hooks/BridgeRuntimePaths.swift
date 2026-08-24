@@ -22,6 +22,8 @@ enum BridgeRuntimePaths {
     nonisolated static let customAreasRelativePath = "Library/Application Support/cc-flow/custom-areas"
     /// Spec: 功能图标图片目录 `~/Library/Application Support/cc-flow/icons/`
     nonisolated static let iconsRelativePath = "Library/Application Support/cc-flow/icons"
+    /// Spec: Giflow 屏幕录制保存目录 `~/Library/Application Support/cc-flow/giflow/`
+    nonisolated static let giflowRelativePath = "Library/Application Support/cc-flow/giflow"
 
     nonisolated static var runtimeConfigURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -44,6 +46,12 @@ enum BridgeRuntimePaths {
     nonisolated static var iconsDirectoryURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(iconsRelativePath, isDirectory: true)
+    }
+
+    /// Spec: Giflow 录制文件目录 `~/Library/Application Support/cc-flow/giflow/`
+    nonisolated static var giflowDirectoryURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(giflowRelativePath, isDirectory: true)
     }
 
     /// Spec: 内置默认目录 `~/Library/Application Support/cc-flow/custom-areas/{weather,cpu,stock,pomodoro}/`
@@ -74,7 +82,7 @@ enum BridgeRuntimePaths {
     nonisolated static func prepareRuntimeDirectory() {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser
-        for relative in [appSupportRelativePath, logsRelativePath, cachesRelativePath, customAreasRelativePath, iconsRelativePath] {
+        for relative in [appSupportRelativePath, logsRelativePath, cachesRelativePath, customAreasRelativePath, iconsRelativePath, giflowRelativePath] {
             try? fm.createDirectory(
                 at: home.appendingPathComponent(relative, isDirectory: true),
                 withIntermediateDirectories: true

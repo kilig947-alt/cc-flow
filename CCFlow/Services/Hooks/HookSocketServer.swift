@@ -31,6 +31,8 @@ struct HookEvent: Sendable {
     let toolUseId: String?
     let notificationType: String?
     let message: String?
+    let messageId: String?
+    let messageRole: String?
     let ingress: SessionIngress
     let bridgeIntervention: SessionIntervention?
     let suppressInAppPrompt: Bool
@@ -52,6 +54,8 @@ struct HookEvent: Sendable {
         toolUseId: String?,
         notificationType: String?,
         message: String?,
+        messageId: String? = nil,
+        messageRole: String? = nil,
         ingress: SessionIngress = .hookBridge,
         bridgeIntervention: SessionIntervention? = nil,
         suppressInAppPrompt: Bool = false,
@@ -71,6 +75,8 @@ struct HookEvent: Sendable {
         self.toolUseId = toolUseId
         self.notificationType = notificationType
         self.message = message
+        self.messageId = messageId
+        self.messageRole = messageRole
         self.ingress = ingress
         self.bridgeIntervention = bridgeIntervention
         self.suppressInAppPrompt = suppressInAppPrompt
@@ -139,6 +145,8 @@ extension HookEvent {
             toolUseId: toolUseId,
             notificationType: notificationType,
             message: message,
+            messageId: messageId,
+            messageRole: messageRole,
             ingress: ingress,
             bridgeIntervention: bridgeIntervention?.withResolvedToolUseId(toolUseId),
             suppressInAppPrompt: suppressInAppPrompt,
@@ -162,6 +170,8 @@ extension HookEvent {
             toolUseId: toolUseId,
             notificationType: notificationType,
             message: message,
+            messageId: messageId,
+            messageRole: messageRole,
             ingress: ingress,
             bridgeIntervention: bridgeIntervention,
             suppressInAppPrompt: suppressInAppPrompt,
@@ -185,6 +195,8 @@ extension HookEvent {
             toolUseId: toolUseId,
             notificationType: notificationType,
             message: message,
+            messageId: messageId,
+            messageRole: messageRole,
             ingress: ingress,
             bridgeIntervention: bridgeIntervention,
             suppressInAppPrompt: suppressInAppPrompt,
@@ -571,6 +583,8 @@ private extension BridgeEnvelope {
                 metadata: metadata,
                 preview: preview
             ),
+            messageId: metadata["message_id"],
+            messageRole: metadata["message_role"],
             bridgeIntervention: intervention?.sessionIntervention(
                 fallbackID: metadata["tool_use_id"],
                 metadata: metadata

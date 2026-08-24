@@ -1623,6 +1623,8 @@ struct HookInstaller {
               state.error,
             ),
             prompt: firstString(properties.prompt, info.summary?.title),
+            message_id: firstString(info.id, part.messageID, properties.messageID),
+            message_role: firstString(info.role, properties.role),
             tool_name: firstString(part.tool, properties.permission),
             tool_input: state.input,
             tool_result: state.output,
@@ -1660,7 +1662,7 @@ struct HookInstaller {
         const sendToCCFlow = async (payload) => {
           const home = process.env.HOME
           if (!home) return undefined
-            const bridge = `${home}/.cc-flow/bin/cc-flow-bridge`
+          const bridge = `${home}/.cc-flow/bin/cc-flow-bridge`
           try {
             const processHandle = Bun.spawn([bridge, ...bridgeArguments], {
               stdin: "pipe",
@@ -1680,6 +1682,98 @@ struct HookInstaller {
           }
         }
 
+        // OpenCode intentionally fires plugin event callbacks without awaiting
+        // their promises. Each delivery starts a bridge process, so without a
+        // queue an older busy/message event can arrive after session.idle and
+        // incorrectly reactivate a completed turn. Preserve source order for
+        // each session while allowing unrelated sessions to proceed in parallel.
+        const deliveredEventTypes = new Set([
+          "session.created",
+          "session.updated",
+          "session.status",
+          "session.idle",
+          "session.deleted",
+          "session.error",
+          "message.updated",
+          "message.part.updated",
+          "permission.asked",
+          "question.asked",
+        ])
+        const deliveryQueues = new Map()
+        const sessionStatuses = new Map()
+        const messageRoles = new Map()
+        const lastAssistantMessages = new Map()
+
+        const deliverEvent = async (event, payload, client) => {
+          const properties = event?.properties ?? {}
+          const response = await sendToCCFlow(payload)
+          if (!response) return
+
+          if (event.type === "permission.asked" && response.reply) {
+            await client.permission.reply({ requestID: properties.id, reply: response.reply })
+          }
+
+          if (event.type === "question.asked" && response.answers) {
+            await client.question.reply({
+              requestID: properties.id,
+              answers: questionAnswers(properties.questions ?? [], response.answers),
+            })
+          }
+        }
+
+        const enqueueDelivery = (event, directory, client) => {
+          if (!deliveredEventTypes.has(event?.type)) return Promise.resolve()
+          const sessionID = sessionIDFor(event?.properties ?? {}) ?? "__global__"
+          const payload = payloadFor(event, directory)
+          const properties = event?.properties ?? {}
+          const messageID = firstString(properties.info?.id, properties.part?.messageID, properties.messageID)
+          const directMessageRole = firstString(properties.info?.role, properties.role)
+          let rolesForSession = messageRoles.get(sessionID)
+          if (!rolesForSession) {
+            rolesForSession = new Map()
+            messageRoles.set(sessionID, rolesForSession)
+          }
+          if (messageID && directMessageRole) rolesForSession.set(messageID, directMessageRole)
+          const messageRole = directMessageRole ?? (messageID ? rolesForSession.get(messageID) : undefined)
+          if (messageRole) payload.message_role = messageRole
+          if (
+            event?.type === "message.part.updated"
+            && properties.part?.type === "text"
+            && messageRole === "assistant"
+            && payload.message
+          ) {
+            lastAssistantMessages.set(sessionID, payload.message)
+          }
+          if (event?.type === "session.idle") {
+            const lastAssistantMessage = lastAssistantMessages.get(sessionID)
+            if (lastAssistantMessage) {
+              payload.message = lastAssistantMessage
+              payload.last_assistant_message = lastAssistantMessage
+            }
+          }
+          if (payload.status !== undefined) {
+            sessionStatuses.set(sessionID, payload.status)
+          } else if (sessionStatuses.has(sessionID)) {
+            // Metadata and transcript events may be published after idle. They
+            // must inherit the latest lifecycle state instead of reactivating it.
+            payload.status = sessionStatuses.get(sessionID)
+          }
+          const previous = deliveryQueues.get(sessionID) ?? Promise.resolve()
+          const queued = previous
+            .then(() => deliverEvent(event, payload, client))
+            .catch(() => undefined)
+          deliveryQueues.set(sessionID, queued)
+          void queued.then(() => {
+            if (deliveryQueues.get(sessionID) === queued) deliveryQueues.delete(sessionID)
+            if (event?.type === "session.deleted") {
+              sessionStatuses.delete(sessionID)
+              messageRoles.delete(sessionID)
+              lastAssistantMessages.delete(sessionID)
+            }
+          })
+          return queued
+        }
+
         const questionAnswers = (questions, answerMap) => questions.map((question, index) => {
           const answer = answerMap?.[question.question]
             ?? answerMap?.[question.header]
@@ -1690,22 +1784,7 @@ struct HookInstaller {
         })
 
         export const CCFlowPlugin = async ({ client, directory }) => ({
-          event: async ({ event }) => {
-            const properties = event?.properties ?? {}
-            const response = await sendToCCFlow(payloadFor(event, directory))
-            if (!response) return
-
-            if (event.type === "permission.asked" && response.reply) {
-              await client.permission.reply({ requestID: properties.id, reply: response.reply })
-            }
-
-            if (event.type === "question.asked" && response.answers) {
-              await client.question.reply({
-                requestID: properties.id,
-                answers: questionAnswers(properties.questions ?? [], response.answers),
-              })
-            }
-          },
+          event: ({ event }) => enqueueDelivery(event, directory, client),
         })
 
         export default CCFlowPlugin

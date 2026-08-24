@@ -6,6 +6,8 @@ DerivedData/
 # Secrets
 Config/LocalSecrets.xcconfig
 .sparkle-keys/
+CCFlow/Resources/LeftFeatures.local.json
+releases/unsigned/
 
 # macOS
 .DS_Store

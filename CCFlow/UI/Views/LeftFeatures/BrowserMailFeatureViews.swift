@@ -6,10 +6,11 @@ struct BrowserResourcesFeatureView: View {
     @ObservedObject private var service = BrowserResourceService.shared
     @ObservedObject private var bridge = BrowserBridgeService.shared
     var body: some View {
-        if compact {
-            Label("已保存 \(service.resources.count) 个资源", systemImage: "safari").font(.system(size: 10, weight: .semibold))
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
+        Group {
+            if compact {
+                Label("已保存 \(service.resources.count) 个资源", systemImage: "safari").font(.system(size: 10, weight: .semibold))
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
                 Label("浏览器资源", systemImage: "safari").font(.headline)
                 Text("兼容 Chrome、Edge 和 Safari。保存与分类只写入 CC FLOW，不修改浏览器书签。")
                     .font(.caption).foregroundStyle(.secondary)
@@ -23,8 +24,11 @@ struct BrowserResourcesFeatureView: View {
                         Button { service.remove(item) } label: { Image(systemName: "trash") }.buttonStyle(.plain).frame(width: 44, height: 44)
                     }.padding(8).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
                 } } }
-            }.padding(16)
+                }.padding(16)
+            }
         }
+        .onAppear { if !compact { bridge.start() } }
+        .onDisappear { if !compact { bridge.stop() } }
     }
 }
 

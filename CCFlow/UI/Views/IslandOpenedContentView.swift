@@ -90,7 +90,8 @@ struct IslandOpenedContentView: View {
             SessionAuditInnerView(
                 session: liveSession,
                 auditStore: SessionAuditStore.shared,
-                viewModel: viewModel
+                viewModel: viewModel,
+                sessionMonitor: sessionMonitor
             )
         case .customExpanded:
             // Spec: 展开态左半区功能容器，由 LeftFeatureContainerView 分发到音乐/中转站/自定义 HTML

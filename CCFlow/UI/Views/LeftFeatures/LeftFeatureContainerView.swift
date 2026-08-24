@@ -48,6 +48,8 @@ struct LeftFeatureContainerView: View {
             BrowserResourcesFeatureView(compact: false)
         case .mailAssistant:
             MailAssistantFeatureView(compact: false)
+        case .giflow:
+            GiflowExpandedView()
         case .music:
             MusicExpandedView()
         case .shelf:

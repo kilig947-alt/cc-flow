@@ -1,11 +1,36 @@
 import Combine
 import Foundation
 
+enum SessionAuditMode: String, CaseIterable, Sendable {
+    case unrestricted
+    case partial
+    case skipped
+
+    var title: String {
+        switch self {
+        case .unrestricted: return "完全放任"
+        case .partial: return "部分允许"
+        case .skipped: return "完全跳过"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .unrestricted: return "bolt.shield"
+        case .partial: return "checkmark.shield"
+        case .skipped: return "forward.end"
+        }
+    }
+}
+
 @MainActor
 final class SessionAuditStore: ObservableObject {
     static let shared = SessionAuditStore()
 
     @Published private(set) var recordsBySession: [String: [SessionAuditRecord]]
+    /// Session-local by design: a new AI session always starts in the safer
+    /// partial-review mode, even though its audit records remain persisted.
+    @Published private(set) var modesBySession: [String: SessionAuditMode] = [:]
 
     private let fileURL: URL
 
@@ -27,6 +52,18 @@ final class SessionAuditStore: ObservableObject {
         sessionRecords.append(record)
         recordsBySession[record.sessionId] = sessionRecords
         persist()
+    }
+
+    func mode(for sessionId: String) -> SessionAuditMode {
+        modesBySession[sessionId] ?? .partial
+    }
+
+    func setMode(_ mode: SessionAuditMode, for sessionId: String) {
+        modesBySession[sessionId] = mode
+    }
+
+    func allowsAutomaticPresentation(for sessionId: String) -> Bool {
+        mode(for: sessionId) != .skipped
     }
 
     func removeRecords(for sessionId: String) {

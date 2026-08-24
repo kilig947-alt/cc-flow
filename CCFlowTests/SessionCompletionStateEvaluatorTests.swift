@@ -3,6 +3,46 @@ import XCTest
 @testable import CC_FLOW
 
 final class SessionCompletionStateEvaluatorTests: XCTestCase {
+    func testOpenCodeAssistantHookMessageQualifiesForCompletionNotificationAfterIdle() {
+        var session = SessionState(
+            sessionId: "opencode:session-1",
+            cwd: "/tmp/project",
+            provider: .opencode,
+            phase: .processing
+        )
+        let event = HookEvent(
+            sessionId: session.sessionId,
+            cwd: session.cwd,
+            event: "message.part.updated",
+            status: "processing",
+            provider: .opencode,
+            clientInfo: .default(for: .opencode),
+            pid: nil,
+            tty: nil,
+            tool: nil,
+            toolInput: nil,
+            toolUseId: nil,
+            notificationType: "message.part.updated",
+            message: "选哪个？",
+            messageId: "message-1",
+            messageRole: "assistant"
+        )
+
+        SessionStore.applyOpenCodeHookMessage("选哪个？", event: event, to: &session)
+        session.phase = .waitingForInput
+
+        XCTAssertEqual(session.conversationInfo.lastMessageRole, "assistant")
+        XCTAssertEqual(session.chatItems.last?.type, .assistant("选哪个？"))
+        XCTAssertTrue(SessionCompletionStateEvaluator.isCompletedReadySession(session))
+        XCTAssertTrue(
+            SessionCompletionNotificationPolicy.shouldQueueCompletedNotification(
+                for: session,
+                previousPhase: .processing,
+                isEnabled: true
+            )
+        )
+    }
+
     func testFollowUpDeliveryRouteUsesTmuxEvidence() {
         var directSession = SessionState(sessionId: "tmux", cwd: "/tmp", provider: .claude)
         directSession.isInTmux = true

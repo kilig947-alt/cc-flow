@@ -71,6 +71,9 @@ final class BrowserBridgeService: ObservableObject {
     private var listener: NWListener?
     private var consumers = 0
     private var disconnectTask: Task<Void, Never>?
+    /// 仅在用户显式显示、连接或轮换配对令牌后填充。
+    /// 扩展的后台 heartbeat 不得自行触发钥匙串读取。
+    private var activePairingToken: String?
     private let downloadStatesKey = "productivity.browserDownloadStates.v1"
     private var downloadStates: [String: String]
 
@@ -79,15 +82,21 @@ final class BrowserBridgeService: ObservableObject {
     }
 
     var pairingToken: String {
-        if let token = ProductivitySecretsStore.shared.value(for: .browserPairingToken) { return token }
+        if let activePairingToken { return activePairingToken }
+        if let token = ProductivitySecretsStore.shared.value(for: .browserPairingToken) {
+            activePairingToken = token
+            return token
+        }
         let token = Self.makeToken()
         try? ProductivitySecretsStore.shared.set(token, for: .browserPairingToken)
+        activePairingToken = token
         return token
     }
 
     func rotateToken() -> String {
         let token = Self.makeToken()
         try? ProductivitySecretsStore.shared.set(token, for: .browserPairingToken)
+        activePairingToken = token
         disconnectTask?.cancel()
         disconnectTask = nil
         isExtensionConnected = false
@@ -213,7 +222,12 @@ final class BrowserBridgeService: ObservableObject {
             respond(400, connection)
             return
         }
-        guard envelope.token == pairingToken else {
+        guard let activePairingToken else {
+            status = "请先在 CC FLOW 中显示或复制配对令牌"
+            respond(503, connection)
+            return
+        }
+        guard envelope.token == activePairingToken else {
             status = "扩展配对失败，请在扩展设置中更新配对令牌"
             respond(401, connection)
             return

@@ -156,6 +156,9 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
     case openActiveSession
     case openLeftFeature
     case openSessionList
+    case giflowSelectionCapture
+    case giflowFullScreenCapture
+    case giflowOpenRecordings
 
     var id: String { rawValue }
 
@@ -167,6 +170,12 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
             return "展开左侧功能"
         case .openSessionList:
             return "展开会话列表"
+        case .giflowSelectionCapture:
+            return "Giflow 区域截取"
+        case .giflowFullScreenCapture:
+            return "Giflow 全屏截取"
+        case .giflowOpenRecordings:
+            return "Giflow 打开录制列表"
         }
     }
 
@@ -178,6 +187,12 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
             return "左侧功能"
         case .openSessionList:
             return "会话列表"
+        case .giflowSelectionCapture:
+            return "Giflow 选区"
+        case .giflowFullScreenCapture:
+            return "Giflow 全屏"
+        case .giflowOpenRecordings:
+            return "Giflow 列表"
         }
     }
 
@@ -189,6 +204,12 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
             return "打开最近预览或激活的左侧功能视图。"
         case .openSessionList:
             return "直接展开 Island 的会话列表视图。"
+        case .giflowSelectionCapture:
+            return "长按拖拽选择屏幕区域录制 GIF，再次按下可弹出保存/放弃。"
+        case .giflowFullScreenCapture:
+            return "全屏录制 GIF，再次按下可弹出保存/放弃。"
+        case .giflowOpenRecordings:
+            return "展开 Island 中的 Giflow 录制结果历史列表。"
         }
     }
 
@@ -207,6 +228,21 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
         case .openSessionList:
             return GlobalShortcut(
                 keyCode: UInt16(kVK_ANSI_L),
+                modifierFlags: [.option]
+            )
+        case .giflowSelectionCapture:
+            return GlobalShortcut(
+                keyCode: UInt16(kVK_ANSI_5),
+                modifierFlags: [.option]
+            )
+        case .giflowFullScreenCapture:
+            return GlobalShortcut(
+                keyCode: UInt16(kVK_ANSI_6),
+                modifierFlags: [.option]
+            )
+        case .giflowOpenRecordings:
+            return GlobalShortcut(
+                keyCode: UInt16(kVK_ANSI_7),
                 modifierFlags: [.option]
             )
         }
@@ -247,6 +283,8 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
                     modifierFlags: [.control, .option, .command]
                 )
             ].compactMap { $0 }
+        case .giflowSelectionCapture, .giflowFullScreenCapture, .giflowOpenRecordings:
+            return []
         }
     }
 
@@ -258,6 +296,12 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
             return 3
         case .openSessionList:
             return 2
+        case .giflowSelectionCapture:
+            return 10
+        case .giflowFullScreenCapture:
+            return 11
+        case .giflowOpenRecordings:
+            return 12
         }
     }
 }

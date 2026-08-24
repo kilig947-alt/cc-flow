@@ -58,6 +58,7 @@ enum LeftFeatureKind: Codable, Equatable, Hashable {
     case downloadMonitor
     case browserResources
     case mailAssistant
+    case giflow
     case music
     case shelf
     case customArea(areaID: String)
@@ -226,6 +227,7 @@ extension LeftFeature {
     static let downloadMonitorID = "download-monitor"
     static let browserResourcesID = "browser-resources"
     static let mailAssistantID = "mail-assistant"
+    static let giflowID = "giflow"
     static let shelfID = "shelf"
     static let newsnowID = "newsnow"
     static let mineradioID = "mineradio"
@@ -254,6 +256,8 @@ extension LeftFeature {
             return "safari"
         case .mailAssistant:
             return "envelope.badge"
+        case .giflow:
+            return "record.circle"
         case .music:
             return "music.note"
         case .shelf:
@@ -298,6 +302,8 @@ extension LeftFeature {
             return "浏览器资源"
         case .mailAssistant:
             return "邮件助手"
+        case .giflow:
+            return "Giflow"
         case .music:
             return "音乐"
         case .shelf:

@@ -1807,12 +1807,27 @@ private struct SettingsPanelContentView: View {
                     action: .openSessionList,
                     shortcut: shortcutBinding(for: .openSessionList)
                 )
+                SettingsLineDivider()
+                ShortcutSettingsLine(
+                    action: .giflowSelectionCapture,
+                    shortcut: shortcutBinding(for: .giflowSelectionCapture)
+                )
+                SettingsLineDivider()
+                ShortcutSettingsLine(
+                    action: .giflowFullScreenCapture,
+                    shortcut: shortcutBinding(for: .giflowFullScreenCapture)
+                )
+                SettingsLineDivider()
+                ShortcutSettingsLine(
+                    action: .giflowOpenRecordings,
+                    shortcut: shortcutBinding(for: .giflowOpenRecordings)
+                )
             }
 
             SettingsSectionCard(title: "说明") {
                 SettingsInfoLine(
                     title: "默认键位",
-                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表。"
+                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表，Option + 5/6/7 触发 Giflow 截取录制与历史。"
                 ) {
                     EmptyView()
                 }
@@ -2145,7 +2160,6 @@ private struct SettingsPanelContentView: View {
         }
         .onAppear {
             productivityPermissionCenter.refresh()
-            githubService.refresh()
         }
     }
 
@@ -2613,7 +2627,7 @@ private struct SettingsPanelContentView: View {
             // 右侧操作组：按 kind 分发
             switch feature.kind {
             case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-                 .downloadMonitor, .browserResources, .mailAssistant:
+                 .downloadMonitor, .browserResources, .mailAssistant, .giflow:
                 Button("编辑") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
@@ -2745,7 +2759,7 @@ private struct SettingsPanelContentView: View {
     private func editFeature(_ feature: LeftFeature) {
         switch feature.kind {
         case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-             .downloadMonitor, .browserResources, .mailAssistant:
+             .downloadMonitor, .browserResources, .mailAssistant, .giflow:
             editingBuiltinFeature = feature
         case .customArea(let areaID):
             editCustomArea(areaID: areaID)

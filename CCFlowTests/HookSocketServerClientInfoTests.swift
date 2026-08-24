@@ -72,4 +72,26 @@ final class HookSocketServerClientInfoTests: XCTestCase {
             XCTAssertEqual(event.clientInfo.bundleIdentifier, item.bundleID, item.name)
         }
     }
+
+    func testOpenCodeMessageMetadataPreservesAssistantRoleAndMessageID() throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "id": UUID().uuidString,
+            "provider": "opencode",
+            "eventType": "message.part.updated",
+            "sessionKey": "opencode:session-1",
+            "preview": "选哪个？",
+            "status": ["kind": "active"],
+            "metadata": [
+                "session_id": "session-1",
+                "message_id": "message-1",
+                "message_role": "assistant",
+            ],
+        ])
+
+        let event = try HookSocketServer.decodeBridgeEventForTesting(data)
+
+        XCTAssertEqual(event.message, "选哪个？")
+        XCTAssertEqual(event.messageId, "message-1")
+        XCTAssertEqual(event.messageRole, "assistant")
+    }
 }

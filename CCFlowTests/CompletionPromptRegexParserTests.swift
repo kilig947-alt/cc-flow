@@ -3,6 +3,62 @@ import XCTest
 
 final class CompletionPromptRegexParserTests: XCTestCase {
     @MainActor
+    func testOpenCodeIdleSynthesizesQuestionFromFinalAssistantMessage() async throws {
+        let sessionID = "opencode-completion-regex-\(UUID().uuidString)"
+        let store = SessionStore.shared
+        let settings = AppSettings.shared
+        let originalRules = settings.completionPromptRegexRules
+        let originalRouteSetting = settings.routePromptsToTerminal
+        settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+        settings.routePromptsToTerminal = false
+        addTeardownBlock {
+            Task { @MainActor in
+                settings.completionPromptRegexRules = originalRules
+                settings.routePromptsToTerminal = originalRouteSetting
+                await store.process(.sessionArchived(sessionId: sessionID))
+            }
+        }
+
+        let idleEvent = HookEvent(
+            sessionId: sessionID,
+            cwd: "/tmp/project",
+            event: "session.idle",
+            status: "waitingForInput",
+            provider: .opencode,
+            clientInfo: SessionClientInfo(kind: .opencode, name: "OpenCode"),
+            pid: nil,
+            tty: nil,
+            tool: nil,
+            toolInput: nil,
+            toolUseId: nil,
+            notificationType: "session.idle",
+            message: """
+            1. 修 bug / 稳定性 - 检查日志并修复现有问题。
+            2. 重构前端状态管理 - 收敛状态入口。
+            3. 后端性能优化 - 排查慢查询。
+
+            选哪个？请问选哪个？
+            """,
+            messageRole: "assistant"
+        )
+
+        await store.process(.hookReceived(idleEvent))
+        let snapshot = await store.session(for: sessionID)
+        let session = try XCTUnwrap(snapshot)
+        XCTAssertEqual(session.phase, .waitingForInput)
+        XCTAssertEqual(session.intervention?.metadata["source"], "completionRegex")
+        XCTAssertEqual(session.intervention?.metadata["responseMode"], "follow_up")
+        XCTAssertEqual(
+            session.intervention?.resolvedQuestions.first?.options.map(\.title),
+            [
+                "1. 修 bug / 稳定性 - 检查日志并修复现有问题。",
+                "2. 重构前端状态管理 - 收敛状态入口。",
+                "3. 后端性能优化 - 排查慢查询。"
+            ]
+        )
+    }
+
+    @MainActor
     func testCodexStopSynthesizesQuestionAndDeduplicatesSameCompletion() async throws {
         let sessionID = "completion-regex-stop-\(UUID().uuidString)"
         let store = SessionStore.shared
@@ -66,6 +122,51 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         await store.process(.hookReceived(stopEvent))
         let deduplicatedSnapshot = await store.session(for: sessionID)
         session = try XCTUnwrap(deduplicatedSnapshot)
+        XCTAssertNil(session.intervention)
+    }
+
+    @MainActor
+    func testSkippingCodexStopPromptClearsInterventionAndEndsSession() async throws {
+        let sessionID = "completion-regex-skip-\(UUID().uuidString)"
+        let store = SessionStore.shared
+        let settings = AppSettings.shared
+        let originalRules = settings.completionPromptRegexRules
+        let originalRouteSetting = settings.routePromptsToTerminal
+        settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+        settings.routePromptsToTerminal = false
+        addTeardownBlock {
+            Task { @MainActor in
+                settings.completionPromptRegexRules = originalRules
+                settings.routePromptsToTerminal = originalRouteSetting
+                await store.process(.sessionArchived(sessionId: sessionID))
+            }
+        }
+
+        await store.process(.hookReceived(HookEvent(
+            sessionId: sessionID,
+            cwd: "/tmp/project",
+            event: "Stop",
+            status: "waiting",
+            provider: .codex,
+            clientInfo: SessionClientInfo(kind: .codex, name: "Codex"),
+            pid: nil,
+            tty: nil,
+            tool: nil,
+            toolInput: nil,
+            toolUseId: "bridge-stop-\(sessionID)",
+            notificationType: nil,
+            message: "请选择：\\nA. 继续\\nB. 取消"
+        )))
+
+        await store.process(.interventionResolved(
+            sessionId: sessionID,
+            nextPhase: .ended,
+            submittedAnswers: nil
+        ))
+
+        let snapshot = await store.session(for: sessionID)
+        let session = try XCTUnwrap(snapshot)
+        XCTAssertEqual(session.phase, .ended)
         XCTAssertNil(session.intervention)
     }
 
