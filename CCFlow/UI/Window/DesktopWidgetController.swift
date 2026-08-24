@@ -250,9 +250,15 @@ private struct DesktopWidgetRootView: View {
     @State private var webReloadGeneration: UInt64 = 0
     @State private var isBorderless = true
     @State private var isPointerInside = false
+    @State private var isTopHovered = false
+    @State private var isHeaderHovered = false
 
     private var feature: LeftFeature? {
         featureStore.features.first(where: { $0.id == featureID && $0.isEnabled })
+    }
+
+    private var showsHeader: Bool {
+        !isBorderless || isTopHovered || isHeaderHovered
     }
 
     private var showsWindowChrome: Bool {
@@ -290,6 +296,10 @@ private struct DesktopWidgetRootView: View {
         .onHover { isInside in
             withAnimation(.easeOut(duration: 0.16)) {
                 isPointerInside = isInside
+                if !isInside {
+                    isTopHovered = false
+                    isHeaderHovered = false
+                }
             }
         }
     }
@@ -299,10 +309,27 @@ private struct DesktopWidgetRootView: View {
         if isBorderless {
             ZStack(alignment: .top) {
                 featureContent(feature)
-                if showsWindowChrome {
+
+                // 顶部悬浮感应区（高度 44pt，仅在悬浮顶部时展开 title）
+                Color.clear
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                    .onHover { isHovering in
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            isTopHovered = isHovering
+                        }
+                    }
+                    .allowsHitTesting(!showsHeader)
+
+                if showsHeader {
                     header(feature)
+                        .onHover { isHovering in
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                isHeaderHovered = isHovering
+                            }
+                        }
                         .transition(.move(edge: .top).combined(with: .opacity))
-                        .zIndex(1)
+                        .zIndex(2)
                 }
             }
         } else {

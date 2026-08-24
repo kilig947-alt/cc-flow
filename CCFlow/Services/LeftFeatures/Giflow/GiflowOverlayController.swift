@@ -95,15 +95,16 @@ final class GiflowOverlayController: NSObject {
         for screen in screens {
             let window = GiflowOverlayPanel(
                 contentRect: screen.frame,
-                styleMask: [.borderless],
+                styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
             window.level = .screenSaver + 2
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             window.isOpaque = false
             window.backgroundColor = .clear
             window.hasShadow = false
+            window.hidesOnDeactivate = false
             window.ignoresMouseEvents = false
             window.acceptsMouseMovedEvents = true
 
@@ -246,8 +247,10 @@ final class GiflowOverlayController: NSObject {
         currentRect = rect
 
         for window in overlayWindows {
-            // 关键：开启鼠标穿透，用户可完全正常操作屏幕任意位置
+            // 关键：开启鼠标穿透，用户可完全正常操作屏幕任意位置；保持置顶展示
             window.ignoresMouseEvents = true
+            window.hidesOnDeactivate = false
+            window.orderFrontRegardless()
             if let canvasView = window.contentView as? GiflowSelectionCanvasView {
                 canvasView.setRecordingMode(recordingRect: rect, kind: kind)
             }
@@ -613,25 +616,51 @@ private final class GiflowSelectionCanvasView: NSView {
             height: globalRect.height
         )
 
+        guard bounds.intersects(localRect) else { return }
+        let intersectRect = localRect.intersection(bounds)
+
         context.saveGState()
 
-        // 录制中选区外极轻微暗调蒙版（降低灰度，极度轻柔，完全不阻碍视线）
-        let path = CGMutablePath()
-        path.addRect(bounds)
-        if bounds.intersects(localRect) {
-            path.addRect(localRect.intersection(bounds))
-        }
-        context.addPath(path)
-        context.setFillColor(NSColor(white: 0, alpha: 0.05).cgColor)
-        context.fillPath(using: .evenOdd)
+        // 1. 录制边框：外层高对比度深色微晕（确保在浅色背景下醒目）
+        context.setStrokeColor(NSColor.black.withAlphaComponent(0.4).cgColor)
+        context.setLineWidth(3.0)
+        context.stroke(intersectRect)
 
-        // 录制边框：精致细虚线红色边框
-        if bounds.intersects(localRect) {
-            let intersectRect = localRect
-            context.setStrokeColor(NSColor.systemRed.withAlphaComponent(0.85).cgColor)
-            context.setLineWidth(1.8)
-            context.setLineDash(phase: 0, lengths: [6, 4])
-            context.stroke(intersectRect)
+        // 2. 内层鲜红高亮录制虚线边框
+        context.setStrokeColor(NSColor.systemRed.cgColor)
+        context.setLineWidth(2.0)
+        context.setLineDash(phase: 0, lengths: [6, 4])
+        context.stroke(intersectRect)
+
+        // 3. 四个精致角标 (Corner Brackets) - 直观标示录制视口
+        let cornerLen: CGFloat = min(16, min(intersectRect.width, intersectRect.height) / 4)
+        if cornerLen >= 6 {
+            context.setLineDash(phase: 0, lengths: []) // 实线
+            context.setLineWidth(3.0)
+            context.setLineCap(.square)
+            context.setStrokeColor(NSColor.systemRed.cgColor)
+
+            // 左下角
+            context.move(to: CGPoint(x: intersectRect.minX, y: intersectRect.minY + cornerLen))
+            context.addLine(to: CGPoint(x: intersectRect.minX, y: intersectRect.minY))
+            context.addLine(to: CGPoint(x: intersectRect.minX + cornerLen, y: intersectRect.minY))
+
+            // 左上角
+            context.move(to: CGPoint(x: intersectRect.minX, y: intersectRect.maxY - cornerLen))
+            context.addLine(to: CGPoint(x: intersectRect.minX, y: intersectRect.maxY))
+            context.addLine(to: CGPoint(x: intersectRect.minX + cornerLen, y: intersectRect.maxY))
+
+            // 右上角
+            context.move(to: CGPoint(x: intersectRect.maxX - cornerLen, y: intersectRect.maxY))
+            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.maxY))
+            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.maxY - cornerLen))
+
+            // 右下角
+            context.move(to: CGPoint(x: intersectRect.maxX - cornerLen, y: intersectRect.minY))
+            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.minY))
+            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.minY + cornerLen))
+
+            context.strokePath()
         }
 
         context.restoreGState()
@@ -653,7 +682,7 @@ private struct GiflowSelectionActionPopupView: View {
             HStack(spacing: 4) {
                 Image(systemName: kind == .fullScreen ? "macwindow" : "crop")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.white.opacity(0.85))
                 Text(kind == .fullScreen ? "全屏" : "\(Int(rect.width)) × \(Int(rect.height))")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
@@ -709,13 +738,18 @@ private struct GiflowSelectionActionPopupView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .background(
             Capsule()
-                .fill(Color(white: 0.12).opacity(0.92))
-                .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 5)
+                .fill(Color(red: 0.12, green: 0.12, blue: 0.14).opacity(0.96))
         )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
+        .padding(14)
     }
 }
 
@@ -795,12 +829,17 @@ private struct GiflowRecordingControlPopupView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .background(
             Capsule()
-                .fill(Color(white: 0.12).opacity(0.92))
-                .shadow(color: Color.black.opacity(0.35), radius: 10, x: 0, y: 5)
+                .fill(Color(red: 0.12, green: 0.12, blue: 0.14).opacity(0.96))
         )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.4), radius: 8, x: 0, y: 3)
+        .padding(14)
     }
 }
