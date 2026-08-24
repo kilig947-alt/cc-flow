@@ -325,10 +325,14 @@ struct GiflowExpandedView: View {
                 // 复制按钮
                 Button(action: {
                     store.copyMediaToClipboard(item: item)
-                    copiedItemID = item.id
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        copiedItemID = item.id
+                    }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        if copiedItemID == item.id {
-                            copiedItemID = nil
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            if copiedItemID == item.id {
+                                copiedItemID = nil
+                            }
                         }
                     }
                 }) {
@@ -345,7 +349,7 @@ struct GiflowExpandedView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("复制文件到剪贴板，可直接在微信/Slack中粘贴")
+                .help("复制文件到剪贴板，可直接在微信/Slack/Finder/终端中粘贴")
 
                 // 定位文件
                 Button(action: { store.revealInFinder(item: item) }) {
