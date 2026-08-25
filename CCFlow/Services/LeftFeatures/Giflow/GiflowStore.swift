@@ -337,9 +337,30 @@ final class GiflowStore: ObservableObject {
         pasteboard.writeObjects([pasteboardItem])
     }
 
-    /// 在 Finder 中定位文件
+    /// 在访达中定位文件并主动唤起访达窗口，同时收起灵动岛
     func revealInFinder(item: GiflowRecordingItem) {
         NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
+        activateFinderApp()
+        collapseFlowIsland()
+    }
+
+    /// 在访达中打开录制保存文件夹并主动唤起访达窗口，同时收起灵动岛
+    func openSaveDirectory() {
+        let dir = BridgeRuntimePaths.giflowDirectoryURL
+        NSWorkspace.shared.open(dir)
+        activateFinderApp()
+        collapseFlowIsland()
+    }
+
+    private func activateFinderApp() {
+        // 主动激活访达应用并将其所有窗口置前
+        if let finderApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first {
+            finderApp.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        }
+    }
+
+    private func collapseFlowIsland() {
+        NotificationCenter.default.post(name: .ccFlowCollapseIsland, object: nil)
     }
 
     /// 删除录制项

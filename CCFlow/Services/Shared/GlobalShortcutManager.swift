@@ -11,6 +11,7 @@ extension Notification.Name {
     static let ccFlowGiflowSelectionCaptureShortcut = Notification.Name("ccFlowGiflowSelectionCaptureShortcut")
     static let ccFlowGiflowFullScreenCaptureShortcut = Notification.Name("ccFlowGiflowFullScreenCaptureShortcut")
     static let ccFlowGiflowOpenRecordingsShortcut = Notification.Name("ccFlowGiflowOpenRecordingsShortcut")
+    static let ccFlowCollapseIsland = Notification.Name("ccFlowCollapseIsland")
 }
 
 @MainActor

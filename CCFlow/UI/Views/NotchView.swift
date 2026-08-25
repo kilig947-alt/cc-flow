@@ -586,6 +586,9 @@ struct NotchView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForBrowserConnection)) { _ in
                 viewModel.notchClose()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseIsland)) { _ in
+                viewModel.notchClose()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowSessionAutoApproved)) { note in
                 guard let userInfo = note.userInfo,
                       let sessionId = userInfo["sessionId"] as? String,

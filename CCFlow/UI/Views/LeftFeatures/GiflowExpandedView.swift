@@ -170,7 +170,7 @@ struct GiflowExpandedView: View {
 
                 // 打开目录按钮
                 Button(action: {
-                    NSWorkspace.shared.open(BridgeRuntimePaths.giflowDirectoryURL)
+                    store.openSaveDirectory()
                 }) {
                     Image(systemName: "folder")
                         .font(.system(size: 12))
@@ -180,7 +180,7 @@ struct GiflowExpandedView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("打开保存文件夹")
+                .help("在访达中打开保存文件夹")
             }
         }
     }
@@ -360,7 +360,7 @@ struct GiflowExpandedView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("在 Finder 中显示")
+                .help("在访达中定位文件")
 
                 // 删除
                 Button(action: { store.deleteItem(item: item) }) {
