@@ -317,30 +317,24 @@ final class GiflowStore: ObservableObject {
         recordings = items.sorted { $0.createdAt > $1.createdAt }
     }
 
-    /// 复制媒体动图/视频到剪贴板（支持在微信、飞书、Slack、Finder、终端等任意场景下直接粘贴）
+    /// 复制媒体动图/视频到剪贴板（支持在微信、飞书、Slack、Finder、备忘录等任意场景下直接粘贴）
     func copyMediaToClipboard(item: GiflowRecordingItem) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
-        // 1. 写入标准 NSURL 对象 (public.file-url, public.url)
-        pasteboard.writeObjects([item.fileURL as NSURL])
+        let pasteboardItem = NSPasteboardItem()
+        // 1. 写入文件 URL（系统自动关联 public.file-url 与 NSFilenamesPboardType 文件标识）
+        pasteboardItem.setString(item.fileURL.absoluteString, forType: .fileURL)
 
-        // 2. 写入 NSFilenamesPboardType (Finder、微信、飞书、Slack、QQ 等各类原生应用识别文件粘贴的核心类型)
-        pasteboard.setPropertyList([item.fileURL.path], forType: NSPasteboard.PasteboardType("NSFilenamesPboardType"))
-
-        // 3. 写入文件路径纯文本 (纯文本编辑器/终端中粘贴时得到文件绝对路径)
-        pasteboard.setString(item.fileURL.path, forType: .string)
-
-        // 4. 如果是 GIF 动图，额外写入动图与图片原始数据 (备忘录/即时通讯工具可直接作为图片插入)
+        // 2. 如果是 GIF 动图，写入 GIF 原生动图二进制与 TIFF 兼容位图（微信/Slack/邮件/文档可直接粘贴动画/图片）
         if item.format == .gif, let data = try? Data(contentsOf: item.fileURL) {
-            pasteboard.setData(data, forType: NSPasteboard.PasteboardType("com.compuserve.gif"))
-            pasteboard.setData(data, forType: NSPasteboard.PasteboardType("public.image"))
+            pasteboardItem.setData(data, forType: NSPasteboard.PasteboardType("com.compuserve.gif"))
+            if let image = NSImage(contentsOf: item.fileURL), let tiffData = image.tiffRepresentation {
+                pasteboardItem.setData(tiffData, forType: .tiff)
+            }
         }
 
-        // 5. 如果是 MP4 视频，额外声明 public.mpeg-4 / public.movie 类型标识
-        if item.format == .mp4 {
-            pasteboard.setString(item.fileURL.absoluteString, forType: NSPasteboard.PasteboardType("public.mpeg-4"))
-        }
+        pasteboard.writeObjects([pasteboardItem])
     }
 
     /// 在 Finder 中定位文件
