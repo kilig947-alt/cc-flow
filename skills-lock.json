@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "storage-analyzer": {
+      "source": "kkkkhazix/khazix-skills",
+      "sourceType": "github",
+      "skillPath": "storage-analyzer/SKILL.md",
+      "computedHash": "92b5e60dc1fab6073fa9b89d0c2dbab67e09960b96544ba93e8736b073680211"
+    }
+  }
+}

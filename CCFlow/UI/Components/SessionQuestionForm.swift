@@ -190,13 +190,16 @@ struct SessionQuestionForm: View {
 
     private var completionResponseText: String? {
         guard intervention.metadata["source"] == "completionRegex" else { return nil }
-        return SessionTextSanitizer.boundedDisplayText(
+        guard let text = SessionTextSanitizer.boundedDisplayText(
             intervention.message,
             maxCharacters: 6_000,
             truncationNotice: AppLocalization.string(
                 SessionDetailDisplayStrings.truncationNoticeKey
             )
-        )
+        )?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            return nil
+        }
+        return text
     }
 
     private var questionContainerShadowColor: Color {
@@ -397,7 +400,8 @@ struct SessionQuestionForm: View {
                         }
                     }
 
-                    if completionResponseText == nil {
+                    if completionResponseText == nil,
+                       !question.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(question.prompt)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white)

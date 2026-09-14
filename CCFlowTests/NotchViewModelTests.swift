@@ -101,6 +101,19 @@ final class NotchViewModelTests: XCTestCase {
         }
     }
 
+    func testExternalNavigationClosesPinnedIsland() async {
+        await MainActor.run {
+            let original = AppSettings.keepIslandOpen
+            defer { AppSettings.keepIslandOpen = original }
+            let viewModel = makeViewModel()
+            AppSettings.keepIslandOpen = true
+            viewModel.notchOpen(reason: .click)
+            viewModel.dismissExpandedPresentationForExternalNavigation()
+            XCTAssertEqual(viewModel.status, .closed)
+            XCTAssertNil(viewModel.openedSizeOverride)
+        }
+    }
+
     func testEscapeDismissesHoverOpenedNotch() async {
         await MainActor.run { [self] in
             let viewModel = makeViewModel()

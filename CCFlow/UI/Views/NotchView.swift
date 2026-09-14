@@ -587,7 +587,7 @@ struct NotchView: View {
                 viewModel.notchClose()
             }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseIsland)) { _ in
-                viewModel.notchClose()
+                viewModel.dismissExpandedPresentationForExternalNavigation()
             }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowSessionAutoApproved)) { note in
                 guard let userInfo = note.userInfo,

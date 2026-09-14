@@ -258,7 +258,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         let question = try XCTUnwrap(match.intervention.resolvedQuestions.first)
 
         XCTAssertEqual(question.header, "字母或数字选项")
-        XCTAssertEqual(match.intervention.message, message)
+        XCTAssertEqual(match.intervention.message, "请选择局部关系图需要包含的关系：")
         XCTAssertEqual(question.options.map(\.title), [
             "A. 仅结构关系：库→表、表间 Join/外键。",
             "B. 仅知识关系：业务概念、指标、Wiki 页面关联。",
@@ -271,6 +271,48 @@ final class CompletionPromptRegexParserTests: XCTestCase {
             ),
             "选择 C：两者结合（推荐）：默认突出结构关系，同时显示少量概念/指标节点。"
         )
+    }
+
+    func testListedOptionsStripsOptionsAndKeepsPrecedingAndTrailingContext() throws {
+        let message = """
+        已确定自愈采用“验证后落盘”：修复 YAML 后必须重跑通过才自动保存，并完整记录修改前后差异、验证过程和结果。
+        下一项：用户点击“中断”时采用哪种范围？
+
+        1. 中断整个 Agent 执行任务：停止 Supervisor 分配新用例 (推荐)。
+        2. 只中断当前正在展示的子 Agent，其他 Agent 继续。
+
+        请点击上方选项进行确认。
+        """
+
+        let match = try XCTUnwrap(CompletionPromptRegexParser.match(
+            message: message,
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
+
+        XCTAssertEqual(
+            match.intervention.message,
+            """
+            已确定自愈采用“验证后落盘”：修复 YAML 后必须重跑通过才自动保存，并完整记录修改前后差异、验证过程和结果。
+            下一项：用户点击“中断”时采用哪种范围？
+
+            请点击上方选项进行确认。
+            """
+        )
+    }
+
+    func testPureOptionsMessageResultsInEmptyInterventionMessage() throws {
+        let message = """
+        1. 方案一（请确认）
+        2. 方案二
+        """
+
+        let match = try XCTUnwrap(CompletionPromptRegexParser.match(
+            message: message,
+            rules: CompletionPromptRegexRule.defaultTemplates
+        ))
+
+        XCTAssertEqual(match.intervention.message, "")
+        XCTAssertEqual(match.intervention.resolvedQuestions.first?.options.count, 2)
     }
 
     func testNumberedAnalysisWithoutPleaseDoesNotCreateQuestion() {

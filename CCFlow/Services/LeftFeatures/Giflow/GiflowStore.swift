@@ -15,6 +15,8 @@ final class GiflowStore: ObservableObject {
     @Published private(set) var elapsedSeconds: Int = 0
     @Published private(set) var isExporting: Bool = false
     @Published private(set) var exportProgress: Double = 0.0
+    @Published var actionError: String?
+    @Published private(set) var convertingItemID: String?
     @Published private(set) var lastExportedItem: GiflowRecordingItem?
 
     @Published var settings: GiflowSettings {
@@ -157,6 +159,7 @@ final class GiflowStore: ObservableObject {
         let filename = "Giflow-\(timestampStr).\(ext)"
         let outputURL = BridgeRuntimePaths.giflowDirectoryURL.appendingPathComponent(filename)
 
+        actionError = nil
         isExporting = true
         exportProgress = 0.0
 
@@ -203,6 +206,7 @@ final class GiflowStore: ObservableObject {
                 await MainActor.run {
                     self.isExporting = false
                     self.exportProgress = 0.0
+                    self.actionError = "导出失败：\(error.localizedDescription)"
                 }
             }
         }
@@ -210,6 +214,7 @@ final class GiflowStore: ObservableObject {
 
     /// 将已有的录制项另存为 MP4（作为全新独立任务加入列表，不删除或覆盖旧项）
     func convertItemToMP4(_ item: GiflowRecordingItem) {
+        GiflowInteractionDiagnostics.record("action convert exporting=\(isExporting)")
         guard !isExporting, item.format == .gif else { return }
 
         let formatter = DateFormatter()
@@ -218,6 +223,8 @@ final class GiflowStore: ObservableObject {
         let outputFilename = "\(item.name)-\(timestampStr).mp4"
         let outputURL = BridgeRuntimePaths.giflowDirectoryURL.appendingPathComponent(outputFilename)
 
+        actionError = nil
+        convertingItemID = item.id
         isExporting = true
         exportProgress = 0.0
 
@@ -233,6 +240,7 @@ final class GiflowStore: ObservableObject {
                 }
 
                 await MainActor.run {
+                    self.convertingItemID = nil
                     self.isExporting = false
                     self.exportProgress = 1.0
                     self.lastExportedItem = newItem
@@ -240,8 +248,10 @@ final class GiflowStore: ObservableObject {
                 }
             } catch {
                 await MainActor.run {
+                    self.convertingItemID = nil
                     self.isExporting = false
                     self.exportProgress = 0.0
+                    self.actionError = "导出失败：\(error.localizedDescription)"
                 }
             }
         }
@@ -317,45 +327,61 @@ final class GiflowStore: ObservableObject {
         recordings = items.sorted { $0.createdAt > $1.createdAt }
     }
 
-    /// 复制媒体动图/视频到剪贴板（支持在微信、飞书、Slack、Finder、备忘录等任意场景下直接粘贴）
-    func copyMediaToClipboard(item: GiflowRecordingItem) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        let pasteboardItem = NSPasteboardItem()
-        // 1. 写入文件 URL（系统自动关联 public.file-url 与 NSFilenamesPboardType 文件标识）
-        pasteboardItem.setString(item.fileURL.absoluteString, forType: .fileURL)
-
-        // 2. 如果是 GIF 动图，写入 GIF 原生动图二进制与 TIFF 兼容位图（微信/Slack/邮件/文档可直接粘贴动画/图片）
-        if item.format == .gif, let data = try? Data(contentsOf: item.fileURL) {
-            pasteboardItem.setData(data, forType: NSPasteboard.PasteboardType("com.compuserve.gif"))
-            if let image = NSImage(contentsOf: item.fileURL), let tiffData = image.tiffRepresentation {
-                pasteboardItem.setData(tiffData, forType: .tiff)
-            }
+    /// 复制原始媒体文件，返回实际写入结果供按钮显示反馈。
+    @discardableResult
+    func copyMediaToClipboard(item: GiflowRecordingItem) -> Bool {
+        GiflowInteractionDiagnostics.record("action copy")
+        actionError = nil
+        do {
+            try GiflowClipboard.write(fileURL: item.fileURL, to: .general)
+            return true
+        } catch {
+            actionError = "复制失败：\(error.localizedDescription)"
+            return false
         }
-
-        pasteboard.writeObjects([pasteboardItem])
     }
 
-    /// 在访达中定位文件并主动唤起访达窗口，同时收起灵动岛
     func revealInFinder(item: GiflowRecordingItem) {
-        NSWorkspace.shared.activateFileViewerSelecting([item.fileURL])
-        activateFinderApp()
-        collapseFlowIsland()
+        GiflowInteractionDiagnostics.record("action reveal")
+        openFinder(directory: item.fileURL.deletingLastPathComponent(), selecting: item.fileURL)
     }
 
-    /// 在访达中打开录制保存文件夹并主动唤起访达窗口，同时收起灵动岛
     func openSaveDirectory() {
-        let dir = BridgeRuntimePaths.giflowDirectoryURL
-        NSWorkspace.shared.open(dir)
-        activateFinderApp()
-        collapseFlowIsland()
+        GiflowInteractionDiagnostics.record("action open-directory")
+        let directory = BridgeRuntimePaths.giflowDirectoryURL
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            openFinder(directory: directory)
+        } catch {
+            actionError = "打开保存目录失败：\(error.localizedDescription)"
+        }
     }
 
-    private func activateFinderApp() {
-        // 主动激活访达应用并将其所有窗口置前
-        if let finderApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first {
-            finderApp.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+    private func openFinder(directory: URL, selecting fileURL: URL? = nil) {
+        actionError = nil
+        guard let finderURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder") else {
+            actionError = "无法找到访达"
+            return
+        }
+        // Explicit navigation dismisses even a pinned Island before handing focus to Finder.
+        collapseFlowIsland()
+        DispatchQueue.main.async {
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            NSWorkspace.shared.open([directory], withApplicationAt: finderURL, configuration: configuration) { application, error in
+                Task { @MainActor in
+                    if let error {
+                        self.actionError = "打开访达失败：\(error.localizedDescription)"
+                        self.openRecordingsList()
+                        return
+                    }
+                    if let fileURL {
+                        NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                    }
+                    application?.unhide()
+                    application?.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+                }
+            }
         }
     }
 

@@ -70,6 +70,17 @@ class NotchPanel: NSPanel {
     override var canBecomeMain: Bool { true }
 
     override func sendEvent(_ event: NSEvent) {
+        #if DEBUG
+        if [.leftMouseDown, .leftMouseUp].contains(event.type),
+           let controller = windowController as? NotchWindowController,
+           controller.viewModel.contentType == .customExpanded,
+           LeftFeatureStore.shared.expandedActiveFeature?.id == LeftFeature.giflowID {
+            let hit = contentView.flatMap { view in
+                view.hitTest(view.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow)
+            }
+            GiflowInteractionDiagnostics.record("panel \(event.type.rawValue) window=\(windowNumber) point=\(event.locationInWindow) active=\(NSApp.isActive) key=\(isKeyWindow) ignores=\(ignoresMouseEvents) hit=\(hit.map { String(describing: type(of: $0)) } ?? "nil")")
+        }
+        #endif
         if event.type == .leftMouseDown || event.type == .rightMouseDown {
             if !NSApp.isActive {
                 NSApp.activate(ignoringOtherApps: true)

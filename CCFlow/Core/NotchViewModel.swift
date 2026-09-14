@@ -710,6 +710,12 @@ class NotchViewModel: ObservableObject {
     }
 
     private func handleMouseDown(_ event: NSEvent) {
+        #if DEBUG
+        if status == .opened, contentType == .customExpanded,
+           LeftFeatureStore.shared.expandedActiveFeature?.id == LeftFeature.giflowID {
+            GiflowInteractionDiagnostics.record("monitor down eventWindow=\(event.windowNumber) mouse=\(NSEvent.mouseLocation) panel=\(geometry.openedScreenRect(for: openedSize))")
+        }
+        #endif
         // flow Island始终保持交互：宠物分离态下点击 docked 窗口仍可展开/关闭
         guard presentationMode != .detached || status != .opened || !isInlineTextInputActive else { return }
 
@@ -1041,6 +1047,13 @@ class NotchViewModel: ObservableObject {
         // “固定显示 flow Island”或当前功能设置「展开即固定」时，保持面板展开直到用户取消固定。
         // per-feature 的 expandedPinned 仅对当前激活功能生效，切换到其他功能时自动跟随全局配置。
         guard !currentPanelPinned else { return }
+        resetDockedPresentationToClosed()
+    }
+
+    /// Opening an external file is an explicit dismissal, including for pinned panels.
+    func dismissExpandedPresentationForExternalNavigation() {
+        hoverTimer?.cancel()
+        hoverTimer = nil
         resetDockedPresentationToClosed()
     }
 

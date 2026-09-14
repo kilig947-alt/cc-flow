@@ -44,6 +44,18 @@ struct GiflowExpandedView: View {
 
     private var mainContentView: some View {
         VStack(spacing: 0) {
+            if let error = store.actionError {
+                HStack {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.red)
+                    Spacer()
+                    Button("关闭") { store.actionError = nil }
+                        .buttonStyle(.plain)
+                }
+                .padding(10)
+            }
+
             if store.isExporting {
                 exportingBanner
             }
@@ -236,6 +248,9 @@ struct GiflowExpandedView: View {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
+                .contentShape(Rectangle())
+                // Keep the drag recognizer away from the row's action buttons.
+                .onDrag { NSItemProvider(object: item.fileURL as NSURL) }
 
             // 信息与名称
             VStack(alignment: .leading, spacing: 4) {
@@ -309,7 +324,7 @@ struct GiflowExpandedView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "video.badge.plus")
                                 .font(.system(size: 10))
-                            Text("另存为 MP4")
+                            Text(store.convertingItemID == item.id ? "转换中…" : "另存为 MP4")
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .padding(.horizontal, 7)
@@ -319,12 +334,13 @@ struct GiflowExpandedView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
                     .buttonStyle(.plain)
+                    .disabled(store.isExporting)
                     .help("将当前 GIF 另存为高质量 MP4 视频（新增一条独立记录）")
                 }
 
                 // 复制按钮
                 Button(action: {
-                    store.copyMediaToClipboard(item: item)
+                    guard store.copyMediaToClipboard(item: item) else { return }
                     withAnimation(.easeInOut(duration: 0.15)) {
                         copiedItemID = item.id
                     }
@@ -380,10 +396,6 @@ struct GiflowExpandedView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(NSColor.controlBackgroundColor).opacity(0.4))
         )
-        // 支持直接从列表向外部拖拽文件
-        .onDrag {
-            NSItemProvider(object: item.fileURL as NSURL)
-        }
     }
 
     // MARK: - 空状态
@@ -626,11 +638,21 @@ private struct MediaThumbnailView: View {
 
 // MARK: - GIF 动图播放视图 (AppKit NSImageView 原生播放)
 
-private struct GifImageView: NSViewRepresentable {
+/// The native image can extend beyond SwiftUI's clipped thumbnail bounds. It is
+/// decorative: leave all mouse handling (including dragging) to the SwiftUI host.
+private final class GiflowThumbnailImageView: NSImageView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+struct GifImageView: NSViewRepresentable {
     let url: URL
 
     func makeNSView(context: Context) -> NSImageView {
-        let iv = NSImageView()
+        makeImageView()
+    }
+
+    func makeImageView() -> NSImageView {
+        let iv = GiflowThumbnailImageView()
         iv.imageScaling = .scaleProportionallyUpOrDown
         iv.animates = true
         loadImage(into: iv)

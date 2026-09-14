@@ -221,6 +221,15 @@ enum CompletionPromptRegexParser {
             guard !optionPairs.isEmpty || (rule.isFreeformOnly && optionPairs.isEmpty) else {
                 continue
             }
+            let effectiveMessage: String = if extractedOptions.count >= 2 {
+                strippedSource(
+                    from: source,
+                    pattern: rule.capturesTriggerGroupsAsOptions ? rule.triggerPattern : rule.optionPattern,
+                    capturesTriggerGroupsAsOptions: rule.capturesTriggerGroupsAsOptions
+                )
+            } else {
+                source
+            }
             let prompt = extractedPrompt(from: source, optionPattern: rule.optionPattern)
             let fingerprint = stableFingerprint("\(rule.id)\n\(source)")
             let questionID = "completion-regex-question"
@@ -247,7 +256,7 @@ enum CompletionPromptRegexParser {
                 id: "completion-regex-\(fingerprint)",
                 kind: .question,
                 title: rule.name,
-                message: source,
+                message: effectiveMessage,
                 options: options,
                 questions: [question],
                 supportsSessionScope: false,
@@ -396,6 +405,45 @@ enum CompletionPromptRegexParser {
             with: ""
         )
         return String(withoutMarkdownHeading.suffix(maximumPromptLength))
+    }
+
+    private nonisolated static func strippedSource(
+        from source: String,
+        pattern: String,
+        capturesTriggerGroupsAsOptions: Bool
+    ) -> String {
+        let trimmedPattern = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPattern.isEmpty,
+              let expression = try? NSRegularExpression(pattern: trimmedPattern) else {
+            return source
+        }
+
+        if capturesTriggerGroupsAsOptions {
+            guard let match = expression.firstMatch(
+                in: source,
+                range: NSRange(source.startIndex..., in: source)
+            ),
+            let matchRange = Range(match.range, in: source) else {
+                return source
+            }
+            let preceding = String(source[..<matchRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let trailing = String(source[matchRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return [preceding, trailing].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        } else {
+            let matches = expression.matches(
+                in: source,
+                range: NSRange(source.startIndex..., in: source)
+            )
+            guard let firstMatch = matches.first,
+                  let lastMatch = matches.last,
+                  let firstRange = Range(firstMatch.range, in: source),
+                  let lastRange = Range(lastMatch.range, in: source) else {
+                return source
+            }
+            let preceding = String(source[..<firstRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let trailing = String(source[lastRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return [preceding, trailing].filter { !$0.isEmpty }.joined(separator: "\n\n")
+        }
     }
 
     private nonisolated static func replacingMatches(

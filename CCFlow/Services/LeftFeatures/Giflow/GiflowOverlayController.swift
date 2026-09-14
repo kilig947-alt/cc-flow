@@ -65,6 +65,7 @@ final class GiflowOverlayController: NSObject {
     private var overlayWindows: [GiflowOverlayPanel] = []
     private var actionPopoverWindow: NSWindow?
     private var isCursorPushed = false
+    private var keyEventMonitor: Any?
 
     private(set) var currentRect: CGRect?
     private(set) var currentKind: GiflowSelectionKind?
@@ -78,10 +79,40 @@ final class GiflowOverlayController: NSObject {
         super.init()
     }
 
+    /// 启动键盘监听（空格/回车确认，ESC取消）
+    private func installKeyMonitor() {
+        removeKeyMonitor()
+        keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return event }
+            if event.keyCode == 53 { // ESC
+                self.closeAll()
+                self.onCancelSelection?()
+                return nil
+            }
+            // 49 = 空格键, 36 = 回车键
+            if (event.keyCode == 49 || event.keyCode == 36), self.actionPopoverWindow != nil, let rect = self.currentRect {
+                self.hideActionPopover()
+                self.popCrosshairCursor()
+                self.removeKeyMonitor()
+                self.onConfirmSelection?(rect, self.currentKind ?? .area)
+                return nil
+            }
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let monitor = keyEventMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyEventMonitor = nil
+        }
+    }
+
     /// 启动选区模式
     func startSelection(kind: GiflowSelectionKind) {
         closeAll()
         currentKind = kind
+        installKeyMonitor()
 
         guard let screens = NSScreen.screens as [NSScreen]?, !screens.isEmpty else { return }
 
@@ -242,6 +273,7 @@ final class GiflowOverlayController: NSObject {
 
     /// 切换到「录制中非阻塞蒙版」状态（完全不拦截任何鼠标和键盘事件）
     func transitionToRecordingOverlay(rect: CGRect, kind: GiflowSelectionKind) {
+        removeKeyMonitor()
         hideActionPopover()
         popCrosshairCursor()
         currentRect = rect
@@ -312,6 +344,7 @@ final class GiflowOverlayController: NSObject {
 
     /// 关闭所有覆盖窗口
     func closeAll() {
+        removeKeyMonitor()
         popCrosshairCursor()
         hideActionPopover()
         for window in overlayWindows {
@@ -327,7 +360,8 @@ final class GiflowOverlayController: NSObject {
 
 private final class GiflowSelectionCanvasView: NSView {
     private let screenFrame: CGRect
-    private let kind: GiflowSelectionKind
+    private var kind: GiflowSelectionKind
+    private var currentKind: GiflowSelectionKind
     private let onSelectionFinished: (CGRect, CGPoint) -> Void
     private let onRedragRequested: () -> Void
     private let onCancelRequested: () -> Void
@@ -350,6 +384,7 @@ private final class GiflowSelectionCanvasView: NSView {
     ) {
         self.screenFrame = screenFrame
         self.kind = kind
+        self.currentKind = kind
         self.onSelectionFinished = onSelectionFinished
         self.onRedragRequested = onRedragRequested
         self.onCancelRequested = onCancelRequested
@@ -394,7 +429,9 @@ private final class GiflowSelectionCanvasView: NSView {
     func setRecordingMode(recordingRect: CGRect, kind: GiflowSelectionKind) {
         self.isRecording = true
         self.recordingRect = recordingRect
+        self.currentKind = kind
         self.needsDisplay = true
+        self.displayIfNeeded()
         window?.invalidateCursorRects(for: self)
     }
 
@@ -616,24 +653,44 @@ private final class GiflowSelectionCanvasView: NSView {
             height: globalRect.height
         )
 
-        guard bounds.intersects(localRect) else { return }
+        guard bounds.intersects(localRect) else {
+            // 多显示器支持：若当前屏幕不在选区内，绘制统一柔和微暗蒙版
+            context.saveGState()
+            context.setFillColor(NSColor(white: 0, alpha: 0.08).cgColor)
+            context.fill(bounds)
+            context.restoreGState()
+            return
+        }
+
         let intersectRect = localRect.intersection(bounds)
 
         context.saveGState()
 
-        // 1. 录制边框：外层高对比度深色微晕（确保在浅色背景下醒目）
-        context.setStrokeColor(NSColor.black.withAlphaComponent(0.4).cgColor)
-        context.setLineWidth(3.0)
-        context.stroke(intersectRect)
+        // 1. 录制中选区外极柔和微暗蒙版（选区内 100% 透明透亮，选区外微暗标示边界）
+        let path = CGMutablePath()
+        path.addRect(bounds)
+        path.addRect(intersectRect)
+        context.addPath(path)
+        context.setFillColor(NSColor(white: 0, alpha: 0.08).cgColor)
+        context.fillPath(using: .evenOdd)
 
-        // 2. 内层鲜红高亮录制虚线边框
+        // 2. 录制边框计算（全屏模式内缩 3pt，区域模式贴合边界，确保红框完整在屏幕内可见）
+        let strokeRect = currentKind == .fullScreen ? intersectRect.insetBy(dx: 3, dy: 3) : intersectRect
+
+        // 2.1 外层黑色阴影线（确保在浅色/高亮背景下依然清晰锐利）
+        context.setStrokeColor(NSColor.black.withAlphaComponent(0.45).cgColor)
+        context.setLineWidth(3.0)
+        context.setLineDash(phase: 0, lengths: [])
+        context.stroke(strokeRect)
+
+        // 2.2 内层鲜红高亮录制虚线边框
         context.setStrokeColor(NSColor.systemRed.cgColor)
         context.setLineWidth(2.0)
         context.setLineDash(phase: 0, lengths: [6, 4])
-        context.stroke(intersectRect)
+        context.stroke(strokeRect)
 
-        // 3. 四个精致角标 (Corner Brackets) - 直观标示录制视口
-        let cornerLen: CGFloat = min(16, min(intersectRect.width, intersectRect.height) / 4)
+        // 3. 四个精致高对比度角标 (Corner Brackets)
+        let cornerLen: CGFloat = min(16, min(strokeRect.width, strokeRect.height) / 4)
         if cornerLen >= 6 {
             context.setLineDash(phase: 0, lengths: []) // 实线
             context.setLineWidth(3.0)
@@ -641,26 +698,54 @@ private final class GiflowSelectionCanvasView: NSView {
             context.setStrokeColor(NSColor.systemRed.cgColor)
 
             // 左下角
-            context.move(to: CGPoint(x: intersectRect.minX, y: intersectRect.minY + cornerLen))
-            context.addLine(to: CGPoint(x: intersectRect.minX, y: intersectRect.minY))
-            context.addLine(to: CGPoint(x: intersectRect.minX + cornerLen, y: intersectRect.minY))
+            context.move(to: CGPoint(x: strokeRect.minX, y: strokeRect.minY + cornerLen))
+            context.addLine(to: CGPoint(x: strokeRect.minX, y: strokeRect.minY))
+            context.addLine(to: CGPoint(x: strokeRect.minX + cornerLen, y: strokeRect.minY))
 
             // 左上角
-            context.move(to: CGPoint(x: intersectRect.minX, y: intersectRect.maxY - cornerLen))
-            context.addLine(to: CGPoint(x: intersectRect.minX, y: intersectRect.maxY))
-            context.addLine(to: CGPoint(x: intersectRect.minX + cornerLen, y: intersectRect.maxY))
+            context.move(to: CGPoint(x: strokeRect.minX, y: strokeRect.maxY - cornerLen))
+            context.addLine(to: CGPoint(x: strokeRect.minX, y: strokeRect.maxY))
+            context.addLine(to: CGPoint(x: strokeRect.minX + cornerLen, y: strokeRect.maxY))
 
             // 右上角
-            context.move(to: CGPoint(x: intersectRect.maxX - cornerLen, y: intersectRect.maxY))
-            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.maxY))
-            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.maxY - cornerLen))
+            context.move(to: CGPoint(x: strokeRect.maxX - cornerLen, y: strokeRect.maxY))
+            context.addLine(to: CGPoint(x: strokeRect.maxX, y: strokeRect.maxY))
+            context.addLine(to: CGPoint(x: strokeRect.maxX, y: strokeRect.maxY - cornerLen))
 
             // 右下角
-            context.move(to: CGPoint(x: intersectRect.maxX - cornerLen, y: intersectRect.minY))
-            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.minY))
-            context.addLine(to: CGPoint(x: intersectRect.maxX, y: intersectRect.minY + cornerLen))
+            context.move(to: CGPoint(x: strokeRect.maxX - cornerLen, y: strokeRect.minY))
+            context.addLine(to: CGPoint(x: strokeRect.maxX, y: strokeRect.minY))
+            context.addLine(to: CGPoint(x: strokeRect.maxX, y: strokeRect.minY + cornerLen))
 
             context.strokePath()
+        }
+
+        // 4. 录制状态微型胶囊徽标 (● REC · 尺寸)
+        if strokeRect.width > 120, strokeRect.height > 60 {
+            let statusText = currentKind == .fullScreen ? "● REC · 全屏录制中" : "● REC · \(Int(strokeRect.width)) × \(Int(strokeRect.height))"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
+                .foregroundColor: NSColor.white
+            ]
+            let attrStr = NSAttributedString(string: statusText, attributes: attrs)
+            let textSize = attrStr.size()
+
+            let badgeY = strokeRect.maxY + 6 + textSize.height < bounds.maxY - 10
+                ? strokeRect.maxY + 6
+                : strokeRect.minY - textSize.height - 8
+
+            let badgeRect = CGRect(
+                x: max(strokeRect.minX, strokeRect.minX + 4),
+                y: max(4, min(bounds.maxY - textSize.height - 8, badgeY)),
+                width: textSize.width + 12,
+                height: textSize.height + 4
+            )
+
+            let bgPath = NSBezierPath(roundedRect: badgeRect, xRadius: 4, yRadius: 4)
+            NSColor(red: 0.85, green: 0.1, blue: 0.15, alpha: 0.92).setFill()
+            bgPath.fill()
+
+            attrStr.draw(at: CGPoint(x: badgeRect.minX + 6, y: badgeRect.minY + 2))
         }
 
         context.restoreGState()
@@ -692,17 +777,31 @@ private struct GiflowSelectionActionPopupView: View {
             .background(Color.white.opacity(0.12))
             .clipShape(Capsule())
 
-            // 确认按钮
+            // 开始录制确认按钮（支持按空格键快速触发）
             Button(action: onConfirm) {
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Image(systemName: "record.circle.fill")
                         .font(.system(size: 12))
-                    Text("确认录制")
+                    Text("开始录制")
                         .font(.system(size: 12, weight: .bold))
+
+                    // 空格快捷键提示徽标
+                    HStack(spacing: 2) {
+                        Image(systemName: "space")
+                            .font(.system(size: 8, weight: .bold))
+                        Text("空格")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundColor(.white.opacity(0.95))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(Color.black.opacity(0.28))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 5)
+                .padding(.leading, 10)
+                .padding(.trailing, 6)
+                .padding(.vertical, 4.5)
                 .background(
                     LinearGradient(
                         colors: [Color.red, Color(red: 0.85, green: 0.1, blue: 0.15)],
@@ -713,6 +812,7 @@ private struct GiflowSelectionActionPopupView: View {
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
+            .keyboardShortcut(.space, modifiers: [])
 
             if kind == .area {
                 Button(action: onRedrag) {
