@@ -1131,6 +1131,7 @@
 "设置 %@ 的默认展开方式" = "Set default expansion for %@";
 "识别中…" = "Recognizing…";
 "翻译中…" = "Translating…";
+"正在读取文字或图片…" = "Reading text or image…";
 "返回" = "Back";
 "返回翻译" = "Back to translation";
 "翻译设置" = "Translation settings";

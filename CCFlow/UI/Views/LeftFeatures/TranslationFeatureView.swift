@@ -69,7 +69,11 @@ struct TranslationFeatureView: View {
                     if let notice = store.notice {
                         Label(LocalizedStringKey(notice), systemImage: "info.circle").font(.callout).padding(10)
                     }
-                    if store.results.isEmpty && store.imageTranslation == nil {
+                    if store.readingInput || store.recognizing {
+                        TranslationLoadingView(message: store.readingInput ? "正在读取文字或图片…" : "识别中…")
+                            .padding(12)
+                            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                    } else if store.results.isEmpty && store.imageTranslation == nil {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("⌥D 选词 / 剪贴板 · ⌥S 截图 · ⌥A 输入")
                             Text("未选择文字时读取剪贴板文字或图片；默认本地识别，可在设置切换 OCR。只向已启用且展开的翻译服务发送原文。")
@@ -104,6 +108,21 @@ struct TranslationFeatureView: View {
     }
 }
 
+private struct TranslationLoadingView: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text(appLocalized: message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 private struct TranslationResultCard: View {
     let result: TranslationResult
     @ObservedObject private var store = TranslationStore.shared
@@ -119,7 +138,6 @@ private struct TranslationResultCard: View {
                         TranslationProviderIcon(provider: result.provider, size: 18)
                         Text(appLocalized: result.provider.title).font(.system(size: 13, weight: .medium))
                         Spacer()
-                        if result.loading { ProgressView().controlSize(.small) }
                         if !result.expanded && result.text.isEmpty {
                             Text("展开后翻译").font(.caption).foregroundStyle(.secondary)
                         }
@@ -138,9 +156,11 @@ private struct TranslationResultCard: View {
                 .help(AppLocalization.format("设置 %@ 的默认展开方式", AppLocalization.string(result.provider.title)))
             }
             if result.expanded {
-                if let error = result.error {
+                if result.loading {
+                    TranslationLoadingView(message: "翻译中…")
+                } else if let error = result.error {
                     Text(appLocalized: error).font(.callout).foregroundStyle(.orange).textSelection(.enabled)
-                } else if !result.loading {
+                } else {
                     Text(SessionTextSanitizer.boundedDisplayText(result.text, maxCharacters: 20000, truncationNotice: AppLocalization.string("\n…可复制完整译文")) ?? "").font(.system(size: 15)).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ViewThatFits(in: .horizontal) {
@@ -188,7 +208,7 @@ struct TranslationCompactView: View {
         let _ = localizationLocale
         HStack(spacing: 6) {
             Image(systemName: "character.bubble")
-            Text(appLocalized: store.recognizing ? "识别中…" : (store.results.contains(where: \.loading) ? "翻译中…" : "Tflow 翻译"))
+            Text(appLocalized: store.readingInput ? "正在读取文字或图片…" : (store.recognizing ? "识别中…" : (store.results.contains(where: \.loading) ? "翻译中…" : "Tflow 翻译")))
                 .font(.system(size: 11)).lineLimit(1)
         }
     }
