@@ -49,7 +49,7 @@ jobs:
           codesign --force --deep --sign - \
             --entitlements CCFlow/Resources/CCFlow.entitlements "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-          lipo -verify_arch arm64 "$APP_PATH/Contents/MacOS/CC FLOW"
+          lipo "$APP_PATH/Contents/MacOS/CC FLOW" -verify_arch arm64
 
       - name: Package DMG and checksums
         shell: bash
