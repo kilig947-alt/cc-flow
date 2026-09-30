@@ -993,7 +993,7 @@ private struct HoverConversationLine: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(label)
+            Text(appLocalized: label)
                 .font(.system(size: max(11, fontSize - 1), weight: .semibold))
                 .foregroundColor(labelColor)
 
@@ -1417,6 +1417,7 @@ private struct HoverEmptyShortcutHint: View {
             return "macwindow"
         case .giflowOpenRecordings:
             return "record.circle"
+        case .translationSelection, .translationScreenshot, .translationInput: return "character.bubble"
         }
     }
 }

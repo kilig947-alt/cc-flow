@@ -206,7 +206,7 @@ final class GiflowStore: ObservableObject {
                 await MainActor.run {
                     self.isExporting = false
                     self.exportProgress = 0.0
-                    self.actionError = "导出失败：\(error.localizedDescription)"
+                    self.actionError = AppLocalization.runtimeFormat("导出失败：%@", String(describing: error.localizedDescription))
                 }
             }
         }
@@ -251,7 +251,7 @@ final class GiflowStore: ObservableObject {
                     self.convertingItemID = nil
                     self.isExporting = false
                     self.exportProgress = 0.0
-                    self.actionError = "导出失败：\(error.localizedDescription)"
+                    self.actionError = AppLocalization.runtimeFormat("导出失败：%@", String(describing: error.localizedDescription))
                 }
             }
         }
@@ -336,7 +336,7 @@ final class GiflowStore: ObservableObject {
             try GiflowClipboard.write(fileURL: item.fileURL, to: .general)
             return true
         } catch {
-            actionError = "复制失败：\(error.localizedDescription)"
+            actionError = AppLocalization.runtimeFormat("复制失败：%@", String(describing: error.localizedDescription))
             return false
         }
     }
@@ -353,14 +353,14 @@ final class GiflowStore: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             openFinder(directory: directory)
         } catch {
-            actionError = "打开保存目录失败：\(error.localizedDescription)"
+            actionError = AppLocalization.runtimeFormat("打开保存目录失败：%@", String(describing: error.localizedDescription))
         }
     }
 
     private func openFinder(directory: URL, selecting fileURL: URL? = nil) {
         actionError = nil
         guard let finderURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder") else {
-            actionError = "无法找到访达"
+            actionError = AppLocalization.runtimeString("无法找到访达")
             return
         }
         // Explicit navigation dismisses even a pinned Island before handing focus to Finder.
@@ -371,7 +371,7 @@ final class GiflowStore: ObservableObject {
             NSWorkspace.shared.open([directory], withApplicationAt: finderURL, configuration: configuration) { application, error in
                 Task { @MainActor in
                     if let error {
-                        self.actionError = "打开访达失败：\(error.localizedDescription)"
+                        self.actionError = AppLocalization.runtimeFormat("打开访达失败：%@", String(describing: error.localizedDescription))
                         self.openRecordingsList()
                         return
                     }

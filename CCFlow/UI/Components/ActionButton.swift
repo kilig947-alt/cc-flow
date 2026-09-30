@@ -20,7 +20,7 @@ struct ActionButton: View {
             HStack(spacing: 5) {
                 Image(systemName: icon)
                     .font(.system(size: 9, weight: .bold))
-                Text(title)
+                Text(appLocalized: title)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
             }
             .foregroundColor(isHovered ? .black : color)

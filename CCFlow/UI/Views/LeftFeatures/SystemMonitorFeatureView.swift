@@ -6,7 +6,11 @@ struct SystemMonitorFeatureView: View {
     @ObservedObject private var service = SystemMonitorService.shared
     @ObservedObject private var usage = AppUsageTracker.shared
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         Group {
             if compact { compactContent } else { expandedContent }
         }
@@ -23,7 +27,7 @@ struct SystemMonitorFeatureView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "CPU \(percent(service.snapshot.cpuPercent))，内存 \(percent(service.snapshot.memoryPercent))"
+            AppLocalization.format("CPU %@，内存 %@", String(describing: percent(service.snapshot.cpuPercent)), String(describing: percent(service.snapshot.memoryPercent)))
         )
     }
 
@@ -58,7 +62,7 @@ struct SystemMonitorFeatureView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(service.snapshot.chipName)
                     .font(.system(size: 17, weight: .bold, design: .rounded))
-                Label(healthTitle, systemImage: "circle.fill")
+                Label(LocalizedStringKey(healthTitle), systemImage: "circle.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(healthColor)
             }
@@ -81,10 +85,10 @@ struct SystemMonitorFeatureView: View {
             sectionHeader("CPU", icon: "cpu")
             monitorRow("整体", value: service.snapshot.cpuPercent, color: .green)
             HStack(spacing: 10) {
-                detailValue("核心数量", "\(service.snapshot.processorCount) 核")
+                detailValue("核心数量", AppLocalization.format("%@ 核", String(describing: service.snapshot.processorCount)))
                 detailValue("系统负载", String(format: "%.2f", service.snapshot.loadOne))
             }
-            Text("5 分钟 \(String(format: "%.2f", service.snapshot.loadFive))  ·  15 分钟 \(String(format: "%.2f", service.snapshot.loadFifteen))")
+            Text(AppLocalization.format("5 分钟 %@  ·  15 分钟 %@", String(format: "%.2f", service.snapshot.loadFive), String(format: "%.2f", service.snapshot.loadFifteen)))
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.secondary)
             if !service.snapshot.cpuCorePercentages.isEmpty {
@@ -177,7 +181,7 @@ struct SystemMonitorFeatureView: View {
     private func compactMetric(label: String, value: Double, color: Color) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 5, height: 5)
-            Text(label).foregroundStyle(.secondary)
+            Text(appLocalized: label).foregroundStyle(.secondary)
             Text(percent(value)).monospacedDigit().foregroundStyle(.primary)
         }
         .font(.system(size: 10, weight: .semibold))
@@ -191,7 +195,7 @@ struct SystemMonitorFeatureView: View {
     }
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
-        Label(title.uppercased(), systemImage: icon)
+        Label(AppLocalization.string(title).uppercased(), systemImage: icon)
             .font(.system(size: 10, weight: .bold))
             .foregroundStyle(.secondary)
             .tracking(1.2)
@@ -199,7 +203,7 @@ struct SystemMonitorFeatureView: View {
 
     private func monitorRow(_ label: String, value: Double, color: Color) -> some View {
         HStack(spacing: 10) {
-            Text(label).frame(width: 56, alignment: .leading)
+            Text(appLocalized: label).frame(width: 56, alignment: .leading)
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.08))
@@ -234,8 +238,8 @@ struct SystemMonitorFeatureView: View {
 
     private func detailValue(_ label: String, _ value: String, color: Color = .primary) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
-            Text(value).font(.system(size: 11, weight: .semibold, design: .monospaced))
+            Text(appLocalized: label).font(.system(size: 9)).foregroundStyle(.secondary)
+            Text(appLocalized: value).font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -251,7 +255,7 @@ struct SystemMonitorFeatureView: View {
 
     private func duration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds) / 60
-        return minutes >= 60 ? "\(minutes / 60)小时\(minutes % 60)分" : "\(minutes)分钟"
+        return minutes >= 60 ? AppLocalization.format("%@小时%@分", String(describing: minutes / 60), String(describing: minutes % 60)) : AppLocalization.format("%@分钟", String(describing: minutes))
     }
 
     private func rate(_ value: Double) -> String {
@@ -260,18 +264,18 @@ struct SystemMonitorFeatureView: View {
 
     private func uptime(_ interval: TimeInterval) -> String {
         let hours = Int(interval) / 3600
-        return hours >= 24 ? "\(hours / 24)天 \(hours % 24)小时" : "\(hours)小时"
+        return hours >= 24 ? AppLocalization.format("%@天 %@小时", String(describing: hours / 24), String(describing: hours % 24)) : AppLocalization.format("%@小时", String(describing: hours))
     }
 
     private var healthTitle: String {
         let snapshot = service.snapshot
         if snapshot.thermalState == .critical { return "系统温度严重过高" }
-        if snapshot.diskPercent >= 95 { return "磁盘空间严重不足 · 已用 \(percent(snapshot.diskPercent))" }
-        if snapshot.memoryPercent >= 95 { return "内存压力过高 · 已用 \(percent(snapshot.memoryPercent))" }
+        if snapshot.diskPercent >= 95 { return AppLocalization.format("磁盘空间严重不足 · 已用 %@", String(describing: percent(snapshot.diskPercent))) }
+        if snapshot.memoryPercent >= 95 { return AppLocalization.format("内存压力过高 · 已用 %@", String(describing: percent(snapshot.memoryPercent))) }
         if snapshot.thermalState == .serious { return "系统温度需要关注" }
-        if snapshot.diskPercent >= 85 { return "磁盘空间需要关注 · 已用 \(percent(snapshot.diskPercent))" }
-        if snapshot.memoryPercent >= 85 { return "内存需要关注 · 已用 \(percent(snapshot.memoryPercent))" }
-        if snapshot.cpuPercent >= 85 { return "CPU 持续高负载 · \(percent(snapshot.cpuPercent))" }
+        if snapshot.diskPercent >= 85 { return AppLocalization.format("磁盘空间需要关注 · 已用 %@", String(describing: percent(snapshot.diskPercent))) }
+        if snapshot.memoryPercent >= 85 { return AppLocalization.format("内存需要关注 · 已用 %@", String(describing: percent(snapshot.memoryPercent))) }
+        if snapshot.cpuPercent >= 85 { return AppLocalization.format("CPU 持续高负载 · %@", String(describing: percent(snapshot.cpuPercent))) }
         return "状态正常"
     }
 

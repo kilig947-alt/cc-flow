@@ -3,6 +3,13 @@ import SwiftUI
 
 struct CalendarFeatureView: View {
     let compact: Bool
+    @Environment(\.locale) private var locale
+
+    private var calendar: Calendar {
+        var value = Calendar.current
+        value.locale = locale
+        return value
+    }
     @ObservedObject private var service = CalendarService.shared
     @State private var displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
     @State private var selectedDate = Date()
@@ -23,10 +30,10 @@ struct CalendarFeatureView: View {
         HStack(spacing: 6) {
             Image(systemName: "calendar")
             if !service.actionableReminders.isEmpty {
-                Text("\(service.actionableReminders.count) 项待办到期").fontWeight(.semibold)
+                Text(AppLocalization.format("%@ 项待办到期", String(describing: service.actionableReminders.count))).fontWeight(.semibold)
             } else if let event = service.nextEvent {
                 Text(event.title).lineLimit(1)
-                Text(event.isAllDay ? "全天" : event.start.formatted(date: .omitted, time: .shortened))
+                Text(appLocalized: event.isAllDay ? "全天" : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
                     .foregroundStyle(.secondary).monospacedDigit()
             } else { Text("近期无日程").foregroundStyle(.secondary) }
         }.font(.system(size: 10, weight: .semibold))
@@ -39,7 +46,7 @@ struct CalendarFeatureView: View {
                 Spacer()
                 Button("今天") {
                     selectedDate = Date()
-                    displayedMonth = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
+                    displayedMonth = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
                 }
                 Button { service.refresh() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.plain).frame(width: 44, height: 44)
@@ -56,11 +63,13 @@ struct CalendarFeatureView: View {
             HStack {
                 Button { changeMonth(-1) } label: { Image(systemName: "chevron.left") }
                 Spacer()
-                Text(displayedMonth.formatted(.dateTime.month(.wide).year())).font(.title3.bold())
+                Text(displayedMonth.formatted(.dateTime.month(.wide).year().locale(locale))).font(.title3.bold())
                 Spacer()
                 Button { changeMonth(1) } label: { Image(systemName: "chevron.right") }
             }.buttonStyle(.plain)
-            let symbols = Calendar.current.veryShortStandaloneWeekdaySymbols
+            let weekdays = calendar.veryShortStandaloneWeekdaySymbols
+            let offset = calendar.firstWeekday - 1
+            let symbols = Array(weekdays[offset...] + weekdays[..<offset])
             HStack { ForEach(Array(symbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol).font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
             } }
@@ -77,13 +86,13 @@ struct CalendarFeatureView: View {
 
     private var agendaPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(selectedDate.formatted(.dateTime.weekday(.wide).month().day())).font(.title3.bold())
+            Text(selectedDate.formatted(.dateTime.weekday(.wide).month().day().locale(locale))).font(.title3.bold())
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
                     ForEach(eventsForSelectedDate) { event in
                         HStack { Circle().fill(.green).frame(width: 8, height: 8)
                             VStack(alignment: .leading) { Text(event.title).fontWeight(.semibold)
-                                Text(event.isAllDay ? "全天 · \(event.calendarName)" : event.start.formatted(date: .omitted, time: .shortened))
+                                Text(event.isAllDay ? AppLocalization.format("全天 · %@", String(describing: event.calendarName)) : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
                                     .font(.caption).foregroundStyle(.secondary)
                             }; Spacer()
                         }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
@@ -100,7 +109,7 @@ struct CalendarFeatureView: View {
                     ForEach(service.actionableReminders) { reminder in
                         reminderRow(reminder)
                     }
-                    if let error = service.errorMessage { Text(error).font(.caption).foregroundStyle(.red) }
+                    if let error = service.errorMessage { Text(appLocalized: error).font(.caption).foregroundStyle(.red) }
                 }
             }
         }.padding(14).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
@@ -120,7 +129,7 @@ struct CalendarFeatureView: View {
                 }
                 .buttonStyle(.plain)
                 .help("标记为已完成")
-                .accessibilityLabel("完成：\(reminder.title)")
+                .accessibilityLabel(AppLocalization.format("完成：%@", String(describing: reminder.title)))
                 .accessibilityHint("标记为已完成并同步到 macOS 提醒事项")
 
                 Button {
@@ -135,7 +144,7 @@ struct CalendarFeatureView: View {
                                 .lineLimit(isExpanded ? nil : 2)
                             HStack(spacing: 5) {
                                 if let due = reminder.dueDate {
-                                    Text(due.formatted(date: .abbreviated, time: .shortened))
+                                    Text(due.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(locale)))
                                 }
                                 if reminder.calendarName != "提醒事项" {
                                     Text("· \(reminder.calendarName)")
@@ -153,7 +162,7 @@ struct CalendarFeatureView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint(isExpanded ? "收起待办详情" : "查看待办详情")
+                .accessibilityHint(Text(appLocalized: isExpanded ? "收起待办详情" : "查看待办详情"))
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 8)
@@ -175,11 +184,11 @@ struct CalendarFeatureView: View {
     private func reminderDetails(_ reminder: ReminderAgendaItem) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             if let due = reminder.dueDate {
-                Label(due.formatted(date: .complete, time: .shortened), systemImage: "clock")
+                Label(due.formatted(Date.FormatStyle(date: .complete, time: .shortened).locale(locale)), systemImage: "clock")
             }
             Label(reminder.calendarName, systemImage: "list.bullet")
             if let priority = reminderPriorityText(reminder.priority) {
-                Label(priority, systemImage: "flag")
+                Label(LocalizedStringKey(priority), systemImage: "flag")
             }
             if let notes = reminder.notes {
                 VStack(alignment: .leading, spacing: 4) {
@@ -204,7 +213,7 @@ struct CalendarFeatureView: View {
 
     private func reminderDueColor(_ reminder: ReminderAgendaItem) -> Color {
         guard let due = reminder.dueDate else { return .secondary }
-        return due < Calendar.current.startOfDay(for: Date()) ? .orange : .secondary
+        return due < calendar.startOfDay(for: Date()) ? .orange : .secondary
     }
 
     private func reminderPriorityText(_ priority: Int) -> String? {
@@ -217,7 +226,7 @@ struct CalendarFeatureView: View {
     }
 
     private var eventsForSelectedDate: [CalendarAgendaItem] {
-        let day = Calendar.current.dateInterval(of: .day, for: selectedDate)
+        let day = calendar.dateInterval(of: .day, for: selectedDate)
         return service.events.filter { event in
             guard let day else { return false }
             return event.start < day.end && event.end > day.start
@@ -225,7 +234,7 @@ struct CalendarFeatureView: View {
     }
 
     private var monthDates: [Date?] {
-        let calendar = Calendar.current
+        let calendar = self.calendar
         guard let range = calendar.range(of: .day, in: .month, for: displayedMonth),
               let first = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth)) else { return [] }
         let leading = (calendar.component(.weekday, from: first) - calendar.firstWeekday + 7) % 7
@@ -235,23 +244,23 @@ struct CalendarFeatureView: View {
     }
 
     private func dayButton(_ date: Date) -> some View {
-        let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-        let interval = Calendar.current.dateInterval(of: .day, for: date)
+        let selected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let interval = calendar.dateInterval(of: .day, for: date)
         let hasContent = service.events.contains { event in interval.map { event.start < $0.end && event.end > $0.start } ?? false }
-            || service.reminders.contains { $0.dueDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false }
+            || service.reminders.contains { $0.dueDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false }
         return Button { selectedDate = date } label: {
-            VStack(spacing: 2) { Text(date.formatted(.dateTime.day())).fontWeight(selected ? .bold : .regular)
+            VStack(spacing: 2) { Text(date.formatted(.dateTime.day().locale(locale))).fontWeight(selected ? .bold : .regular)
                 Circle().fill(hasContent ? Color.green : .clear).frame(width: 4, height: 4)
             }.frame(maxWidth: .infinity, minHeight: 32).background(selected ? Color.green.opacity(0.2) : .clear, in: RoundedRectangle(cornerRadius: 8))
-        }.buttonStyle(.plain).accessibilityLabel(date.formatted(date: .complete, time: .omitted))
+        }.buttonStyle(.plain).accessibilityLabel(date.formatted(Date.FormatStyle(date: .complete, time: .omitted).locale(locale)))
     }
 
     private func changeMonth(_ offset: Int) {
-        guard let next = Calendar.current.date(byAdding: .month, value: offset, to: displayedMonth) else { return }
-        let desiredDay = Calendar.current.component(.day, from: selectedDate)
+        guard let next = calendar.date(byAdding: .month, value: offset, to: displayedMonth) else { return }
+        let desiredDay = calendar.component(.day, from: selectedDate)
         displayedMonth = next
-        let range = Calendar.current.range(of: .day, in: .month, for: next)
-        selectedDate = Calendar.current.date(bySetting: .day, value: min(desiredDay, range?.count ?? 1), of: next) ?? next
+        let range = calendar.range(of: .day, in: .month, for: next)
+        selectedDate = calendar.date(bySetting: .day, value: min(desiredDay, range?.count ?? 1), of: next) ?? next
         service.refresh(referenceDate: next)
     }
 

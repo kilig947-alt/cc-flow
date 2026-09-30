@@ -28,7 +28,7 @@ struct MusicExpandedView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(spacing: 2) {
-                Text(np.title ?? "未知曲目")
+                Text(np.title ?? AppLocalization.string("未知曲目"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)

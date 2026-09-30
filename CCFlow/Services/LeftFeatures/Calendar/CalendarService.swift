@@ -171,7 +171,7 @@ final class CalendarService: ObservableObject {
         ProductivityProactiveEventCenter.shared.publish(
             targetFeatureID: LeftFeature.calendarID,
             kind: .calendarReminderDue,
-            summary: actionable.count == 1 ? "提醒事项：\(actionable[0].title)" : "有 \(actionable.count) 项提醒事项已到期或今天到期",
+            summary: actionable.count == 1 ? AppLocalization.runtimeFormat("提醒事项：%@", String(describing: actionable[0].title)) : AppLocalization.runtimeFormat("有 %@ 项提醒事项已到期或今天到期", String(describing: actionable.count)),
             count: actionable.count
         )
     }

@@ -28,7 +28,7 @@ struct GiflowCompactView: View {
                     .controlSize(.mini)
                     .scaleEffect(0.7)
 
-                Text(store.exportProgress > 0 ? "\(Int(store.exportProgress * 100))%" : "导出中")
+                Text(appLocalized: store.exportProgress > 0 ? "\(Int(store.exportProgress * 100))%" : "导出中")
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.9))
             } else {

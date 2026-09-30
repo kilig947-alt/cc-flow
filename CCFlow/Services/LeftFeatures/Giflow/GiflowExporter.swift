@@ -21,7 +21,7 @@ final class GiflowExporter: Sendable {
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> GiflowRecordingItem {
         guard !samples.isEmpty else {
-            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: "无可导出的录制帧"])
+            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无可导出的录制帧")])
         }
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -55,7 +55,7 @@ final class GiflowExporter: Sendable {
     ) throws -> GiflowRecordingItem {
         let totalSamples = samples.count
         guard let firstImage = samples.first?.image else {
-            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: "帧解析失败"])
+            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("帧解析失败")])
         }
 
         let width = firstImage.width
@@ -72,7 +72,7 @@ final class GiflowExporter: Sendable {
             totalSamples,
             nil
         ) else {
-            throw NSError(domain: "GiflowExporter", code: -2, userInfo: [NSLocalizedDescriptionKey: "创建 GIF 导出目标失败"])
+            throw NSError(domain: "GiflowExporter", code: -2, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("创建 GIF 导出目标失败")])
         }
 
         // 全局 GIF 属性：无限循环 (LoopCount = 0)
@@ -142,7 +142,7 @@ final class GiflowExporter: Sendable {
         }
 
         guard CGImageDestinationFinalize(destination) else {
-            throw NSError(domain: "GiflowExporter", code: -3, userInfo: [NSLocalizedDescriptionKey: "GIF 编码文件写入失败"])
+            throw NSError(domain: "GiflowExporter", code: -3, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("GIF 编码文件写入失败")])
         }
 
         let fileSize = (try? outputURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
@@ -174,7 +174,7 @@ final class GiflowExporter: Sendable {
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> GiflowRecordingItem {
         guard !samples.isEmpty else {
-            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: "无可导出的录制帧"])
+            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无可导出的录制帧")])
         }
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -208,7 +208,7 @@ final class GiflowExporter: Sendable {
     ) throws -> GiflowRecordingItem {
         let totalSamples = samples.count
         guard let firstImage = samples.first?.image else {
-            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: "帧解析失败"])
+            throw NSError(domain: "GiflowExporter", code: -1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("帧解析失败")])
         }
 
         let rawWidth = firstImage.width
@@ -251,12 +251,12 @@ final class GiflowExporter: Sendable {
         )
 
         guard writer.canAdd(writerInput) else {
-            throw NSError(domain: "GiflowExporter", code: -2, userInfo: [NSLocalizedDescriptionKey: "无法添加视频写入轨道"])
+            throw NSError(domain: "GiflowExporter", code: -2, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无法添加视频写入轨道")])
         }
         writer.add(writerInput)
 
         guard writer.startWriting() else {
-            throw writer.error ?? NSError(domain: "GiflowExporter", code: -3, userInfo: [NSLocalizedDescriptionKey: "启动视频写入失败"])
+            throw writer.error ?? NSError(domain: "GiflowExporter", code: -3, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("启动视频写入失败")])
         }
 
         writer.startSession(atSourceTime: .zero)
@@ -356,16 +356,16 @@ final class GiflowExporter: Sendable {
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> GiflowRecordingItem {
         guard let source = CGImageSourceCreateWithURL(gifURL as CFURL, nil) else {
-            throw NSError(domain: "GiflowExporter", code: -4, userInfo: [NSLocalizedDescriptionKey: "无法解析 GIF 文件"])
+            throw NSError(domain: "GiflowExporter", code: -4, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无法解析 GIF 文件")])
         }
 
         let frameCount = CGImageSourceGetCount(source)
         guard frameCount > 0 else {
-            throw NSError(domain: "GiflowExporter", code: -5, userInfo: [NSLocalizedDescriptionKey: "GIF 不包含有效帧"])
+            throw NSError(domain: "GiflowExporter", code: -5, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("GIF 不包含有效帧")])
         }
 
         guard let firstCGImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw NSError(domain: "GiflowExporter", code: -6, userInfo: [NSLocalizedDescriptionKey: "无法解析首帧"])
+            throw NSError(domain: "GiflowExporter", code: -6, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无法解析首帧")])
         }
 
         let rawWidth = firstCGImage.width
@@ -413,12 +413,12 @@ final class GiflowExporter: Sendable {
         )
 
         guard writer.canAdd(writerInput) else {
-            throw NSError(domain: "GiflowExporter", code: -7, userInfo: [NSLocalizedDescriptionKey: "无法添加视频轨道"])
+            throw NSError(domain: "GiflowExporter", code: -7, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("无法添加视频轨道")])
         }
         writer.add(writerInput)
 
         guard writer.startWriting() else {
-            throw writer.error ?? NSError(domain: "GiflowExporter", code: -8, userInfo: [NSLocalizedDescriptionKey: "启动写入失败"])
+            throw writer.error ?? NSError(domain: "GiflowExporter", code: -8, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("启动写入失败")])
         }
         writer.startSession(atSourceTime: .zero)
 

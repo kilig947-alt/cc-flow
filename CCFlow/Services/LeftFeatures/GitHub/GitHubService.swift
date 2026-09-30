@@ -21,7 +21,7 @@ struct GitHubRepositorySummary: Identifiable, Equatable {
 final class GitHubService: ObservableObject {
     static let shared = GitHubService()
     @Published private(set) var profile: GitHubProfile?
-    @Published private(set) var status = "尚未连接"
+    @Published private(set) var status = AppLocalization.runtimeString("尚未连接")
     @Published private(set) var isLoading = false
     @Published private(set) var contributions: [GitHubContributionDay] = []
     @Published private(set) var repositories: [GitHubRepositorySummary] = []
@@ -53,7 +53,7 @@ final class GitHubService: ObservableObject {
                     repositories = dashboard.repositories
                     status = "已连接"
                 } catch {
-                    status = "已连接，贡献数据暂不可用：\(error.localizedDescription)"
+                    status = AppLocalization.runtimeFormat("已连接，贡献数据暂不可用：%@", String(describing: error.localizedDescription))
                 }
             } catch {
                 status = error.localizedDescription
@@ -163,10 +163,10 @@ private enum GitHubError: LocalizedError {
     case authenticationRequired, invalidResponse, network, http(Int)
     var errorDescription: String? {
         switch self {
-        case .authenticationRequired: "请先运行 gh auth login，或在设置中添加 GitHub PAT"
-        case .invalidResponse: "GitHub 返回的数据无法识别"
-        case .network: "无法连接 GitHub，请检查网络后重试"
-        case .http(let code): "GitHub 请求失败（HTTP \(code)）"
+        case .authenticationRequired: AppLocalization.runtimeString("请先运行 gh auth login，或在设置中添加 GitHub PAT")
+        case .invalidResponse: AppLocalization.runtimeString("GitHub 返回的数据无法识别")
+        case .network: AppLocalization.runtimeString("无法连接 GitHub，请检查网络后重试")
+        case .http(let code): AppLocalization.runtimeFormat("GitHub 请求失败（HTTP %@）", String(describing: code))
         }
     }
 }

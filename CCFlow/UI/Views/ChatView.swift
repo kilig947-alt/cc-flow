@@ -1142,7 +1142,7 @@ struct ToolCallView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 } else {
-                    Text(tool.statusDisplay.text)
+                    Text(appLocalized: tool.statusDisplay.text)
                         .font(.system(size: 11))
                         .foregroundColor(textColor.opacity(0.7))
                         .lineLimit(1)
@@ -1319,7 +1319,7 @@ struct SubagentToolRow: View {
                 .foregroundColor(.white.opacity(0.6))
 
             // Status text (same format as regular tools)
-            Text(statusText)
+            Text(appLocalized: statusText)
                 .font(.system(size: 10))
                 .foregroundColor(.white.opacity(0.5))
                 .lineLimit(1)

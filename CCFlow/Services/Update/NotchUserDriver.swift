@@ -82,7 +82,7 @@ final class UpdateManager: NSObject, ObservableObject {
 
     var releaseNotesActionTitle: String {
         if let version = availableVersion {
-            return "查看 v\(version) 更新日志"
+            return AppLocalization.runtimeFormat("查看 v%@ 更新日志", String(describing: version))
         }
         return "查看版本历史"
     }

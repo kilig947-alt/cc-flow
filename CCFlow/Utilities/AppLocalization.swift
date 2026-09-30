@@ -7,12 +7,26 @@ enum AppLocalization {
         string(key, locale: AppSettings.shared.locale)
     }
 
-    static func string(_ key: String, locale: Locale) -> String {
-        String(
-            localized: String.LocalizationValue(key),
-            bundle: .main,
-            locale: locale
-        )
+    nonisolated static func string(_ key: String, locale: Locale) -> String {
+        let language = locale.identifier.hasPrefix("zh") ? "zh-Hans" : "en"
+        let bundle = Bundle.main.path(forResource: language, ofType: "lproj")
+            .flatMap(Bundle.init(path:)) ?? .main
+        return bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+
+    // Error descriptions may be produced off the main actor. Read the persisted
+    // preference at the point of presentation without touching UI state.
+    nonisolated private static var persistedLocale: Locale {
+        let language = AppLanguage(rawValue: UserDefaults.standard.string(forKey: "appLanguage") ?? "") ?? .system
+        return language.resolvedLocale()
+    }
+
+    nonisolated static func runtimeString(_ key: String) -> String {
+        string(key, locale: persistedLocale)
+    }
+
+    nonisolated static func runtimeFormat(_ key: String, _ arguments: CVarArg...) -> String {
+        format(key, arguments: arguments, locale: persistedLocale)
     }
 
     static func format(_ key: String, _ arguments: CVarArg...) -> String {
@@ -23,7 +37,7 @@ enum AppLocalization {
         format(key, arguments: arguments, locale: locale)
     }
 
-    private static func format(_ key: String, arguments: [CVarArg], locale: Locale) -> String {
+    nonisolated private static func format(_ key: String, arguments: [CVarArg], locale: Locale) -> String {
         let format = string(key, locale: locale)
         return String(format: format, locale: locale, arguments: arguments)
     }

@@ -14,14 +14,18 @@ struct MineradioLoginView: View {
     @Binding var isPresented: Bool
     @ObservedObject private var coordinator = MineradioBridgeCoordinator.shared
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         VStack(spacing: 0) {
             // 标题栏
             HStack(spacing: 12) {
                 Image(systemName: platform.systemImageName)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.secondary)
-                Text(platform.loginTitle)
+                Text(AppLocalization.format("登录%@", AppLocalization.string(platform.displayName)))
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
                 Button {
@@ -50,7 +54,7 @@ struct MineradioLoginView: View {
                 Image(systemName: "info.circle")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                Text(platform.loginHint)
+                Text(appLocalized: platform.loginHint)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -197,7 +201,7 @@ extension MusicPlatform {
 
     /// 登录视图标题
     var loginTitle: String {
-        "登录\(displayName)"
+        AppLocalization.format("登录%@", String(describing: displayName))
     }
 
     /// 登录视图底部提示文案

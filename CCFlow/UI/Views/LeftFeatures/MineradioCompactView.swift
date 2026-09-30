@@ -57,7 +57,11 @@ struct MineradioCompactView: View {
         return true
     }
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         HStack(spacing: 4) {
             // 左侧图标：专辑封面 → feature 自定义图标（favicon）→ SF Symbol 回退
             // 用 .id(coverImageRevision) 强制 SwiftUI 在封面变化时重建 Image
@@ -140,10 +144,10 @@ struct MineradioCompactView: View {
 
     private var accessibilityLabel: String {
         if let lyric = coordinator.currentLyric?.text, !lyric.isEmpty {
-            return "Mineradio 歌词：\(lyric)"
+            return AppLocalization.format("Mineradio 歌词：%@", String(describing: lyric))
         }
         if let title = coordinator.playback?.title, isLikelySongTitle(title) {
-            return "Mineradio 歌曲：\(title)"
+            return AppLocalization.format("Mineradio 歌曲：%@", String(describing: title))
         }
         return "Mineradio 矿石电台"
     }

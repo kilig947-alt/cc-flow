@@ -3,7 +3,11 @@ import SwiftUI
 struct UsageExpandedView: View {
     @ObservedObject private var service = UsageService.shared
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
@@ -49,7 +53,7 @@ struct UsageExpandedView: View {
                 if let date = service.snapshot?.capturedAt {
                     Text(AppLocalization.format(
                         "更新于 %@",
-                        date.formatted(date: .omitted, time: .shortened)
+                        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(localizationLocale))
                     ))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.secondary)
@@ -136,7 +140,7 @@ struct UsageExpandedView: View {
                 Text(AppLocalization.format("剩余 %d%%", Int(window.remainingPercentage.rounded())))
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                 if let reset = window.resetsAt {
-                    Text("· \(reset.formatted(.relative(presentation: .numeric)))")
+                    Text("· \(reset.formatted(.relative(presentation: .numeric).locale(localizationLocale)))")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -156,7 +160,7 @@ struct UsageExpandedView: View {
                 .frame(height: 8)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(appLocalized: window.label))
-                .accessibilityValue(Text("剩余 \(Int(window.remainingPercentage.rounded()))%"))
+                .accessibilityValue(Text(AppLocalization.format("剩余 %@%%", String(describing: Int(window.remainingPercentage.rounded())))))
         }
     }
 

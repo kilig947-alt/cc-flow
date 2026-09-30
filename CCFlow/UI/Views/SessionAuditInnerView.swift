@@ -79,13 +79,13 @@ struct SessionAuditInnerView: View {
                     Button {
                         sessionMonitor.setAuditMode(mode, sessionId: session.sessionId)
                     } label: {
-                        Label(mode.title, systemImage: mode.systemImage)
+                        Label(LocalizedStringKey(mode.title), systemImage: mode.systemImage)
                     }
                 }
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: auditStore.mode(for: session.sessionId).systemImage)
-                    Text(auditStore.mode(for: session.sessionId).title)
+                    Text(appLocalized: auditStore.mode(for: session.sessionId).title)
                 }
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.white.opacity(0.82))
@@ -137,7 +137,7 @@ struct SessionAuditInnerView: View {
                 Image(systemName: record.kind == .approval ? "checkmark.shield" : "questionmark.bubble")
                     .foregroundColor(record.kind == .approval ? TerminalColors.amber : TerminalColors.blue)
 
-                Text(formattedResultLabel(for: record.resultLabel))
+                Text(appLocalized: formattedResultLabel(for: record.resultLabel))
                     .font(.system(size: 12, weight: .bold))
 
                 Spacer()
@@ -177,7 +177,7 @@ struct SessionAuditInnerView: View {
         content: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(appLocalized: title)
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(.secondary)
 

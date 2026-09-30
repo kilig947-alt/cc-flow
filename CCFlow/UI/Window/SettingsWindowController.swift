@@ -111,7 +111,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     private init() {
         let hostingController = NSHostingController(
-            rootView: SettingsWindowView()
+            rootView: AppLocalizedRootView { SettingsWindowView() }
         )
         let window = SettingsPanelWindow(
             contentRect: NSRect(origin: .zero, size: defaultContentSize),
@@ -144,7 +144,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
 
         self.window?.delegate = self
-        hostingController.rootView = SettingsWindowView(
+        hostingController.rootView = AppLocalizedRootView { SettingsWindowView(
             onClose: { [weak self] in
                 self?.dismiss()
             },
@@ -153,7 +153,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                 window.orderOut(nil)
                 self.publishVisibilityDidChange(isVisible: false)
             }
-        )
+        ) }
     }
 
     required init?(coder: NSCoder) {

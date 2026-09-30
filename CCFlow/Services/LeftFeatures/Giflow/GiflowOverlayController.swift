@@ -233,7 +233,7 @@ final class GiflowOverlayController: NSObject {
             }
         )
 
-        let hostingView = NSHostingView(rootView: popoverView)
+        let hostingView = NSHostingView(rootView: AppLocalizedRootView { popoverView })
         let fittingSize = hostingView.fittingSize
 
         // 计算弹窗位置：鼠标停留点上方或选区上方居中
@@ -309,7 +309,7 @@ final class GiflowOverlayController: NSObject {
             }
         )
 
-        let hostingView = NSHostingView(rootView: menuView)
+        let hostingView = NSHostingView(rootView: AppLocalizedRootView { menuView })
         let size = hostingView.fittingSize
 
         var origin = CGPoint(x: point.x - size.width / 2, y: point.y + 18)
@@ -555,7 +555,7 @@ private final class GiflowSelectionCanvasView: NSView {
         context.fill(bounds)
 
         // 绘制顶部中心提示气泡
-        let hintText = "拖拽选择录制区域 · ESC 取消"
+        let hintText = AppLocalization.string("拖拽选择录制区域 · ESC 取消")
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             .foregroundColor: NSColor.white
@@ -722,7 +722,7 @@ private final class GiflowSelectionCanvasView: NSView {
 
         // 4. 录制状态微型胶囊徽标 (● REC · 尺寸)
         if strokeRect.width > 120, strokeRect.height > 60 {
-            let statusText = currentKind == .fullScreen ? "● REC · 全屏录制中" : "● REC · \(Int(strokeRect.width)) × \(Int(strokeRect.height))"
+            let statusText = currentKind == .fullScreen ? AppLocalization.string("● REC · 全屏录制中") : "● REC · \(Int(strokeRect.width)) × \(Int(strokeRect.height))"
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
                 .foregroundColor: NSColor.white
@@ -768,7 +768,7 @@ private struct GiflowSelectionActionPopupView: View {
                 Image(systemName: kind == .fullScreen ? "macwindow" : "crop")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
-                Text(kind == .fullScreen ? "全屏" : "\(Int(rect.width)) × \(Int(rect.height))")
+                Text(kind == .fullScreen ? AppLocalization.string("全屏") : "\(Int(rect.width)) × \(Int(rect.height))")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
             }

@@ -54,9 +54,9 @@ struct MascotSettingsView: View {
                             if result.synced == 0 && result.skipped == 0 && result.failed.isEmpty {
                                 syncResult = "已刷新"
                             } else {
-                                var msg = "已同步 \(result.synced) 个，跳过 \(result.skipped) 个已存在"
+                                var msg = AppLocalization.format("已同步 %@ 个，跳过 %@ 个已存在", String(describing: result.synced), String(describing: result.skipped))
                                 if !result.failed.isEmpty {
-                                    msg += "，失败：\(result.failed.joined(separator: ", "))"
+                                    msg += AppLocalization.format("，失败：%@", result.failed.joined(separator: ", "))
                                 }
                                 syncResult = msg
                             }
@@ -206,7 +206,7 @@ struct MascotSettingsView: View {
                     ), in: 0...2, step: 0.1)
                     .tint(.accentColor)
 
-                    Text(speedLabel(settings.mascotAnimationSpeed))
+                    Text(appLocalized: speedLabel(settings.mascotAnimationSpeed))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .frame(minWidth: 44, alignment: .trailing)
@@ -313,7 +313,7 @@ struct MascotSettingsView: View {
                         HStack(spacing: 4) {
                             Image(systemName: designPromptCopied ? "checkmark" : "doc.on.doc")
                                 .font(.system(size: 10))
-                            Text(designPromptCopied ? "已复制" : "复制提示词")
+                            Text(appLocalized: designPromptCopied ? "已复制" : "复制提示词")
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .foregroundStyle(designPromptCopied ? Color.green : Color.secondary)
@@ -366,13 +366,13 @@ struct MascotSettingsView: View {
             MascotDesignAppLauncher.activate(destination) { succeeded in
                 designLaunchFailure = succeeded
                     ? nil
-                    : "提示词已复制，但未能打开 \(destination.applicationDisplayName)。请确认应用已安装。"
+                    : AppLocalization.format("提示词已复制，但未能打开 %@。请确认应用已安装。", String(describing: destination.applicationDisplayName))
             }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "arrow.up.forward.app.fill")
                     .font(.system(size: 11))
-                Text(destination.buttonTitle)
+                Text(appLocalized: destination.buttonTitle)
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -702,9 +702,9 @@ private struct MascotThemeRow: View {
                         }
                     } message: {
                         if theme.source == .builtin {
-                            Text("确定要隐藏内置宠物「\(theme.displayName)」吗？可在上方点击“恢复内置宠物”还原。")
+                            Text(AppLocalization.format("确定要隐藏内置宠物「%@」吗？可在上方点击“恢复内置宠物”还原。", String(describing: theme.displayName)))
                         } else {
-                            Text("确定要删除宠物主题包「\(theme.displayName)」吗？此操作不可撤销。")
+                            Text(AppLocalization.format("确定要删除宠物主题包「%@」吗？此操作不可撤销。", String(describing: theme.displayName)))
                         }
                     }
 
@@ -801,7 +801,7 @@ private struct MascotThemeRow: View {
             .frame(height: 44)
 
             VStack(spacing: 2) {
-                Text(status.displayName)
+                Text(appLocalized: status.displayName)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

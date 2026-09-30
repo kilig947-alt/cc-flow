@@ -150,7 +150,7 @@ class SessionMonitor: ObservableObject {
                 session: session,
                 resultLabel: auditMode == .skipped ? "已跳过 · 自动允许" : "自动允许",
                 submittedMessage: auditMode == .skipped
-                    ? "收到 \(effectiveEvent.event)；跳过人工审计并自动允许"
+                    ? AppLocalization.runtimeFormat("收到 %@；跳过人工审计并自动允许", String(describing: effectiveEvent.event))
                     : "允许（本会话已启用自动审批）"
             )
             HookSocketServer.shared.respondToPermission(
@@ -463,7 +463,7 @@ class SessionMonitor: ObservableObject {
             let trimmedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
             let auditSubmittedMessage: String
             if let trimmedReason, !trimmedReason.isEmpty {
-                auditSubmittedMessage = "拒绝：\(trimmedReason)"
+                auditSubmittedMessage = AppLocalization.runtimeFormat("拒绝：%@", String(describing: trimmedReason))
             } else {
                 auditSubmittedMessage = "拒绝"
             }
@@ -692,7 +692,7 @@ class SessionMonitor: ObservableObject {
                         "toolName": intervention.title,
                         "resultLabel": "已跳过 · 自动",
                         "iconName": "forward.end.fill",
-                        "summary": "审计问题 · \(intervention.title) → 自动跳过"
+                        "summary": AppLocalization.runtimeFormat("审计问题 · %@ → 自动跳过", String(describing: intervention.title))
                     ]
                 )
             }
