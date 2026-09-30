@@ -14,6 +14,16 @@ struct PluginSDKTests {
         #expect(schema.methods.allSatisfy { !$0.summary.isEmpty && !$0.risk.isEmpty && !$0.returns.isEmpty })
     }
 
+    @Test("missing bundled schema falls back to the complete built-in catalog")
+    func missingSchemaFallback() {
+        let schema = PluginSDKCatalog.decodeSchema(from: nil)
+
+        #expect(schema.methods.contains { $0.name == "core.getVersion" })
+        #expect(schema.methods.contains { $0.name == "system.getMetrics" })
+        #expect(schema.methods.contains { $0.name == "sessions.focus" })
+        #expect(schema.methods.count == 12)
+    }
+
     @Test("generated prompt imports the module and derives API documentation")
     func generatedPrompt() {
         let prompt = GeneratedPanelPrompt.text

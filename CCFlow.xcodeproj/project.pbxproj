@@ -56,6 +56,9 @@
 				Resources/BuiltInPets/taotao/spritesheet.webp,
 				Resources/BuiltInPets/yuexinmiao/pet.json,
 				Resources/BuiltInPets/yuexinmiao/spritesheet.webp,
+				Resources/PluginSDK/cc-flow-api.schema.json,
+				Resources/PluginSDK/cc-flow-sdk.d.ts,
+				Resources/PluginSDK/cc-flow-sdk.js,
 			);
 			target = FD33FD5C2EDF32D7002A6548 /* CCFlow */;
 		};
@@ -196,6 +199,7 @@
 				A10000000000000000000021 /* Embed CCFlowBridge */,
 				FD33FD5B2EDF32D7002A6548 /* Resources */,
 				A1BUILTINPETS0000000000002 /* Copy BuiltInPets */,
+				A1PLUGINSDK000000000000002 /* Copy PluginSDK */,
 			);
 			buildRules = (
 			);
@@ -328,6 +332,26 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
 			shellScript = "dest=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/BuiltInPets\"\nrm -rf \"$dest\"\nmkdir -p \"$dest\"\ncp -R \"$SRCROOT/CCFlow/Resources/BuiltInPets/\" \"$dest/\"\n";
+		};
+		A1PLUGINSDK000000000000002 /* Copy PluginSDK */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/CCFlow/Resources/PluginSDK",
+			);
+			name = "Copy PluginSDK";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/PluginSDK",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/zsh;
+			shellScript = "dest=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/PluginSDK\"\nrm -rf \"$dest\"\nmkdir -p \"$dest\"\ncp -R \"$SRCROOT/CCFlow/Resources/PluginSDK/\" \"$dest/\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

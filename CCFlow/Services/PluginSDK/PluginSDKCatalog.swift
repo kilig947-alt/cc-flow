@@ -16,17 +16,47 @@ struct PluginSDKSchema: Decodable {
 }
 
 enum PluginSDKCatalog {
+    private static let builtInSchema = PluginSDKSchema(
+        schemaVersion: 1,
+        sdkVersion: "1.0.0",
+        moduleURL: "cc-flow-sdk://v1/index.js",
+        methods: [
+            .init(name: "core.getVersion", summary: "Return the CC FLOW Plugin SDK version.", capability: nil, risk: "safe", params: [:], returns: "{ sdkVersion, schemaVersion }"),
+            .init(name: "core.getCapabilities", summary: "Return declared and currently granted plugin capabilities.", capability: nil, risk: "safe", params: [:], returns: "{ declared, granted }"),
+            .init(name: "island.hint.show", summary: "Show a temporary message in the compact Flow Island.", capability: "island.presentation", risk: "safe", params: ["text": "string", "duration": "number? milliseconds"], returns: "{ shown: true }"),
+            .init(name: "island.hint.clear", summary: "Clear the plugin's active compact hint.", capability: "island.presentation", risk: "safe", params: [:], returns: "{ cleared: true }"),
+            .init(name: "system.getMetrics", summary: "Read CPU, memory, load averages and logical core count.", capability: "system.metrics.read", risk: "safe", params: [:], returns: "SystemMetrics"),
+            .init(name: "system.getAppearance", summary: "Read light/dark appearance and accessibility display preferences.", capability: "system.appearance.read", risk: "safe", params: [:], returns: "{ colorScheme, reduceMotion, increaseContrast }"),
+            .init(name: "system.clipboard.readText", summary: "Read plain text from the macOS clipboard.", capability: "clipboard.read", risk: "sensitive", params: [:], returns: "{ text }"),
+            .init(name: "system.clipboard.writeText", summary: "Write plain text to the macOS clipboard.", capability: "clipboard.write", risk: "sensitive", params: ["text": "string"], returns: "{ written: true }"),
+            .init(name: "apps.openURL", summary: "Open an http/https URL in the user's default application.", capability: "apps.open", risk: "sensitive", params: ["url": "string"], returns: "{ opened: boolean }"),
+            .init(name: "apps.launch", summary: "Launch or activate a declared macOS application bundle identifier.", capability: "apps.launch", risk: "sensitive", params: ["bundleIdentifier": "string"], returns: "{ launched: boolean }"),
+            .init(name: "sessions.list", summary: "List tracked coding session status; prompts, results, previews and paths are omitted.", capability: "sessions.status.read", risk: "safe", params: [:], returns: "SessionSummary[]"),
+            .init(name: "sessions.focus", summary: "Activate the client or terminal that owns a tracked session.", capability: "sessions.focus", risk: "sensitive", params: ["sessionId": "string"], returns: "{ focused: boolean }")
+        ]
+    )
+
     static let schema: PluginSDKSchema = {
         let url = Bundle.main.url(forResource: "cc-flow-api.schema", withExtension: "json", subdirectory: "PluginSDK")
             ?? Bundle.main.url(forResource: "cc-flow-api.schema", withExtension: "json")
-        guard let url,
-              let data = try? Data(contentsOf: url),
-              let schema = try? JSONDecoder().decode(PluginSDKSchema.self, from: data) else {
-            assertionFailure("Missing or invalid CC FLOW Plugin SDK schema")
-            return PluginSDKSchema(schemaVersion: 1, sdkVersion: "1.0.0", moduleURL: "cc-flow-sdk://v1/index.js", methods: [])
+        guard let url, let data = try? Data(contentsOf: url) else {
+            NSLog("[PluginSDKCatalog] Bundled SDK schema is missing; using built-in catalog")
+            return builtInSchema
         }
-        return schema
+        guard let decoded = try? JSONDecoder().decode(PluginSDKSchema.self, from: data) else {
+            NSLog("[PluginSDKCatalog] Bundled SDK schema is invalid; using built-in catalog")
+            return builtInSchema
+        }
+        return decoded
     }()
+
+    static func decodeSchema(from data: Data?) -> PluginSDKSchema {
+        guard let data,
+              let decoded = try? JSONDecoder().decode(PluginSDKSchema.self, from: data) else {
+            return builtInSchema
+        }
+        return decoded
+    }
 
     static var publicAPIDocumentation: String {
         let namespaces = Set(schema.methods.compactMap { $0.name.split(separator: ".").first.map(String.init) }).sorted()
