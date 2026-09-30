@@ -324,7 +324,7 @@ struct GiflowExpandedView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "video.badge.plus")
                                 .font(.system(size: 10))
-                            Text(store.convertingItemID == item.id ? "转换中…" : "另存为 MP4")
+                            Text(appLocalized: store.convertingItemID == item.id ? "转换中…" : "另存为 MP4")
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .padding(.horizontal, 7)
@@ -355,7 +355,7 @@ struct GiflowExpandedView: View {
                     HStack(spacing: 3) {
                         Image(systemName: copiedItemID == item.id ? "checkmark" : "doc.on.doc")
                             .font(.system(size: 10))
-                        Text(copiedItemID == item.id ? "已复制" : "复制")
+                        Text(appLocalized: copiedItemID == item.id ? "已复制" : "复制")
                             .font(.system(size: 11))
                     }
                     .padding(.horizontal, 8)
@@ -641,6 +641,7 @@ private struct MediaThumbnailView: View {
 /// The native image can extend beyond SwiftUI's clipped thumbnail bounds. It is
 /// decorative: leave all mouse handling (including dragging) to the SwiftUI host.
 private final class GiflowThumbnailImageView: NSImageView {
+    var loadedURL: URL?
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
@@ -663,9 +664,12 @@ struct GifImageView: NSViewRepresentable {
         loadImage(into: nsView)
     }
 
-    private func loadImage(into iv: NSImageView) {
-        if let image = NSImage(contentsOf: url) {
-            iv.image = image
-        }
+    func loadImage(into iv: NSImageView) {
+        guard let thumbnail = iv as? GiflowThumbnailImageView else { return }
+        guard thumbnail.loadedURL != url else { return }
+        thumbnail.loadedURL = url
+        // Giflow exports have distinct URLs. Preserve the decoded image and
+        // playback timeline across unrelated SwiftUI / session updates.
+        thumbnail.image = NSImage(contentsOf: url)
     }
 }

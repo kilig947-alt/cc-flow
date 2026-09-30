@@ -5,6 +5,19 @@ import XCTest
 
 @MainActor
 final class GiflowHitTestingTests: XCTestCase {
+    func testUnchangedGIFDoesNotReloadOnParentUpdates() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("gif-refresh-\(UUID()).gif")
+        try Data(base64Encoded: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")!.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let view = GifImageView(url: url)
+        let imageView = view.makeImageView()
+        let original = try XCTUnwrap(imageView.image)
+        for _ in 0..<100 { view.loadImage(into: imageView) }
+        XCTAssertTrue(imageView.image === original, "Unrelated state updates must preserve the image and animation timeline")
+        GifImageView(url: url.appendingPathExtension("missing")).loadImage(into: imageView)
+        XCTAssertNil(imageView.image, "Changing source must not leave the old image visible")
+    }
+
     func testPanelHitTestingUsesActualParentCoordinates() throws {
         let host = PassThroughHostingView(rootView: VStack {
             Button("复制") {}.frame(width: 80, height: 30)

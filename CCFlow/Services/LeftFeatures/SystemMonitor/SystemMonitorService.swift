@@ -86,6 +86,8 @@ final class SystemMonitorService: ObservableObject {
 
     @Published private(set) var snapshot = SystemMonitorSnapshot()
     private var timer: AnyCancellable?
+    private var refreshTask: Task<Void, Never>?
+    private var refreshGeneration = UUID()
     private var consumers = 0
     private var previousNetwork: (counters: [String: NetworkInterfaceCounter], date: Date)?
     private var previousDiskIO: (counter: DiskIOCounter, date: Date)?
@@ -107,11 +109,31 @@ final class SystemMonitorService: ObservableObject {
         guard consumers == 0 else { return }
         timer?.cancel()
         timer = nil
+        refreshGeneration = UUID()
+        refreshTask?.cancel()
+        refreshTask = nil
     }
 
     private func refresh() {
+        guard refreshTask == nil else { return }
+        let generation = refreshGeneration
+        refreshTask = Task { [weak self] in
+            // Volume capacity may contact filesystem / storage services. Never
+            // block the UI timer callback or stack up overlapping samples.
+            let disk = await Self.backgroundDiskCapacity()
+            guard let self, !Task.isCancelled, self.refreshGeneration == generation else { return }
+            self.refreshTask = nil
+            self.refreshSnapshot(disk: disk)
+        }
+    }
+
+    @concurrent
+    nonisolated static func backgroundDiskCapacity() async -> (used: Int64, total: Int64) {
+        diskCapacity()
+    }
+
+    private func refreshSnapshot(disk: (used: Int64, total: Int64)) {
         let metrics = SystemMetricsProvider.shared.sample()
-        let disk = Self.diskCapacity()
         let swap = Self.swapUsage()
         let now = Date()
         let network = Self.networkCounters()

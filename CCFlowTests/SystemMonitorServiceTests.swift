@@ -2,6 +2,13 @@ import XCTest
 @testable import CC_FLOW
 
 final class SystemMonitorServiceTests: XCTestCase {
+    func testBackgroundDiskCapacityReturnsValidSnapshot() async {
+        let capacity = await SystemMonitorService.backgroundDiskCapacity()
+        XCTAssertGreaterThan(capacity.total, 0)
+        XCTAssertGreaterThanOrEqual(capacity.used, 0)
+        XCTAssertLessThanOrEqual(capacity.used, capacity.total)
+    }
+
     func testDiskPercentClampsAndHandlesEmptyCapacity() {
         XCTAssertEqual(SystemMonitorSnapshot(diskUsed: 50, diskTotal: 100).diskPercent, 50)
         XCTAssertEqual(SystemMonitorSnapshot(diskUsed: 200, diskTotal: 100).diskPercent, 100)
