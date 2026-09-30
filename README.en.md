@@ -45,7 +45,6 @@ Claude Code, Codex, and Antigravity are enabled by default. OpenCode is opt-in f
 - **🌐 Tflow translation** — selected-text, screenshot OCR, and typed translation inside the Flow Island, with multiple providers, AI models, system speech, and code naming formats.
 - **🎬 Giflow screen recording** — fast GIF / MP4 area and full-screen recording with mouse click ripples, keystroke visualization (Keycast), and Flow Island countdown/status indicators.
 - **🛡️ Session audit modes** — full audit, unrestricted auto-approval, and skip audit modes with audit history review and one-click question skipping.
-- **Proactive notifications** — new downloads, completed downloads, browser resources, local mail signals, and due reminders can open their matching feature.
 - **Music controls** — artwork, metadata, progress, and playback controls for system media players.
 - **Custom HTML and websites** — embed local panels or remote pages with configurable icons, names, network access, and compact hints.
 - **Hook profiles** — manage Claude Code, Codex, Antigravity, the OpenCode plugin, and detected TRAE hook configuration without deleting user-owned settings.
