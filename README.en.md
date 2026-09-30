@@ -32,7 +32,7 @@
 
 CC FLOW is a native macOS menu bar app. When a Claude Code, Codex, Antigravity, OpenCode, or TRAE session needs attention, it expands into a compact Dynamic Island-style panel. It receives approval, question, tool, compaction, subagent, and lifecycle events through each client's supported hook or plugin interface.
 
-Beyond session monitoring, CC FLOW provides independently enabled and ordered productivity features, media controls, a temporary file shelf, Giflow screen recording, local HTML panels, and remote web panels.
+Beyond session monitoring, CC FLOW provides independently enabled and ordered productivity features, media controls, Tflow translation, Giflow screen recording, local HTML panels, and remote web panels.
 
 Claude Code, Codex, and Antigravity are enabled by default. OpenCode is opt-in from Hook settings. TRAE, TRAE CN, TRAE WORK, and TRAE WORK CN appear when the corresponding app or an existing hook profile is detected. CC FLOW uses its own app identity and runtime directories and does not import legacy TRAE FLOW settings or assets.
 
@@ -41,12 +41,12 @@ Claude Code, Codex, and Antigravity are enabled by default. OpenCode is opt-in f
 - **Multi-client sessions** — Claude Code, Codex, and Antigravity are first-class defaults, OpenCode is optional, and four TRAE variants are supported.
 - **Split Flow Island layout** — the left side displays a feature or session detail; the right side aggregates attention counts and jump-back actions across clients.
 - **Independent left features & widgets** — enable, disable, select, and reorder built-in or custom features, with per-feature expanded sizes.
-- **Productivity workspace** — Account Usage (Claude / Codex / Antigravity), System Monitor, File Watch, Download Monitor, Browser Resources, Mail Assistant, Calendar, GitHub, and AI HOT.
+- **Productivity workspace** — Account Usage (Claude / Codex / Antigravity), System Monitor, Calendar, GitHub, and AI HOT.
+- **🌐 Tflow translation** — selected-text, screenshot OCR, and typed translation inside the Flow Island, with multiple providers, AI models, system speech, and code naming formats.
 - **🎬 Giflow screen recording** — fast GIF / MP4 area and full-screen recording with mouse click ripples, keystroke visualization (Keycast), and Flow Island countdown/status indicators.
 - **🛡️ Session audit modes** — full audit, unrestricted auto-approval, and skip audit modes with audit history review and one-click question skipping.
 - **Proactive notifications** — new downloads, completed downloads, browser resources, local mail signals, and due reminders can open their matching feature.
 - **Music controls** — artwork, metadata, progress, and playback controls for system media players.
-- **File shelf** — temporarily hold files and share them through AirDrop.
 - **Custom HTML and websites** — embed local panels or remote pages with configurable icons, names, network access, and compact hints.
 - **Hook profiles** — manage Claude Code, Codex, Antigravity, the OpenCode plugin, and detected TRAE hook configuration without deleting user-owned settings.
 - **Jump back to context** — return to the captured terminal, tmux pane, IDE, or client deep link.
@@ -100,6 +100,27 @@ Compact mode can show the remaining Codex quota on the left while keeping the pe
 
 ## Built-in features
 
+### 🌐 Tflow translation
+
+Translate selected text, screenshots, or typed input directly in the Flow Island’s left panel. Compare results from multiple providers while reading documentation, working with foreign-language content, or naming code identifiers. Translation settings stay inside the island too.
+
+![Tflow showing source text, multiple translation results, speech controls, and naming-format copy buttons inside the Flow Island](docs/images/tflow_image.png)
+
+| Default shortcut | Action |
+| --- | --- |
+| `⌥D` (Alt + D) | Translate selected text; fall back to clipboard text or images when nothing is selected |
+| `⌥S` (Alt + S) | Capture an area, recognize its text, and translate it |
+| `⌥A` (Alt + A) | Open typed translation with the input focused |
+| `⌘↩` | Translate the current input |
+
+- **Translation providers and AI models**: Zhipu, SiliconFlow, Baidu, Youdao, Google, Microsoft, DeepL, and more, plus OpenAI, Claude, Gemini, DeepSeek, Ollama, and LM Studio. Configure credentials, endpoints, models, and prompts for each service.
+- **Translate on demand**: Enable services independently and choose whether their results start expanded or collapsed. A service configured to start collapsed sends no translation request until expanded.
+- **Image recognition**: macOS on-device OCR is the default. Optional cloud OCR includes Volcengine, Tencent, Baidu, Youdao, and Google; images are uploaded only when a cloud OCR service is selected.
+- **Speech and copy controls**: System voices with voice selection, speed adjustment, and playback feedback. English results can be copied as camelCase, PascalCase, snake_case, kebab-case, or CONSTANT_CASE, with a green checkmark on success.
+- **In-island settings**: Search and browse grouped providers, keep enabled services at the top, and jump to a service’s configuration when enabling it. Use the back button to return to translation.
+
+Enable Tflow under Settings → Left Features, then open its settings icon in the expanded panel. Zhipu, SiliconFlow, and MyMemory are enabled by default; the free Zhipu and SiliconFlow model presets still require personal API keys. Selected-text capture requires Accessibility permission, and screenshots require Screen Recording permission. See the [Tflow configuration guide (Chinese)](docs/tflow-translation.md) for details.
+
 ### 🎬 Giflow
 
 A lightweight screen recorder and GIF exporter designed for developers creating demos, guides, or bug reproduction clips.
@@ -114,15 +135,6 @@ A lightweight screen recorder and GIF exporter designed for developers creating 
 The system now-playing panel supports Music.app, Spotify, NetEase Cloud Music, and QQ Music. Compact mode shows artwork and track information; expanded mode adds metadata, a seekable progress bar, and playback controls.
 
 Playback data comes from the system MediaRemote framework loaded dynamically, with AppleScript fallbacks where appropriate.
-
-### Shelf
-
-A lightweight temporary file shelf for moving files between apps.
-
-- Drop files from anywhere.
-- View them in an expanded grid.
-- Share all staged files with AirDrop.
-- Shelf contents are memory-only and are cleared when CC FLOW exits.
 
 ### Custom areas and websites
 
@@ -162,41 +174,7 @@ Every productivity feature can be enabled, disabled, selected, and ordered indep
     <td width="50%" align="center"><strong>Calendar and Reminders</strong><br><img src="docs/images/productivity-calendar.png" alt="Two-column calendar, events, and reminders dashboard" width="100%"></td>
     <td width="50%" align="center"><strong>GitHub</strong><br><img src="docs/images/productivity-github.png" alt="GitHub profile, contribution heatmap, and repository list" width="100%"></td>
   </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>File Watch</strong><br><img src="docs/images/productivity-file-watch.png" alt="File Watch authorized folders, file cards, and search dashboard" width="100%"></td>
-  </tr>
 </table>
-
-### File Watch
-
-File Watch combines File Cards and natural-language metadata search while respecting explicit folder authorization.
-
-- `Downloads` and `Documents` are suggested by default; any custom folder can be added.
-- Search is limited to filename, path, File Card, OCR, and tags. Document bodies are not indexed.
-- Optional AI enrichment sends at most 4,000 OCR characters and never sends an absolute file path.
-- File Cards and organization suggestions are non-executable. Moving, renaming, or archiving requires explicit user confirmation and supports undo.
-
-### Download Monitor and Browser Resources
-
-- Chrome, Microsoft Edge, and Safari are supported.
-- Settings always provides connection launchers; Download Monitor and Browser Resources show them while disconnected.
-- A connection action copies the local pairing token, collapses the Flow Island, and opens the browser or Safari extension instructions.
-- Extensions talk only to a loopback `127.0.0.1` endpoint and use heartbeats for current connection status.
-- Download Monitor proactively opens for a new download and again when it completes.
-- Browser Resources saves pages explicitly submitted by the user and does not modify browser bookmarks.
-- Safari supports page capture; completed download records can still come from an authorized `Downloads` folder.
-
-Build the local browser extensions:
-
-```bash
-./scripts/build-browser-extensions.sh
-```
-
-Load `BrowserExtensions/dist/Chrome` or `BrowserExtensions/dist/Edge` as an unpacked extension. Generate the Safari app container with `./scripts/build-safari-extension.sh`.
-
-### Mail Assistant
-
-Mail Assistant reads local signals from the macOS Mail app and extracts recent sender, subject, and verification-code information. It does not persist message bodies or change read state. New mail signals can proactively open the feature.
 
 ### Calendar and Reminders
 
@@ -213,9 +191,9 @@ Mail Assistant reads local signals from the macOS Mail app and extracts recent s
 
 ### Permissions and data boundaries
 
-The Productivity Connections and Permissions & Data Sources cards report the actual status of GitHub, the selected AI provider, browser extensions, Calendar, Reminders, authorized folders, and Mail Automation.
+The Productivity Connections and Permissions & Data Sources cards show GitHub sign-in options and Calendar and Reminders authorization status.
 
-Pairing tokens and API credentials stay in the macOS Keychain. File Watch never searches an unauthorized directory, and file organization actions never run without confirmation.
+The fallback GitHub token stays in the macOS Keychain.
 
 ## Installation
 

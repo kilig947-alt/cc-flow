@@ -32,7 +32,7 @@
 
 CC FLOW 是一款 macOS 菜单栏应用。当 Claude Code、Codex、Antigravity、OpenCode 或 TRAE 会话需要关注时，它会展开为紧凑的灵动岛风格面板。应用通过各客户端支持的 Hook 或插件接口接收审批、提问、工具执行、压缩、子代理和生命周期事件。
 
-除了会话监控，CC FLOW 还提供可独立启用、排序和选择的 Giflow 录屏、生产力工作台、音乐控制、文件中转站，并支持在 Flow Island 中嵌入自定义 HTML 页面或远程网页。
+除了会话监控，CC FLOW 还提供可独立启用、排序和选择的 Tflow 翻译、Giflow 录屏、生产力工作台、音乐控制，并支持在 Flow Island 中嵌入自定义 HTML 页面或远程网页。
 
 Claude Code、Codex 与 Antigravity 是默认集成；OpenCode 可在 Hook 设置中按需启用；TRAE、TRAE CN、TRAE WORK 和 TRAE WORK CN 在检测到对应应用或既有 Hook 安装后展示。CC FLOW 使用全新的应用身份和运行目录，不读取旧 TRAE FLOW 设置或用户资产。
 
@@ -40,13 +40,13 @@ Claude Code、Codex 与 Antigravity 是默认集成；OpenCode 可在 Hook 设�
 
 - **多客户端会话** — Claude Code、Codex、Antigravity 默认启用，OpenCode 可选，并兼容四个 TRAE 变体。
 - **Flow Island 左右分区** — 左侧展示内置功能或会话内容，右侧聚合 Claude、Codex、Antigravity、OpenCode、TRAE 待处理数；TRAE 可展开到四个变体。
-- **自定义组件与功能扩展** — Flow Island 左侧可组合 Giflow 录屏、音乐、中转站、AI HOT、Mineradio、本地 HTML 和远程网页，支持排序、开关和展开尺寸记忆。
-- **生产力工作台** — 账号用量监控（Claude / Codex / Antigravity）、系统监控、File Watch、下载监控、浏览器资源、邮件助手、日历、GitHub 与 AI HOT 均可独立启用与排序。
+- **自定义组件与功能扩展** — Flow Island 左侧可组合 Tflow 翻译、Giflow 录屏、音乐、AI HOT、Mineradio、本地 HTML 和远程网页，支持排序、开关和展开尺寸记忆。
+- **生产力工作台** — 账号用量监控（Claude / Codex / Antigravity）、系统监控、日历、GitHub 与 AI HOT 均可独立启用与排序。
+- **🌐 Tflow 翻译** — 在灵动岛内完成选词、截图 OCR 和输入翻译，支持多服务结果对比、AI 翻译、系统朗读与代码命名格式复制。
 - **🎬 Giflow 屏幕录屏** — 快捷 GIF / MP4 选区与全屏录制，支持鼠标点击波纹与按键可视化，录制中在灵动岛显示倒计时与状态反馈。
 - **🛡️ 灵活的会话审计** — 支持完整审计、无限制自动允许与完全跳过模式，提供会话审计记录回溯面板与问题一键跳过。
 - **主动通知** — 新下载开始/完成、浏览器新资源和本地邮件信号可主动展开对应功能；到期提醒事项每 30 分钟重复提醒，直至完成。
 - **🎵 音乐控制** — 内置「正在播放」面板，支持 Music.app、Spotify、网易云音乐、QQ 音乐。紧凑态显示封面和曲目信息，展开态提供完整播放控制。
-- **📦 中转站** — 文件暂存区，支持拖入文件暂存，展开态显示文件网格，可通过 AirDrop 一键分享全部文件。
 - **🤖 AI HOT 与 ⛏ Mineradio** — 聚合 AI 行业动态，或在岛内播放音乐并显示歌词；收起后通过离屏 WebView 保持运行。
 - **📄 自定义区域与网页嵌入** — 渲染本地 HTML 或远程网页，支持 JS Bridge 提示、自定义名称、URL 和图标。
 - **Hook profiles** — 管理 Claude Code、Codex、Antigravity、OpenCode 插件与检测到的 TRAE Hook 配置，同时保留用户自己的配置。
@@ -92,7 +92,7 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 
 紧凑态可以在左侧显示 Codex 剩余额度，并在右侧同步呈现待处理任务数。
 
-- **左侧**：当前选中的功能视图（音乐 / 中转站 / AI HOT / Mineradio / 自定义区域 / 网页），正在播放音乐时自动切换到音乐。
+- **左侧**：当前选中的功能视图（音乐 / AI HOT / Mineradio / 自定义区域 / 网页），正在播放音乐时自动切换到音乐。
 - **右侧**：CC 图标与全部客户端待处理总数。
 
 ### 展开态
@@ -105,6 +105,27 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 - **右侧**：Claude、Codex、TRAE 顶层计数；TRAE 展开后显示四个变体及跳回按钮。
 
 ## 内置功能
+
+### 🌐 Tflow 翻译
+
+集成在 Flow Island 左侧的翻译工具，选词、截图、输入和服务设置都在灵动岛内完成。阅读文档、处理外语内容或为代码命名时，可以直接查看多个服务的翻译结果。
+
+![Tflow 在灵动岛中展示原文、多服务译文、朗读和命名格式复制按钮](docs/images/tflow_image.png)
+
+| 默认快捷键 | 功能 |
+| --- | --- |
+| `⌥D`（Alt + D） | 翻译选中文字；无选词时读取剪贴板文字或图片 |
+| `⌥S`（Alt + S） | 框选截图，识别文字后翻译 |
+| `⌥A`（Alt + A） | 打开输入翻译并自动聚焦输入框 |
+| `⌘↩` | 提交当前原文进行翻译 |
+
+- **多服务与 AI 翻译**：支持智谱、硅基流动、百度、有道、Google、Microsoft、DeepL 等翻译服务，以及 OpenAI、Claude、Gemini、DeepSeek、Ollama、LM Studio 等模型服务；可配置密钥、接口地址、模型和提示词。
+- **按需翻译**：每个服务可独立启停，结果支持默认展开或默认折叠；默认折叠时不发起翻译请求，展开后才翻译。
+- **图片文字识别**：默认使用 macOS 本地 OCR，也可配置火山、腾讯、百度、有道或 Google OCR。仅在选用云端 OCR 后上传图片。
+- **朗读与复制**：默认使用系统语音，支持声音选择、语速调整和播放反馈；英文译文可复制为小驼峰、大驼峰、下划线、短横线或常量命名格式，复制成功显示绿色勾选。
+- **岛内设置**：服务目录支持搜索、分类和已启用置顶，启用后自动定位并展示详情；左上角返回翻译页。
+
+在设置 → 左侧功能中启用 Tflow，展开后点击右上角设置图标配置服务。智谱、硅基流动和 MyMemory 默认启用；智谱与硅基流动的免费模型仍需个人 API Key。选词需要辅助功能权限，截图需要屏幕录制权限。更多配置说明见 [Tflow 翻译文档](docs/tflow-translation.md)。
 
 ### 🎬 Giflow
 
@@ -123,15 +144,6 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
 - **技术实现**：通过 MediaRemote 私有框架（dlopen 动态加载）获取系统级播放信息，AppleScript 作为备用方案
 - **紧凑态**：18pt 圆角封面缩略图 + 截断曲目标题，无播放时显示灰色音符图标
 - **展开态**：140pt 封面大图 + 曲目/艺术家/专辑信息 + 可拖拽进度条 + 完整播放控制（上一曲 / 播放暂停 / 下一曲），背景为封面主色调动态渐变
-
-### 📦 中转站
-
-轻量级文件暂存区，方便在不同应用间快速传递文件。
-
-- **添加文件**：从任意位置拖入文件
-- **分享文件**：通过 AirDrop 一键分享暂存的所有文件
-- **管理文件**：展开态以 4 列网格展示图标和文件名，右键可移除单个文件
-- **注意**：中转站文件仅在内存中暂存，退出应用后自动清空
 
 ### 📄 自定义区域
 
@@ -179,39 +191,7 @@ TRAE 变体由 Hook profile 参数与捕获到的 bundle identifier 统一解析
     <td width="50%" align="center"><strong>日历与提醒事项</strong><br><img src="docs/images/productivity-calendar.png" alt="月历、日程与提醒事项双栏面板" width="100%"></td>
     <td width="50%" align="center"><strong>GitHub</strong><br><img src="docs/images/productivity-github.png" alt="GitHub 个人资料、贡献热力图与仓库列表" width="100%"></td>
   </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>File Watch</strong><br><img src="docs/images/productivity-file-watch.png" alt="File Watch 授权目录、文件卡片与搜索面板" width="100%"></td>
-  </tr>
 </table>
-
-### 🔎 File Watch
-
-File Watch 合并了 File Card 与自然搜索，只处理用户明确授权的目录。
-
-- 默认建议授权 `Downloads` 和 `Documents`，也可添加任意自定义文件夹。
-- 搜索范围仅包括文件名、路径、File Card、OCR 与标签，不索引文档正文。
-- File Card 可使用所选 AI Provider 增强，但最多发送 4000 字 OCR，且不发送绝对路径。
-- 只生成卡片与整理建议；移动、重命名或归档必须由用户确认后执行，并支持撤销。
-
-### ⬇️ 下载监控与 🌐 浏览器资源
-
-- 支持 Chrome、Microsoft Edge 与 Safari 扩展；设置页与未连接功能页提供一键连接入口。
-- 点击连接会复制本地配对令牌、收起 Flow Island，并打开对应浏览器或扩展设置指引。
-- 扩展通过本机 `127.0.0.1` 端点配对，并用心跳显示真实连接状态。
-- 下载监控在“新下载开始”和“下载完成”时主动通知；浏览器资源只保存用户主动提交的网页，不修改浏览器书签。
-- Safari 只提供网页资源保存；下载完成记录可由已授权的 `Downloads` 目录补充。
-
-构建本地浏览器扩展：
-
-```bash
-./scripts/build-browser-extensions.sh
-```
-
-Chrome 与 Edge 可分别加载 `BrowserExtensions/dist/Chrome`、`BrowserExtensions/dist/Edge`。Safari 容器可通过 `./scripts/build-safari-extension.sh` 生成。
-
-### ✉️ 邮件助手
-
-通过 macOS「邮件」App 的本地数据与通知提取最近邮件的发件人、主题和验证码。它不会保存正文，也不会修改邮件已读状态；新邮件信号可主动展开邮件助手。
 
 ### 📅 日历与提醒事项
 
@@ -226,7 +206,7 @@ Chrome 与 Edge 可分别加载 `BrowserExtensions/dist/Chrome`、`BrowserExtens
 
 ### 权限与数据边界
 
-设置中的“生产力连接”和“权限与数据来源”会展示 GitHub、AI Provider、浏览器扩展、日历、提醒事项、文件夹与 Mail Automation 的实际状态。配对令牌与 API 密钥保存于本机 macOS 钥匙串；未经授权的目录不会被 File Watch 搜索。
+设置中的“生产力连接”和“权限与数据来源”展示 GitHub 登录方式及日历、提醒事项的授权状态。GitHub 备用 Token 保存于本机 macOS 钥匙串。
 
 ### 🐱 内置宠物
 

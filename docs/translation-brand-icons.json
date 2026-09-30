@@ -1,0 +1,180 @@
+{
+  "retrieved": "2026-09-30",
+  "note": "Brand artwork identifies the respective services; all marks belong to their owners. Website favicons are preferred; fallback sources are recorded per asset. AWS and Wenxin artwork is from the LobeHub icons package. Bundled PNGs are rendered in original colors, with no runtime network requests.",
+  "icons": {
+    "zhipu": {
+      "website": "https://bigmodel.cn",
+      "source": "https://bigmodel.cn/static/images/favicon.png",
+      "bytes": 1441
+    },
+    "siliconFlow": {
+      "website": "https://siliconflow.cn",
+      "source": "https://siliconflow.cn/favicon.ico",
+      "bytes": 358
+    },
+    "myMemory": {
+      "website": "https://mymemory.translated.net",
+      "source": "https://mymemory.translated.net/favicon.ico",
+      "bytes": 15086
+    },
+    "baidu": {
+      "website": "https://fanyi.baidu.com",
+      "source": "https://fanyi.baidu.com/favicon.ico",
+      "bytes": 4286
+    },
+    "youdao": {
+      "website": "https://fanyi.youdao.com",
+      "source": "https://fanyi.youdao.com/favicon.ico",
+      "bytes": 1150
+    },
+    "microsoft": {
+      "website": "https://www.microsoft.com",
+      "source": "https://icons.duckduckgo.com/ip3/www.microsoft.com.ico",
+      "bytes": 17174
+    },
+    "deepL": {
+      "website": "https://www.deepl.com",
+      "source": "https://www.deepl.com/favicon.ico",
+      "bytes": 12306
+    },
+    "aiHubMix": {
+      "website": "https://aihubmix.com",
+      "source": "https://icons.duckduckgo.com/ip3/aihubmix.com.ico",
+      "bytes": 74412
+    },
+    "sophNet": {
+      "website": "https://www.sophnet.com",
+      "source": "https://www.sophnet.com/favicon.ico",
+      "bytes": 1270
+    },
+    "ai302": {
+      "website": "https://302.ai",
+      "source": "https://icons.duckduckgo.com/ip3/302.ai.ico",
+      "bytes": 41662
+    },
+    "tencent": {
+      "website": "https://cloud.tencent.com",
+      "source": "https://cloud.tencent.com/favicon.ico",
+      "bytes": 949
+    },
+    "openAI": {
+      "website": "https://openai.com",
+      "source": "https://icons.duckduckgo.com/ip3/openai.com.ico",
+      "bytes": 15406
+    },
+    "azureOpenAI": {
+      "website": "https://azure.microsoft.com",
+      "source": "https://azure.microsoft.com/favicon.ico",
+      "bytes": 17174
+    },
+    "gemini": {
+      "website": "https://gemini.google.com",
+      "source": "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+      "bytes": 61823
+    },
+    "claude": {
+      "website": "https://claude.ai",
+      "source": "https://claude.ai/favicon.ico",
+      "bytes": 2445
+    },
+    "grok": {
+      "website": "https://grok.com",
+      "source": "https://icons.duckduckgo.com/ip3/grok.com.ico",
+      "bytes": 15406
+    },
+    "groq": {
+      "website": "https://groq.com",
+      "source": "https://groq.com/favicon.ico",
+      "bytes": 15406
+    },
+    "openRouter": {
+      "website": "https://openrouter.ai",
+      "source": "https://openrouter.ai/favicon.ico",
+      "bytes": 2880
+    },
+    "ollama": {
+      "website": "https://ollama.com",
+      "source": "https://ollama.com/public/icon-16x16.png",
+      "bytes": 458
+    },
+    "lmStudio": {
+      "website": "https://lmstudio.ai",
+      "source": "https://lmstudio.ai/favicon.ico",
+      "bytes": 15406
+    },
+    "deepSeek": {
+      "website": "https://www.deepseek.com",
+      "source": "https://www.deepseek.com/favicon.ico",
+      "bytes": 209762
+    },
+    "qwen": {
+      "website": "https://qwen.ai",
+      "source": "https://img.alicdn.com/imgextra/i4/O1CN01OXv3EM1FN8t9W4P79_!!6000000000474-2-tps-80-80.png",
+      "bytes": 1658
+    },
+    "wenxin": {
+      "website": "https://yiyan.baidu.com",
+      "source": "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/wenxin-color.png",
+      "bytes": 11475
+    },
+    "doubao": {
+      "website": "https://www.doubao.com",
+      "source": "https://lf-flow-web-cdn.doubao.com/obj/flow-doubao/doubao/chat/favicon-doubao.png",
+      "bytes": 8216
+    },
+    "hunyuan": {
+      "website": "https://hunyuan.tencent.com",
+      "source": "https://hunyuan-blog-web-prod-1258344703.cos.ap-guangzhou.myqcloud.com/favicon.png",
+      "bytes": 3180
+    },
+    "moark": {
+      "website": "https://www.moark.com",
+      "source": "https://www.moark.com/favicon.ico",
+      "bytes": 15086
+    },
+    "kimi": {
+      "website": "https://www.kimi.com",
+      "source": "https://www.kimi.com/favicon.ico",
+      "bytes": 15086
+    },
+    "yi": {
+      "website": "https://www.lingyiwanwu.com",
+      "source": "https://www.lingyiwanwu.com/branding/favicon-32.png",
+      "bytes": 701
+    },
+    "volcano": {
+      "website": "https://www.volcengine.com",
+      "source": "https://portal.volccdn.com/obj/volcfe/misc/favicon.png",
+      "bytes": 3400
+    },
+    "aliyun": {
+      "website": "https://www.aliyun.com",
+      "source": "https://icons.duckduckgo.com/ip3/aliyun.com.ico",
+      "bytes": 281
+    },
+    "caiyun": {
+      "website": "https://fanyi.caiyunapp.com",
+      "source": "https://fanyi.caiyunapp.com/favicon.ico",
+      "bytes": 7339
+    },
+    "niutrans": {
+      "website": "https://niutrans.com",
+      "source": "https://niutrans.com/favicon.ico",
+      "bytes": 4286
+    },
+    "google": {
+      "website": "https://translate.google.com",
+      "source": "https://translate.google.com/favicon.ico",
+      "bytes": 32988
+    },
+    "amazon": {
+      "website": "https://aws.amazon.com",
+      "source": "https://registry.npmmirror.com/@lobehub/icons-static-png/latest/files/light/aws-color.png",
+      "bytes": 8295
+    },
+    "dictionary": {
+      "website": "https://support.apple.com/guide/dictionary/welcome/mac",
+      "source": "macOS Dictionary.app/Contents/Resources/AppIconLoc.icns"
+    }
+  }
+}
