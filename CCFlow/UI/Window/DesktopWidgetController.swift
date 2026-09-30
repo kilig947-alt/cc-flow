@@ -93,7 +93,7 @@ final class DesktopWidgetController: NSObject, NSWindowDelegate {
         panel.identifier = NSUserInterfaceItemIdentifier(featureID)
         panel.delegate = self
         panel.contentView = NSHostingView(
-            rootView: DesktopWidgetRootView(
+            rootView: AppLocalizedRootView { DesktopWidgetRootView(
                 featureID: featureID,
                 onClose: { [weak self] in
                     self?.remove(featureID: featureID)
@@ -107,7 +107,7 @@ final class DesktopWidgetController: NSObject, NSWindowDelegate {
                 onResizeEnded: { [weak panel] in
                     panel?.endInteractiveResize()
                 }
-            )
+            ) }
         )
         return panel
     }
@@ -265,7 +265,11 @@ private struct DesktopWidgetRootView: View {
         !isBorderless || isPointerInside
     }
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         Group {
             if let feature {
                 featureLayout(feature)
@@ -357,7 +361,7 @@ private struct DesktopWidgetRootView: View {
                 .onTapGesture(count: 2) {
                     reload(feature)
                 }
-                .help(feature.kind.supportsDesktopWidgetReload ? "双击刷新" : feature.displayName)
+                .help(Text(appLocalized: feature.kind.supportsDesktopWidgetReload ? "双击刷新" : feature.displayName))
             Text(feature.displayName)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.9))
@@ -374,7 +378,7 @@ private struct DesktopWidgetRootView: View {
                     .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .help(isBorderless ? "固定显示窗口边框" : "切换为无边框模式")
+            .help(Text(appLocalized: isBorderless ? "固定显示窗口边框" : "切换为无边框模式"))
             if feature.kind.supportsDesktopWidgetReload {
                 Button {
                     reload(feature)
@@ -414,7 +418,11 @@ private struct DesktopWidgetFeatureContent: View {
 
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         if feature.kind.supportsDesktopWidgetReload {
             content
                 .padding(isBorderless ? 0 : 6)
@@ -440,13 +448,9 @@ private struct DesktopWidgetFeatureContent: View {
         case .systemMonitor: SystemMonitorFeatureView(compact: false)
         case .calendar: CalendarFeatureView(compact: false)
         case .github: GitHubFeatureView(compact: false)
-        case .fileCards, .naturalSearch: FileCardsFeatureView(compact: false)
-        case .downloadMonitor: DownloadMonitorFeatureView(compact: false)
-        case .browserResources: BrowserResourcesFeatureView(compact: false)
-        case .mailAssistant: MailAssistantFeatureView(compact: false)
+        case .translation: TranslationFeatureView()
         case .giflow: GiflowExpandedView()
         case .music: MusicExpandedView()
-        case .shelf: ShelfExpandedView()
         case .customArea(let areaID):
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                 webView(source: .localArea(area))
@@ -505,7 +509,11 @@ private struct DesktopWidgetResizeOverlay: View {
     let onResize: (DesktopWidgetResizeEdge, CGSize) -> Void
     let onResizeEnded: () -> Void
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         GeometryReader { proxy in
             let width = proxy.size.width
             let height = proxy.size.height
@@ -575,7 +583,11 @@ private struct DesktopWidgetResizeHandle: View {
 
     @State private var isDragging = false
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         ZStack {
             Color.clear
                 .contentShape(Rectangle())

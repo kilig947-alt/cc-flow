@@ -2,6 +2,16 @@ import XCTest
 @testable import CC_FLOW
 
 final class CompletionPromptRegexParserTests: XCTestCase {
+    private var customListedOptionsRule: CompletionPromptRegexRule {
+        CompletionPromptRegexRule(
+            id: "custom-listed-options",
+            name: "字母或数字选项",
+            triggerPattern: #"(?is)(?=.*请)(?:(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m:^\s*(?:A|1)[.．、)]\s+\S+))"#,
+            optionPattern: #"(?m)^\s*([A-Z]|\d{1,2})[.．、)]\s*(\S.*)$"#,
+            replyTemplate: "选择 {key}：{option}"
+        )
+    }
+
     @MainActor
     func testOpenCodeIdleSynthesizesQuestionFromFinalAssistantMessage() async throws {
         let sessionID = "opencode-completion-regex-\(UUID().uuidString)"
@@ -9,7 +19,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         let settings = AppSettings.shared
         let originalRules = settings.completionPromptRegexRules
         let originalRouteSetting = settings.routePromptsToTerminal
-        settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+        settings.completionPromptRegexRules = [customListedOptionsRule]
         settings.routePromptsToTerminal = false
         addTeardownBlock {
             Task { @MainActor in
@@ -65,7 +75,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         let settings = AppSettings.shared
         let originalRules = settings.completionPromptRegexRules
         let originalRouteSetting = settings.routePromptsToTerminal
-        settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+        settings.completionPromptRegexRules = [customListedOptionsRule]
         settings.routePromptsToTerminal = false
         addTeardownBlock {
             Task { @MainActor in
@@ -132,7 +142,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
         let settings = AppSettings.shared
         let originalRules = settings.completionPromptRegexRules
         let originalRouteSetting = settings.routePromptsToTerminal
-        settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
+        settings.completionPromptRegexRules = [customListedOptionsRule]
         settings.routePromptsToTerminal = false
         addTeardownBlock {
             Task { @MainActor in
@@ -253,7 +263,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
 
         let match = try XCTUnwrap(CompletionPromptRegexParser.match(
             message: message,
-            rules: CompletionPromptRegexRule.defaultTemplates
+            rules: [customListedOptionsRule]
         ))
         let question = try XCTUnwrap(match.intervention.resolvedQuestions.first)
 
@@ -286,7 +296,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
 
         let match = try XCTUnwrap(CompletionPromptRegexParser.match(
             message: message,
-            rules: CompletionPromptRegexRule.defaultTemplates
+            rules: [customListedOptionsRule]
         ))
 
         XCTAssertEqual(
@@ -308,7 +318,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
 
         let match = try XCTUnwrap(CompletionPromptRegexParser.match(
             message: message,
-            rules: CompletionPromptRegexRule.defaultTemplates
+            rules: [customListedOptionsRule]
         ))
 
         XCTAssertEqual(match.intervention.message, "")
@@ -397,9 +407,7 @@ final class CompletionPromptRegexParserTests: XCTestCase {
     }
 
     func testExtractedRuleCanAllowMultipleSelections() throws {
-        var rule = try XCTUnwrap(CompletionPromptRegexRule.defaultTemplates.first {
-            $0.id == "builtin-listed-options"
-        })
+        var rule = customListedOptionsRule
         rule.allowsMultiple = true
         let match = try XCTUnwrap(CompletionPromptRegexParser.match(
             message: """

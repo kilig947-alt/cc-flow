@@ -247,7 +247,7 @@ final class UsageDataLoaderTests: XCTestCase {
     func testUsageFeatureMigrationInsertsEnabledFeatureFirstAndIsIdempotent() {
         let source = [
             LeftFeature(id: LeftFeature.musicID, kind: .music, isEnabled: false, sortOrder: 0),
-            LeftFeature(id: LeftFeature.shelfID, kind: .shelf, isEnabled: true, sortOrder: 1)
+            LeftFeature(id: LeftFeature.calendarID, kind: .calendar, isEnabled: true, sortOrder: 1)
         ]
 
         let migrated = LeftFeatureStore.featuresByEnsuringUsageFeature(source)
@@ -268,9 +268,7 @@ final class UsageDataLoaderTests: XCTestCase {
 
         let migrated = LeftFeatureStore.featuresByEnsuringProductivityFeatures(source)
         let productivityIDs = Set([
-            LeftFeature.systemMonitorID, LeftFeature.calendarID, LeftFeature.githubID,
-            LeftFeature.fileCardsID, LeftFeature.downloadMonitorID,
-            LeftFeature.browserResourcesID, LeftFeature.mailAssistantID
+            LeftFeature.systemMonitorID, LeftFeature.calendarID, LeftFeature.githubID
         ])
 
         XCTAssertEqual(Set(migrated.filter { productivityIDs.contains($0.id) }.map(\.id)), productivityIDs)
@@ -282,19 +280,28 @@ final class UsageDataLoaderTests: XCTestCase {
     }
 
     @MainActor
-    func testNaturalSearchMigrationMergesIntoFileWatch() {
-        let source = [
+    func testRetiredBuiltinsAreRemovedAndMigrationIsIdempotent() throws {
+        let retained = [
             LeftFeature(id: LeftFeature.musicID, kind: .music, isEnabled: true, sortOrder: 0),
-            LeftFeature(id: LeftFeature.naturalSearchID, kind: .naturalSearch, isEnabled: true, sortOrder: 2),
-            LeftFeature(id: LeftFeature.fileCardsID, kind: .fileCards, isEnabled: false, sortOrder: 4),
-            LeftFeature(id: LeftFeature.shelfID, kind: .shelf, isEnabled: true, sortOrder: 5)
+            LeftFeature(kind: .webURL(url: "https://example.com"), isEnabled: true, sortOrder: 8)
         ]
-        let migrated = LeftFeatureStore.featuresByMergingNaturalSearchIntoFileWatch(source)
-        XCTAssertFalse(migrated.contains { $0.id == LeftFeature.naturalSearchID || $0.kind == .naturalSearch })
-        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.fileCardsID })?.isEnabled, true)
-        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.fileCardsID })?.sortOrder, 4)
-        XCTAssertEqual(migrated.first(where: { $0.id == LeftFeature.shelfID })?.sortOrder, 5)
-        XCTAssertEqual(LeftFeatureStore.featuresByMergingNaturalSearchIntoFileWatch(migrated), migrated)
+        let retiredKinds = ["fileCards", "naturalSearch", "downloadMonitor", "browserResources", "mailAssistant", "shelf"]
+        let retainedData = try JSONEncoder().encode(retained)
+        let retainedRows = try XCTUnwrap(JSONSerialization.jsonObject(with: retainedData) as? [[String: Any]])
+        let legacyRows: [[String: Any]] = retiredKinds.enumerated().map { index, kind in
+            var row = retainedRows[0]
+            row["id"] = "legacy-\(index)"
+            row["kind"] = [kind: [:]]
+            row["isEnabled"] = index.isMultiple(of: 2)
+            return row
+        }
+        let data = try JSONSerialization.data(withJSONObject: retainedRows + legacyRows)
+        let migrated = try LeftFeatureStore.decodePersistedFeatures(data)
+        XCTAssertEqual(migrated.features, retained)
+        XCTAssertEqual(migrated.removedIDs, Set(retiredKinds.indices.map { "legacy-\($0)" }))
+        let secondPass = try LeftFeatureStore.decodePersistedFeatures(JSONEncoder().encode(migrated.features))
+        XCTAssertEqual(secondPass.features, retained)
+        XCTAssertTrue(secondPass.removedIDs.isEmpty)
     }
 
     @MainActor
@@ -335,8 +342,7 @@ final class UsageDataLoaderTests: XCTestCase {
 
     func testProductivityKindsRoundTrip() throws {
         let kinds: [LeftFeatureKind] = [
-            .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-            .downloadMonitor, .browserResources, .mailAssistant
+            .systemMonitor, .calendar, .github
         ]
 
         for kind in kinds {

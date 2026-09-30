@@ -38,22 +38,12 @@ struct LeftFeatureContainerView: View {
             CalendarFeatureView(compact: false)
         case .github:
             GitHubFeatureView(compact: false)
-        case .fileCards:
-            FileCardsFeatureView(compact: false)
-        case .naturalSearch:
-            FileCardsFeatureView(compact: false)
-        case .downloadMonitor:
-            DownloadMonitorFeatureView(compact: false)
-        case .browserResources:
-            BrowserResourcesFeatureView(compact: false)
-        case .mailAssistant:
-            MailAssistantFeatureView(compact: false)
+        case .translation:
+            TranslationFeatureView()
         case .giflow:
             GiflowExpandedView()
         case .music:
             MusicExpandedView()
-        case .shelf:
-            ShelfExpandedView()
         case .customArea(let areaID):
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                 expandedWebView(source: .localArea(area), feature: feature)

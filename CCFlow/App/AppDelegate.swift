@@ -89,9 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.systemMonitorID && $0.isEnabled }) {
             AppUsageTracker.shared.start()
         }
-        if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.mailAssistantID && $0.isEnabled }) {
-            MailAssistantService.shared.start()
-        }
         if LeftFeatureStore.shared.features.contains(where: { $0.id == LeftFeature.calendarID && $0.isEnabled }) {
             CalendarService.shared.startReminderMonitoring()
         }

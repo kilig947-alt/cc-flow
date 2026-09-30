@@ -116,11 +116,9 @@ struct EditableCustomAreaView: View {
         let defaultName: String
         switch feature.kind {
         case .usage: defaultName = "用量"
-        case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-             .downloadMonitor, .browserResources, .mailAssistant:
+        case .systemMonitor, .calendar, .github:
             defaultName = feature.displayName
         case .music: defaultName = "音乐"
-        case .shelf: defaultName = "中转站"
         case .newsnow: defaultName = "AI HOT"
         case .mineradio: defaultName = "Mineradio"
         default: defaultName = ""
@@ -163,7 +161,7 @@ struct EditableCustomAreaView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(titleText)
+            Text(appLocalized: titleText)
                 .font(.headline)
 
             // Spec: 按模式渲染不同字段顺序
@@ -209,7 +207,7 @@ struct EditableCustomAreaView: View {
                     }
                 if useCustomExpandedSize {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("展开宽度：\(Int(expandedWidth)) pt")
+                        Text(AppLocalization.format("展开宽度：%@ pt", String(describing: Int(expandedWidth))))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Slider(value: $expandedWidth, in: 470...1600, step: 10)
@@ -218,7 +216,7 @@ struct EditableCustomAreaView: View {
                             }
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("展开高度：\(Int(expandedHeight)) pt")
+                        Text(AppLocalization.format("展开高度：%@ pt", String(describing: Int(expandedHeight))))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Slider(value: $expandedHeight, in: 200...1000, step: 10)
@@ -266,7 +264,7 @@ struct EditableCustomAreaView: View {
                             iconImageError = "图片保存失败"
                         }
                     } catch {
-                        iconImageError = "读取图片失败：\(error.localizedDescription)"
+                        iconImageError = AppLocalization.format("读取图片失败：%@", String(describing: error.localizedDescription))
                     }
                 }
             case .failure:
@@ -342,7 +340,7 @@ struct EditableCustomAreaView: View {
                 }
             }
             if let iconImageError {
-                Text(iconImageError)
+                Text(appLocalized: iconImageError)
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -473,11 +471,9 @@ struct EditableCustomAreaView: View {
             let defaultName: String
             switch feature.kind {
             case .usage: defaultName = "用量"
-            case .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-                 .downloadMonitor, .browserResources, .mailAssistant, .giflow:
+            case .systemMonitor, .calendar, .github, .giflow:
                 defaultName = feature.displayName
             case .music: defaultName = "音乐"
-            case .shelf: defaultName = "中转站"
             case .newsnow: defaultName = "AI HOT"
             case .mineradio: defaultName = "Mineradio"
             default: defaultName = ""

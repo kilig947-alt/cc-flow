@@ -14,6 +14,8 @@ import AppKit
 
 // Use NSPanel subclass for non-activating behavior
 class NotchPanel: NSPanel {
+    weak var menuBarHeaderPanel: NotchHeaderPanel?
+    private var expandedPresentation = false
 
     override init(
         contentRect: NSRect,
@@ -37,6 +39,9 @@ class NotchPanel: NSPanel {
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         backgroundColor = .clear
+        // Match NotchView's dark theme at the AppKit boundary as well, including
+        // embedded web views when the panel changes level or keyboard focus.
+        appearance = NSAppearance(named: .darkAqua)
         hasShadow = false
 
         // CRITICAL: Prevent window from moving during space switches
@@ -50,8 +55,8 @@ class NotchPanel: NSPanel {
             .ignoresCycle
         ]
 
-        // Above system menu bar (level 24) so the menu bar does not cover the Flow Island,
-        // but below IME candidate windows (level 101) so input candidate layer is not obscured.
+        // Compact presentation stays above the menu bar. Expanded, interactive content
+        // uses the floating tier instead; IME window levels vary between input methods.
         level = .statusBar
 
         // Enable tooltips even when app is inactive (needed for panel windows)
@@ -68,6 +73,40 @@ class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    func setExpandedPresentation(_ expanded: Bool) {
+        expandedPresentation = expanded
+        refreshHeaderVisibility()
+    }
+
+    func refreshHeaderVisibility() {
+        // During expansion the original single surface owns the whole animation.
+        // Lower the body only after the replacement header has a usable frame.
+        let headerReady = expandedPresentation && menuBarHeaderPanel.map { !$0.frame.isEmpty } == true
+        if headerReady && isVisible {
+            if let header = menuBarHeaderPanel, !header.isVisible { header.orderFrontRegardless() }
+        } else {
+            menuBarHeaderPanel?.orderOut(nil)
+        }
+        let target: NSWindow.Level = headerReady ? .floating : .statusBar
+        if level != target { level = target }
+    }
+
+    override func orderFrontRegardless() {
+        super.orderFrontRegardless()
+        refreshHeaderVisibility()
+    }
+
+    override func orderOut(_ sender: Any?) {
+        menuBarHeaderPanel?.orderOut(sender)
+        super.orderOut(sender)
+    }
+
+    override func close() {
+        menuBarHeaderPanel?.orderOut(nil)
+        menuBarHeaderPanel?.close()
+        super.close()
+    }
 
     override func sendEvent(_ event: NSEvent) {
         #if DEBUG

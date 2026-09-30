@@ -31,6 +31,16 @@ final class AppSettingsPersistenceTests: XCTestCase {
         return store
     }
 
+    func testAppLanguageDefaultsToSystemAndPersistsExplicitSelection() {
+        let defaults = makeDefaults()
+        let store = makeStore(defaults: defaults)
+        XCTAssertEqual(store.appLanguage, .system)
+        for language in AppLanguage.allCases {
+            store.appLanguage = language
+            XCTAssertEqual(makeStore(defaults: defaults).appLanguage, language)
+        }
+    }
+
     func testNotificationPresentationModeDefaultsToActiveAndPersists() {
         let defaults = makeDefaults()
         let store = makeStore(defaults: defaults)
@@ -210,7 +220,6 @@ final class AppSettingsPersistenceTests: XCTestCase {
             "builtin-question-followed-by-recommendation",
             "builtin-final-line-explicit-confirmation",
             "builtin-review-confirmation",
-            "builtin-listed-options",
             "builtin-inline-or-options",
             "builtin-freeform-input",
             "builtin-trailing-question-confirmation"
@@ -233,7 +242,6 @@ final class AppSettingsPersistenceTests: XCTestCase {
             "builtin-final-line-explicit-confirmation",
             "builtin-question-followed-by-recommendation",
             "builtin-review-confirmation",
-            "builtin-listed-options",
             "builtin-inline-or-options",
             "builtin-freeform-input",
             "builtin-trailing-question-confirmation"
@@ -359,10 +367,11 @@ final class AppSettingsPersistenceTests: XCTestCase {
         })
         legacyRules[reviewIndex].triggerPattern = legacyReviewPattern
         let legacyListedOptionsPattern = #"(?is)(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m)^\s*(?:A|1)[.．、)]\s+\S+"#
-        let listedOptionsIndex = try XCTUnwrap(legacyRules.firstIndex {
-            $0.id == "builtin-listed-options"
-        })
-        legacyRules[listedOptionsIndex].triggerPattern = legacyListedOptionsPattern
+        legacyRules.append(CompletionPromptRegexRule(
+            id: "builtin-listed-options",
+            name: "字母或数字选项",
+            triggerPattern: legacyListedOptionsPattern
+        ))
         defaults.set(
             try JSONEncoder().encode(legacyRules),
             forKey: "completionPromptRegexRules"
@@ -377,9 +386,14 @@ final class AppSettingsPersistenceTests: XCTestCase {
         XCTAssertTrue(repairedStore.completionPromptRegexRules.first {
             $0.id == "builtin-review-confirmation"
         }?.triggerPattern.contains("评审") == true)
-        XCTAssertTrue(repairedStore.completionPromptRegexRules.first {
+        XCTAssertFalse(repairedStore.completionPromptRegexRules.contains {
             $0.id == "builtin-listed-options"
-        }?.triggerPattern.contains("(?=.*请)") == true)
+        })
+        let persistedRules = try JSONDecoder().decode(
+            [CompletionPromptRegexRule].self,
+            from: XCTUnwrap(defaults.data(forKey: "completionPromptRegexRules"))
+        )
+        XCTAssertFalse(persistedRules.contains { $0.id == "builtin-listed-options" })
 
         repairedStore.completionPromptRegexRules.removeAll {
             $0.id == "builtin-final-line-explicit-confirmation"

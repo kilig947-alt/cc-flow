@@ -12,7 +12,7 @@ struct LeftFeatureReentryRequest: Equatable {
 }
 
 /// 左侧 flow Island"功能系统"注册中心
-/// 管理内置功能（音乐 / 中转站）与自定义 HTML 区域功能的启用/禁用、排序、
+/// 管理内置功能（音乐等）与自定义 HTML 区域功能的启用/禁用、排序、
 /// 紧凑态与展开态各自的选择（`compactFeatureID` / `expandedActiveFeatureID`）。
 /// 持久化：
 /// - 功能列表 → `~/Library/Application Support/cc-flow/left-features.json`
@@ -48,6 +48,8 @@ final class LeftFeatureStore: ObservableObject {
     @Published private(set) var expandedReentryRequest: LeftFeatureReentryRequest?
     private var expandedReentryGeneration: UInt64 = 0
 
+    private var retiredFeatureIDs = LeftFeatureStore.legacyRetiredFeatureIDs
+
     private let defaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
 
@@ -81,6 +83,10 @@ final class LeftFeatureStore: ObservableObject {
     ///    b. 否则 `enabledFeatures.first`
     ///    c. 都无则 nil
     var compactFeature: LeftFeature? {
+        compactFeature(isMusicPlaying: NowPlayingProvider.shared.nowPlaying?.isPlaying == true)
+    }
+
+    func compactFeature(isMusicPlaying: Bool) -> LeftFeature? {
         // 0. 录制中/导出中优先展示 Giflow
         if GiflowStore.shared.isRecording || GiflowStore.shared.isExporting {
             if let giflow = features.first(where: { $0.id == LeftFeature.giflowID }) {
@@ -95,7 +101,7 @@ final class LeftFeatureStore: ObservableObject {
         }
         // 2a. 音乐自动检测（NowPlayingProvider 由后续任务提供，此处为前向引用）
         if let music = features.first(where: { $0.kind == .music && $0.isEnabled }),
-           NowPlayingProvider.shared.nowPlaying?.isPlaying == true {
+           isMusicPlaying {
             return music
         }
         // 2b. 第一个已启用功能
@@ -123,12 +129,12 @@ final class LeftFeatureStore: ObservableObject {
         migrateFromLegacy()
         ensureBuiltinUsageFeature()
         ensureProductivityFeatures()
-        migrateNaturalSearchIntoFileWatch()
         ensureBuiltinAIHotFeature()
         ensureBuiltinMineradioFeature()
         ensureBuiltinGiflowFeature()
         normalizeBuiltinDefaultExpandedWidths()
         applyLocalConfiguration()
+        removeRetiredBuiltinFeatures()
 
         GiflowStore.shared.$isRecording
             .receive(on: RunLoop.main)
@@ -152,12 +158,13 @@ final class LeftFeatureStore: ObservableObject {
         let url = Self.persistenceURL
         guard FileManager.default.fileExists(atPath: url.path),
               let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode([LeftFeature].self, from: data) else {
+              let decoded = try? Self.decodePersistedFeatures(data) else {
             // 首次启动：由 migrateFromLegacy 填充
             features = []
             return
         }
-        features = decoded
+        features = decoded.features
+        retiredFeatureIDs.formUnion(decoded.removedIDs)
     }
 
     private func persist() {
@@ -183,7 +190,7 @@ final class LeftFeatureStore: ObservableObject {
     // MARK: - Legacy Migration
 
     /// 老用户迁移 —— 首次升级时（`left-features.json` 不存在）：
-    /// 1. 创建内置音乐 / 中转站功能
+    /// 1. 创建内置功能
     /// 2. 为每个 CustomArea 创建对应功能
     /// 3. 迁移旧 UserDefaults 键（customAreaCompactID / customAreaExpandedID / customAreaSelectedID）
     /// 4. 清除旧键并持久化
@@ -196,7 +203,6 @@ final class LeftFeatureStore: ObservableObject {
         //    - Mineradio（sortOrder: 0，默认启用）—— 用户首要功能
         //    - NewsNow 热点新闻（sortOrder: 1，默认启用）—— 用户次要功能
         //    - 音乐（sortOrder: 2，默认禁用）—— 可选
-        //    - 中转站（sortOrder: 3，默认禁用）—— 可选
         // 设置较小的默认展开高度，避免展开时占用过多屏幕空间
         features = [
             LeftFeature(
@@ -219,24 +225,17 @@ final class LeftFeatureStore: ObservableObject {
                 isEnabled: false,
                 sortOrder: 2,
                 expandedHeight: 280
-            ),
-            LeftFeature(
-                id: LeftFeature.shelfID,
-                kind: .shelf,
-                isEnabled: false,
-                sortOrder: 3,
-                expandedHeight: 280
             )
         ]
 
         // 2. 为每个 CustomArea 创建功能（按 sortOrder 降序，与 CustomAreaStore.load 排序一致）
-        // 内置功能占用 sortOrder 0-3，自定义区域从 4 起步
+        // 内置功能占用 sortOrder 0-2，自定义区域从 3 起步
         let sortedAreas = CustomAreaStore.shared.areas.sorted { $0.sortOrder > $1.sortOrder }
         for (index, area) in sortedAreas.enumerated() {
             features.append(LeftFeature(
                 kind: .customArea(areaID: area.id),
                 isEnabled: false,
-                sortOrder: 4 + index
+                sortOrder: 3 + index
             ))
         }
 
@@ -334,7 +333,7 @@ final class LeftFeatureStore: ObservableObject {
     }
 
     /// Adds newly shipped productivity features without changing existing order or preferences.
-    /// They default to disabled so upgrades never trigger permissions or background work.
+    /// Background productivity services default to disabled; Giflow and Tflow are user-triggered.
     private func ensureProductivityFeatures() {
         let migrated = Self.featuresByEnsuringProductivityFeatures(features)
         guard migrated != features else { return }
@@ -347,11 +346,8 @@ final class LeftFeatureStore: ObservableObject {
             (LeftFeature.systemMonitorID, .systemMonitor, 500),
             (LeftFeature.calendarID, .calendar, 520),
             (LeftFeature.githubID, .github, 520),
-            (LeftFeature.fileCardsID, .fileCards, 560),
-            (LeftFeature.downloadMonitorID, .downloadMonitor, 480),
-            (LeftFeature.browserResourcesID, .browserResources, 540),
-            (LeftFeature.mailAssistantID, .mailAssistant, 500),
-            (LeftFeature.giflowID, .giflow, 520)
+            (LeftFeature.giflowID, .giflow, 520),
+            (LeftFeature.translationID, .translation, 550)
         ]
         var result = source
         var nextSortOrder = (source.map(\.sortOrder).max() ?? -1) + 1
@@ -359,7 +355,7 @@ final class LeftFeatureStore: ObservableObject {
             result.append(LeftFeature(
                 id: id,
                 kind: kind,
-                isEnabled: id == LeftFeature.giflowID,
+                isEnabled: id == LeftFeature.giflowID || id == LeftFeature.translationID,
                 sortOrder: nextSortOrder,
                 expandedHeight: height
             ))
@@ -368,39 +364,35 @@ final class LeftFeatureStore: ObservableObject {
         return result
     }
 
-    private func migrateNaturalSearchIntoFileWatch() {
-        let migrated = Self.featuresByMergingNaturalSearchIntoFileWatch(features)
-        let selectionNeedsMigration = compactFeatureID == LeftFeature.naturalSearchID
-            || expandedActiveFeatureID == LeftFeature.naturalSearchID
-        guard migrated != features || selectionNeedsMigration else { return }
-        features = migrated
-        if compactFeatureID == LeftFeature.naturalSearchID { compactFeatureID = LeftFeature.fileCardsID }
-        if expandedActiveFeatureID == LeftFeature.naturalSearchID { expandedActiveFeatureID = LeftFeature.fileCardsID }
-        persist()
+    // Migration-only identifiers: retired implementations and enum cases are intentionally absent.
+    private static let legacyRetiredFeatureIDs: Set<String> = [
+        "file-cards", "natural-search", "download-monitor", "browser-resources", "mail-assistant", "shelf"
+    ]
+
+    static func decodePersistedFeatures(_ data: Data) throws -> (features: [LeftFeature], removedIDs: Set<String>) {
+        let retiredKinds: Set<String> = [
+            "fileCards", "naturalSearch", "downloadMonitor", "browserResources", "mailAssistant", "shelf"
+        ]
+        let rows = try JSONSerialization.jsonObject(with: data)
+        guard let rows = rows as? [[String: Any]] else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Expected a feature array"))
+        }
+        var removedIDs = Set<String>()
+        let retained = rows.filter { row in
+            let kind = row["kind"] as? [String: Any] ?? [:]
+            guard !retiredKinds.isDisjoint(with: kind.keys) else { return true }
+            if let id = row["id"] as? String { removedIDs.insert(id) }
+            return false
+        }
+        let retainedData = try JSONSerialization.data(withJSONObject: retained)
+        return (try JSONDecoder().decode([LeftFeature].self, from: retainedData), removedIDs)
     }
 
-    static func featuresByMergingNaturalSearchIntoFileWatch(_ source: [LeftFeature]) -> [LeftFeature] {
-        guard let legacy = source.first(where: { $0.id == LeftFeature.naturalSearchID || $0.kind == .naturalSearch }) else {
-            return source
-        }
-        var result = source.filter { $0.id != LeftFeature.naturalSearchID && $0.kind != .naturalSearch }
-        if let index = result.firstIndex(where: { $0.id == LeftFeature.fileCardsID || $0.kind == .fileCards }) {
-            result[index].isEnabled = result[index].isEnabled || legacy.isEnabled
-        } else {
-            result.append(LeftFeature(
-                id: LeftFeature.fileCardsID,
-                kind: .fileCards,
-                isEnabled: legacy.isEnabled,
-                sortOrder: legacy.sortOrder,
-                createdAt: legacy.createdAt,
-                customIconName: legacy.customIconName,
-                expandedWidth: legacy.expandedWidth,
-                expandedHeight: legacy.expandedHeight,
-                expandedPinned: legacy.expandedPinned,
-                globalShortcut: legacy.globalShortcut
-            ))
-        }
-        return result
+    private func removeRetiredBuiltinFeatures() {
+        if let id = compactFeatureID, retiredFeatureIDs.contains(id) { compactFeatureID = nil }
+        if let id = expandedActiveFeatureID, retiredFeatureIDs.contains(id) { expandedActiveFeatureID = nil }
+        // Persist the filtered list so removed features cannot return on the next launch.
+        persist()
     }
 
     /// 老用户升级幂等追加：若 features 不含 id == mineradioID 的项则追加默认 mineradio 功能。
@@ -469,11 +461,6 @@ final class LeftFeatureStore: ObservableObject {
             LeftFeature.systemMonitorID: [760],
             LeftFeature.calendarID: [760],
             LeftFeature.githubID: [760],
-            LeftFeature.fileCardsID: [780],
-            LeftFeature.naturalSearchID: [760],
-            LeftFeature.downloadMonitorID: [720],
-            LeftFeature.browserResourcesID: [780],
-            LeftFeature.mailAssistantID: [720]
         ]
 
         return source.map { feature in
@@ -523,15 +510,6 @@ final class LeftFeatureStore: ObservableObject {
                 UsageService.shared.stop()
             case .systemMonitor:
                 AppUsageTracker.shared.stop()
-            case .browserResources:
-                BrowserBridgeService.shared.stop()
-            case .downloadMonitor:
-                BrowserBridgeService.shared.stop()
-                LocalFileIndexService.shared.stop()
-            case .mailAssistant:
-                MailAssistantService.shared.stop()
-            case .fileCards, .naturalSearch:
-                LocalFileIndexService.shared.stop()
             default:
                 break
             }
@@ -548,7 +526,6 @@ final class LeftFeatureStore: ObservableObject {
         if id == LeftFeature.calendarID {
             isEnabled ? CalendarService.shared.startReminderMonitoring() : CalendarService.shared.stopReminderMonitoring()
         }
-        if id == LeftFeature.mailAssistantID, isEnabled { MailAssistantService.shared.start() }
     }
 
     /// 重排功能顺序；重排后按新顺序重写所有 `sortOrder`

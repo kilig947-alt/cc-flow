@@ -159,11 +159,18 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
     case giflowSelectionCapture
     case giflowFullScreenCapture
     case giflowOpenRecordings
+    case translationSelection
+    case translationScreenshot
+    case translationInput
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .translationSelection: return "Tflow 选词翻译"
+        case .translationScreenshot: return "Tflow 截图翻译"
+        case .translationInput: return "Tflow 输入翻译"
+
         case .openActiveSession:
             return "展开活跃会话"
         case .openLeftFeature:
@@ -181,6 +188,10 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var shortTitle: String {
         switch self {
+        case .translationSelection: return "选词翻译"
+        case .translationScreenshot: return "截图翻译"
+        case .translationInput: return "输入翻译"
+
         case .openActiveSession:
             return "活跃会话"
         case .openLeftFeature:
@@ -198,6 +209,10 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
+        case .translationSelection: return "选词或剪贴板文字 / 图片翻译。"
+        case .translationScreenshot: return "框选屏幕区域，本地识别文字后翻译。"
+        case .translationInput: return "展开灵动岛左侧翻译功能并聚焦输入框。"
+
         case .openActiveSession:
             return "优先打开最近需要关注或正在运行的会话。"
         case .openLeftFeature:
@@ -215,6 +230,10 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var defaultShortcut: GlobalShortcut? {
         switch self {
+        case .translationSelection: return GlobalShortcut(keyCode: UInt16(kVK_ANSI_D), modifierFlags: [.option])
+        case .translationScreenshot: return GlobalShortcut(keyCode: UInt16(kVK_ANSI_S), modifierFlags: [.option])
+        case .translationInput: return GlobalShortcut(keyCode: UInt16(kVK_ANSI_A), modifierFlags: [.option])
+
         case .openActiveSession:
             return GlobalShortcut(
                 keyCode: UInt16(kVK_ANSI_J),
@@ -250,6 +269,10 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var legacyDefaultShortcuts: [GlobalShortcut] {
         switch self {
+        case .translationSelection: return []
+        case .translationScreenshot: return []
+        case .translationInput: return []
+
         case .openActiveSession:
             return [
                 GlobalShortcut(
@@ -290,6 +313,10 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var carbonID: UInt32 {
         switch self {
+        case .translationSelection: return 20
+        case .translationScreenshot: return 21
+        case .translationInput: return 22
+
         case .openActiveSession:
             return 1
         case .openLeftFeature:

@@ -135,13 +135,6 @@ struct CompletionPromptRegexRule: Codable, Equatable, Identifiable, Sendable {
             ]
         ),
         CompletionPromptRegexRule(
-            id: "builtin-listed-options",
-            name: "字母或数字选项",
-            triggerPattern: #"(?is)(?=.*请)(?:(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m:^\s*(?:A|1)[.．、)]\s+\S+))"#,
-            optionPattern: #"(?m)^\s*([A-Z]|\d{1,2})[.．、)]\s*(\S.*)$"#,
-            replyTemplate: "选择 {key}：{option}"
-        ),
-        CompletionPromptRegexRule(
             id: "builtin-inline-or-options",
             name: "请选择 X 或 Y",
             triggerPattern: #"(?im)请选择\s*(?:[^：:\n]{1,40}[：:]\s*)?(.{1,160}?)\s*或(?:者)?\s*(.{1,160}?)(?:[？?。！!]|$)"#,

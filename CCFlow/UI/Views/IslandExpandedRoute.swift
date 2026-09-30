@@ -31,6 +31,11 @@ enum IslandExpandedRouteResolver {
         sessions: [SessionState],
         activeCompletionNotification: SessionCompletionNotification? = nil
     ) -> IslandExpandedRoute {
+        // A selected feature owns the surface, including one originally opened
+        // by a notification. Only explicit navigation should replace it.
+        if case .customExpanded = contentType {
+            return .customExpanded
+        }
         switch trigger {
         case .notification:
             if case .chat(let requestedSession) = contentType,
@@ -55,11 +60,6 @@ enum IslandExpandedRouteResolver {
 
         if case .audit(let session) = contentType {
             return .audit(session)
-        }
-
-        // Spec 2.4: 自定义内容全屏面板优先于默认列表/看板路由
-        if case .customExpanded = contentType {
-            return .customExpanded
         }
 
         switch (surface, trigger) {

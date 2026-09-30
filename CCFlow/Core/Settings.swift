@@ -41,7 +41,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 
-    func resolvedLanguageCode(preferredLanguages: [String] = Locale.preferredLanguages) -> String {
+    nonisolated func resolvedLanguageCode(preferredLanguages: [String] = Locale.preferredLanguages) -> String {
         switch self {
         case .system:
             let preferredLanguage = preferredLanguages.first?.lowercased() ?? ""
@@ -56,7 +56,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
         }
     }
 
-    func resolvedLocale(preferredLanguages: [String] = Locale.preferredLanguages) -> Locale {
+    nonisolated func resolvedLocale(preferredLanguages: [String] = Locale.preferredLanguages) -> Locale {
         Locale(identifier: resolvedLanguageCode(preferredLanguages: preferredLanguages))
     }
 }
@@ -428,7 +428,13 @@ final class AppSettingsStore: ObservableObject {
         static let giflowFullScreenCaptureShortcut = "giflowFullScreenCaptureShortcut"
         static let giflowFullScreenCaptureShortcutDisabled = "giflowFullScreenCaptureShortcutDisabled"
         static let giflowOpenRecordingsShortcut = "giflowOpenRecordingsShortcut"
+        static let translationInputShortcut = "translationInputShortcut"
+        static let translationScreenshotShortcut = "translationScreenshotShortcut"
+        static let translationSelectionShortcut = "translationSelectionShortcut"
         static let giflowOpenRecordingsShortcutDisabled = "giflowOpenRecordingsShortcutDisabled"
+        static let translationInputShortcutDisabled = "translationInputShortcutDisabled"
+        static let translationScreenshotShortcutDisabled = "translationScreenshotShortcutDisabled"
+        static let translationSelectionShortcutDisabled = "translationSelectionShortcutDisabled"
         static let routePromptsToTerminal = "routePromptsToTerminal"
         static let autoRoutePromptsToTerminalWhenIdleEnabled = "autoRoutePromptsToTerminalWhenIdleEnabled"
         static let autoRoutePromptsIdleDelay = "autoRoutePromptsIdleDelay"
@@ -1032,6 +1038,42 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    @Published var translationInputShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                translationInputShortcut,
+                defaults: defaults,
+                key: Keys.translationInputShortcut,
+                disabledKey: Keys.translationInputShortcutDisabled
+            )
+        }
+    }
+
+    @Published var translationScreenshotShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                translationScreenshotShortcut,
+                defaults: defaults,
+                key: Keys.translationScreenshotShortcut,
+                disabledKey: Keys.translationScreenshotShortcutDisabled
+            )
+        }
+    }
+
+    @Published var translationSelectionShortcut: GlobalShortcut? {
+        didSet {
+            guard !isBootstrapping else { return }
+            Self.persistShortcut(
+                translationSelectionShortcut,
+                defaults: defaults,
+                key: Keys.translationSelectionShortcut,
+                disabledKey: Keys.translationSelectionShortcutDisabled
+            )
+        }
+    }
+
     @Published var routePromptsToTerminal: Bool {
         didSet {
             guard !isBootstrapping else { return }
@@ -1215,67 +1257,29 @@ final class AppSettingsStore: ObservableObject {
             return giflowFullScreenCaptureShortcut
         case .giflowOpenRecordings:
             return giflowOpenRecordingsShortcut
+        case .translationInput: return translationInputShortcut
+        case .translationScreenshot: return translationScreenshotShortcut
+        case .translationSelection: return translationSelectionShortcut
         }
     }
 
     func setShortcut(_ shortcut: GlobalShortcut?, for action: GlobalShortcutAction) {
         let normalized = Self.sanitizedShortcut(shortcut)
-
+        if let normalized {
+            for other in GlobalShortcutAction.allCases where other != action && self.shortcut(for: other) == normalized {
+                setShortcut(nil, for: other)
+            }
+        }
         switch action {
-        case .openActiveSession:
-            openActiveSessionShortcut = normalized
-            if normalized != nil {
-                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
-                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
-                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
-                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
-                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
-            }
-        case .openLeftFeature:
-            openLeftFeatureShortcut = normalized
-            if normalized != nil {
-                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
-                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
-                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
-                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
-                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
-            }
-        case .openSessionList:
-            openSessionListShortcut = normalized
-            if normalized != nil {
-                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
-                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
-                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
-                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
-                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
-            }
-        case .giflowSelectionCapture:
-            giflowSelectionCaptureShortcut = normalized
-            if normalized != nil {
-                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
-                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
-                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
-                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
-                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
-            }
-        case .giflowFullScreenCapture:
-            giflowFullScreenCaptureShortcut = normalized
-            if normalized != nil {
-                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
-                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
-                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
-                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
-                if normalized == giflowOpenRecordingsShortcut { giflowOpenRecordingsShortcut = nil }
-            }
-        case .giflowOpenRecordings:
-            giflowOpenRecordingsShortcut = normalized
-            if normalized != nil {
-                if normalized == openActiveSessionShortcut { openActiveSessionShortcut = nil }
-                if normalized == openLeftFeatureShortcut { openLeftFeatureShortcut = nil }
-                if normalized == openSessionListShortcut { openSessionListShortcut = nil }
-                if normalized == giflowSelectionCaptureShortcut { giflowSelectionCaptureShortcut = nil }
-                if normalized == giflowFullScreenCaptureShortcut { giflowFullScreenCaptureShortcut = nil }
-            }
+        case .openActiveSession: openActiveSessionShortcut = normalized
+        case .openLeftFeature: openLeftFeatureShortcut = normalized
+        case .openSessionList: openSessionListShortcut = normalized
+        case .giflowSelectionCapture: giflowSelectionCaptureShortcut = normalized
+        case .giflowFullScreenCapture: giflowFullScreenCaptureShortcut = normalized
+        case .giflowOpenRecordings: giflowOpenRecordingsShortcut = normalized
+        case .translationSelection: translationSelectionShortcut = normalized
+        case .translationScreenshot: translationScreenshotShortcut = normalized
+        case .translationInput: translationInputShortcut = normalized
         }
     }
 
@@ -1574,6 +1578,24 @@ final class AppSettingsStore: ObservableObject {
             disabledKey: Keys.giflowOpenRecordingsShortcutDisabled,
             action: .giflowOpenRecordings
         )
+        let translationInputShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.translationInputShortcut,
+            disabledKey: Keys.translationInputShortcutDisabled,
+            action: .translationInput
+        )
+        let translationScreenshotShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.translationScreenshotShortcut,
+            disabledKey: Keys.translationScreenshotShortcutDisabled,
+            action: .translationScreenshot
+        )
+        let translationSelectionShortcut = Self.resolvedShortcut(
+            from: defaults,
+            key: Keys.translationSelectionShortcut,
+            disabledKey: Keys.translationSelectionShortcutDisabled,
+            action: .translationSelection
+        )
         let temporarilyMuteNotificationsUntil = temporarilyMuteNotificationsUntilTimestamp.map {
             Date(timeIntervalSince1970: $0)
         }
@@ -1833,6 +1855,9 @@ final class AppSettingsStore: ObservableObject {
         _giflowSelectionCaptureShortcut = Published(initialValue: giflowSelectionCaptureShortcut)
         _giflowFullScreenCaptureShortcut = Published(initialValue: giflowFullScreenCaptureShortcut)
         _giflowOpenRecordingsShortcut = Published(initialValue: giflowOpenRecordingsShortcut)
+        _translationInputShortcut = Published(initialValue: translationInputShortcut)
+        _translationScreenshotShortcut = Published(initialValue: translationScreenshotShortcut)
+        _translationSelectionShortcut = Published(initialValue: translationSelectionShortcut)
         let routePromptsToTerminal = Self.boolValue(
             from: defaults,
             key: Keys.routePromptsToTerminal,
@@ -1954,18 +1979,9 @@ final class AppSettingsStore: ObservableObject {
                }) {
                 initialCompletionPromptRegexRules[reviewIndex].triggerPattern = updatedReviewRule.triggerPattern
             }
-
-            let legacyListedOptionsPattern = #"(?is)(?:请选择|请确认|希望包含哪些|你希望|选择哪|选项)|(?m)^\s*(?:A|1)[.．、)]\s+\S+"#
-            if let listedOptionsIndex = initialCompletionPromptRegexRules.firstIndex(where: {
-                $0.id == "builtin-listed-options"
-            }),
-               initialCompletionPromptRegexRules[listedOptionsIndex].triggerPattern == legacyListedOptionsPattern,
-               let updatedListedOptionsRule = defaultTemplates.first(where: {
-                   $0.id == "builtin-listed-options"
-               }) {
-                initialCompletionPromptRegexRules[listedOptionsIndex].triggerPattern = updatedListedOptionsRule.triggerPattern
-            }
         }
+        // Retire the built-in listed-options rule from previously saved configurations.
+        initialCompletionPromptRegexRules.removeAll { $0.id == "builtin-listed-options" }
         if let persistedCompletionPromptRegexRules,
            initialCompletionPromptRegexRules != persistedCompletionPromptRegexRules {
             Self.persistValue(

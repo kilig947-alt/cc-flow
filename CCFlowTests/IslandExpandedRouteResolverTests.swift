@@ -2,6 +2,25 @@ import XCTest
 @testable import CC_FLOW
 
 final class IslandExpandedRouteResolverTests: XCTestCase {
+    func testFeatureRemainsVisibleWhenAttentionAndCompletionArrive() {
+        let attention = makeSession(id: "approval", phase: .waitingForApproval(
+            PermissionContext(toolUseId: "tool", toolName: "Bash", toolInput: nil, receivedAt: Date())
+        ))
+        let completed = makeSession(id: "done", phase: .waitingForInput)
+        let notification = SessionCompletionNotification(session: completed, kind: .completed)
+        for surface in [IslandExpandedSurface.docked, .floating] {
+            XCTAssertEqual(IslandExpandedRouteResolver.resolve(
+                surface: surface, trigger: .notification, contentType: .customExpanded,
+                sessions: [attention, completed], activeCompletionNotification: notification
+            ), .customExpanded)
+            XCTAssertEqual(IslandExpandedRouteResolver.resolve(
+                surface: surface, trigger: .click, contentType: .instances,
+                sessions: [attention, completed]
+            ), .attentionNotification(attention))
+        }
+        XCTAssertTrue(attention.needsAttention)
+    }
+
     func testClickResolvesToSessionList() {
         let route = IslandExpandedRouteResolver.resolve(
             surface: .docked,

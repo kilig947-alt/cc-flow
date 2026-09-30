@@ -26,7 +26,11 @@ struct LeftFeatureSwitcherBar: View {
     @State private var dropTargetID: String?
     @State private var dropBefore: Bool = false
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         if store.enabledFeatures.count >= 1 {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
@@ -97,7 +101,11 @@ private struct FeatureSwitcherButton: View {
         return store.expandedActiveFeature?.id == feature.id
     }
 
+    @Environment(\.locale) private var localizationLocale
+
     var body: some View {
+        // Recompute formatted strings when the app language changes.
+        let _ = localizationLocale
         Button {
             if showAllUnselected {
                 store.setExpandedActiveFeature(id: feature.id)

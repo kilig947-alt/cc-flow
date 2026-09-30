@@ -2,10 +2,6 @@ import Combine
 import Foundation
 
 enum ProductivityProactiveEventKind: String, Equatable, Sendable {
-    case downloadStarted
-    case downloadCompleted
-    case browserResourceSaved
-    case mailReceived
     case calendarReminderDue
 }
 
@@ -73,19 +69,4 @@ final class ProductivityProactiveEventCenter: ObservableObject {
         }
     }
 
-    nonisolated static func downloadTransitions(previousState: String?, newState: String) -> [ProductivityProactiveEventKind] {
-        var result: [ProductivityProactiveEventKind] = []
-        let previous = previousState?.lowercased()
-        let current = newState.lowercased()
-        if previous == nil { result.append(.downloadStarted) }
-        if previous != "complete", current == "complete" {
-            result.append(.downloadCompleted)
-        }
-        return result
-    }
-
-    nonisolated static func newMailCount(previousIDs: Set<String>, currentIDs: Set<String>, hasBaseline: Bool) -> Int {
-        guard hasBaseline else { return 0 }
-        return currentIDs.subtracting(previousIDs).count
-    }
 }

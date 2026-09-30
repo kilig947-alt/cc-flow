@@ -85,15 +85,9 @@ class NotchViewModel: ObservableObject {
     @Published var openedSizeOverride: CGSize?
 
     /// Spec: 左侧展开面板 resize handle 正在被拖拽时为 true。
-    /// 用于抑制 `handleFileDragHover` 在普通鼠标拖拽（非文件拖拽）期间误触发切换到中转站。
+    /// 拖拽期间暂停尺寸变化动画。
     /// 由 NotchView 在 DragGesture 开始/结束时维护。
     var isLeftExpandedResizeDragActive: Bool = false
-
-    /// Spec: 记录当前拖拽的 mouseDown 是否落在展开面板内部。
-    /// 文件拖拽（从 Finder）的 mouseDown 在面板外部，不会置此标志；
-    /// resize handle 拖拽的 mouseDown 在面板内部，置 true。
-    /// 在 `handleFileDragHover` 中作为附加 guard，避免 dragPboard 残留文件 URL 时误切换到中转站。
-    private var dragStartedInsideOpenedPanel: Bool = false
 
     // MARK: - Geometry
 
@@ -737,14 +731,8 @@ class NotchViewModel: ObservableObject {
             if geometry.isPointOutsidePanel(location, size: openedSize) {
                 // The panel window already handles click-through replay for intercepted clicks.
                 notchClose()
-                dragStartedInsideOpenedPanel = false
-            } else {
-                // Spec: mouseDown 落在展开面板内部（含 resize handle），标记以抑制
-                // handleFileDragHover 在此拖拽期间误切换到中转站
-                dragStartedInsideOpenedPanel = true
             }
         case .closed, .popping:
-            dragStartedInsideOpenedPanel = false
             if detachmentTriggerScreenRect.contains(location) {
                 beginDockedDetachmentTracking(source: .closed, startLocation: location)
             } else if isPointInHoverTrigger(location) {
@@ -768,9 +756,6 @@ class NotchViewModel: ObservableObject {
         guard presentationMode == .docked || detachmentTracking?.hasTriggeredDetachment == true else { return }
 
         let location = NSEvent.mouseLocation
-
-        // 文件拖拽经过 flow Island时自动展开并切换到中转站
-        handleFileDragHover(at: location)
 
         guard var tracking = detachmentTracking else { return }
 
@@ -809,47 +794,7 @@ class NotchViewModel: ObservableObject {
         detachmentTracking = tracking
     }
 
-    // MARK: - File Drag Auto-Open Shelf
-
-    /// 当检测到文件拖拽经过闭合 notch 或已展开面板时，自动展开并切换到中转站功能。
-    /// 注意：中转站被用户在设置里手动关闭后，不会自动启用、也不会自动展开，
-    /// 需用户前往设置手动打开后才会再次响应文件拖拽。
-    private func handleFileDragHover(at location: CGPoint) {
-        guard hasFileURLsOnDragPasteboard else { return }
-        // Spec: resize handle 拖拽期间全局 mouseDragged 仍会触发此回调；
-        // dragPboard 可能残留之前文件拖拽的 URL，导致误切换到中转站。
-        // 双重 guard：DragGesture 标志 + mouseDown 起点标志，覆盖 SwiftUI 手势与
-        // 全局事件监视器之间的时序差。
-        guard !isLeftExpandedResizeDragActive, !dragStartedInsideOpenedPanel else { return }
-
-        let overClosedNotch = (status == .closed || status == .popping) && isPointInHoverTrigger(location)
-        let overOpenedPanel = status == .opened && geometry.isPointInOpenedPanel(location, size: openedSize)
-        guard overClosedNotch || overOpenedPanel else { return }
-
-        // 中转站被手动关闭后不自动启用；找不到或未启用则跳过整个拖拽响应流程
-        guard let shelf = LeftFeatureStore.shared.features.first(where: {
-            if case .shelf = $0.kind { return true }
-            return false
-        }), shelf.isEnabled else { return }
-
-        if LeftFeatureStore.shared.expandedActiveFeature?.id != shelf.id {
-            LeftFeatureStore.shared.setExpandedActiveFeature(id: shelf.id)
-        }
-
-        if status != .opened {
-            presentCustomExpanded(reason: .click)
-        }
-    }
-
-    private var hasFileURLsOnDragPasteboard: Bool {
-        let pasteboard = NSPasteboard(name: .dragPboard)
-        let fileURLType = NSPasteboard.PasteboardType(UTType.fileURL.identifier)
-        return pasteboard.availableType(from: [fileURLType]) != nil
-    }
-
     private func handleMouseUp(_ event: NSEvent) {
-        // Spec: mouseUp 时清除拖拽起点标志，避免影响后续文件拖拽
-        dragStartedInsideOpenedPanel = false
         guard presentationMode == .docked || detachmentTracking?.hasTriggeredDetachment == true else { return }
         guard let tracking = detachmentTracking else { return }
 
@@ -1004,15 +949,16 @@ class NotchViewModel: ObservableObject {
             return
         }
 
-        openReason = reason
-        status = .opened
-        if case .instances = contentType {
+        let presentationChanged = status != .opened || openReason != reason
+        if openReason != reason { openReason = reason }
+        if status != .opened { status = .opened }
+        if case .instances = contentType, presentationChanged {
             openedMeasuredHeight = nil
         }
 
         // Don't restore chat on notification - show instances list instead
         if reason == .notification {
-            currentChatSession = nil
+            if currentChatSession != nil { currentChatSession = nil }
             return
         }
 

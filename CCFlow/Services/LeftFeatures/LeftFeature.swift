@@ -43,7 +43,6 @@ func resolveIconKind(_ identifier: String?) -> IconKind {
 
 /// 左侧 flow Island"功能系统"的功能类型
 /// - music: 内置音乐功能
-/// - shelf: 内置中转站（暂存消息/片段）
 /// - customArea: 用户自定义 HTML 区域，关联 CustomArea.id
 /// - webURL: 远程网站 URL 功能（Task: extend-left-features-url-icons-jump）
 /// - newsnow: 内置 NewsNow 热点新闻功能，关联实例 baseURL（Spec: add-newsnow-built-in-feature）
@@ -53,14 +52,9 @@ enum LeftFeatureKind: Codable, Equatable, Hashable {
     case systemMonitor
     case calendar
     case github
-    case fileCards
-    case naturalSearch
-    case downloadMonitor
-    case browserResources
-    case mailAssistant
     case giflow
+    case translation
     case music
-    case shelf
     case customArea(areaID: String)
     case webURL(url: String)
     case newsnow(baseURL: String)
@@ -84,9 +78,9 @@ extension LeftFeatureKind {
 }
 
 /// 左侧 flow Island"功能系统"基础数据模型
-/// 描述一个可在紧凑态/展开态展示的功能项（音乐 / 中转站 / 自定义 HTML / 网站 URL）
+/// 描述一个可在紧凑态/展开态展示的功能项（音乐 / 自定义 HTML / 网站 URL）
 struct LeftFeature: Codable, Equatable, Identifiable, Sendable {
-    /// 稳定唯一 ID；内置功能使用 `LeftFeature.musicID` / `LeftFeature.shelfID`
+    /// 稳定唯一 ID；内置功能使用 `LeftFeature.musicID`
     let id: String
     /// 功能类型
     var kind: LeftFeatureKind
@@ -221,14 +215,8 @@ extension LeftFeature {
     static let systemMonitorID = "system-monitor"
     static let calendarID = "calendar"
     static let githubID = "github"
-    static let fileCardsID = "file-cards"
-    /// Legacy ID retained only to decode and migrate pre-File Watch configurations.
-    static let naturalSearchID = "natural-search"
-    static let downloadMonitorID = "download-monitor"
-    static let browserResourcesID = "browser-resources"
-    static let mailAssistantID = "mail-assistant"
+    static let translationID = "translation"
     static let giflowID = "giflow"
-    static let shelfID = "shelf"
     static let newsnowID = "newsnow"
     static let mineradioID = "mineradio"
 
@@ -246,22 +234,11 @@ extension LeftFeature {
             return "calendar"
         case .github:
             return "chevron.left.forwardslash.chevron.right"
-        case .fileCards:
-            return "doc.text.magnifyingglass"
-        case .naturalSearch:
-            return "sparkle.magnifyingglass"
-        case .downloadMonitor:
-            return "arrow.down.circle"
-        case .browserResources:
-            return "safari"
-        case .mailAssistant:
-            return "envelope.badge"
+        case .translation: return "character.bubble"
         case .giflow:
             return "record.circle"
         case .music:
             return "music.note"
-        case .shelf:
-            return "tray.full"
         case .customArea:
             return "globe"
         case .webURL:
@@ -285,33 +262,22 @@ extension LeftFeature {
         }
         switch kind {
         case .usage:
-            return "用量"
+            return AppLocalization.string("用量")
         case .systemMonitor:
-            return "系统监控"
+            return AppLocalization.string("系统监控")
         case .calendar:
-            return "日历"
+            return AppLocalization.string("日历")
         case .github:
             return "GitHub"
-        case .fileCards:
-            return "File Watch"
-        case .naturalSearch:
-            return "自然搜索"
-        case .downloadMonitor:
-            return "下载监控"
-        case .browserResources:
-            return "浏览器资源"
-        case .mailAssistant:
-            return "邮件助手"
+        case .translation: return AppLocalization.string("Tflow 翻译")
         case .giflow:
             return "Giflow"
         case .music:
-            return "音乐"
-        case .shelf:
-            return "中转站"
+            return AppLocalization.string("音乐")
         case .customArea(let areaID):
-            return CustomAreaStore.shared.areas.first { $0.id == areaID }?.name ?? "自定义 HTML"
+            return CustomAreaStore.shared.areas.first { $0.id == areaID }?.name ?? AppLocalization.string("自定义 HTML")
         case .webURL:
-            return "网站"
+            return AppLocalization.string("网站")
         case .newsnow:
             return "AI HOT"
         case .mineradio:

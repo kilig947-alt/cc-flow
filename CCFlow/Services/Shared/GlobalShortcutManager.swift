@@ -40,8 +40,12 @@ final class GlobalShortcutManager: ObservableObject {
             AppSettings.shared.$openSessionListShortcut.map { _ in () }.eraseToAnyPublisher(),
             AppSettings.shared.$giflowSelectionCaptureShortcut.map { _ in () }.eraseToAnyPublisher(),
             AppSettings.shared.$giflowFullScreenCaptureShortcut.map { _ in () }.eraseToAnyPublisher(),
-            AppSettings.shared.$giflowOpenRecordingsShortcut.map { _ in () }.eraseToAnyPublisher()
+            AppSettings.shared.$giflowOpenRecordingsShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$translationSelectionShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$translationScreenshotShortcut.map { _ in () }.eraseToAnyPublisher(),
+            AppSettings.shared.$translationInputShortcut.map { _ in () }.eraseToAnyPublisher()
         )
+        .receive(on: RunLoop.main)
         .sink { [weak self] _ in
             self?.refreshRegistrations()
         }
@@ -64,6 +68,8 @@ final class GlobalShortcutManager: ObservableObject {
         var registeredShortcuts = Set<GlobalShortcut>()
 
         for action in GlobalShortcutAction.allCases {
+            if [.translationSelection, .translationScreenshot, .translationInput].contains(action),
+               !LeftFeatureStore.shared.enabledFeatures.contains(where: { $0.id == LeftFeature.translationID }) { continue }
             guard let shortcut = AppSettings.shortcut(for: action) else { continue }
             guard registeredShortcuts.insert(shortcut).inserted else {
                 registrationErrors["action:\(action.rawValue)"] = "与另一个已配置快捷键冲突"
@@ -102,7 +108,7 @@ final class GlobalShortcutManager: ObservableObject {
             case .action(let action): key = "action:\(action.rawValue)"
             case .leftFeature(let id): key = "feature:\(id)"
             }
-            registrationErrors[key] = "系统注册失败（\(status)），请检查是否被其他应用占用"
+            registrationErrors[key] = AppLocalization.runtimeFormat("系统注册失败（%@），请检查是否被其他应用占用", String(describing: status))
             return
         }
         hotKeyRefs[target] = hotKeyRef
@@ -185,6 +191,10 @@ final class GlobalShortcutManager: ObservableObject {
                 GiflowStore.shared.triggerFullScreenCapture()
             case .giflowOpenRecordings:
                 GiflowStore.shared.openRecordingsList()
+            case .translationSelection: TranslationStore.shared.selectionTranslation()
+            case .translationScreenshot: TranslationStore.shared.screenshotTranslation()
+            case .translationInput: TranslationStore.shared.inputTranslation()
+
             }
         case .leftFeature(let featureID):
             NotificationCenter.default.post(

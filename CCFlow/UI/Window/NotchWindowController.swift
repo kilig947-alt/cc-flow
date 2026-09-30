@@ -59,6 +59,20 @@ class NotchWindowController: NSWindowController {
 
         setupPresentationSubscriptions(window: notchWindow, viewModel: viewModel)
 
+        // The existing Island panel receives keyboard input for feature shortcut requests.
+        NotificationCenter.default.publisher(for: .ccFlowOpenLeftFeatureShortcut)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] note in
+                guard note.userInfo?["focusInput"] as? Bool == true,
+                      let featureID = note.userInfo?["featureID"] as? String,
+                      LeftFeatureStore.shared.expandedActiveFeature?.id == featureID,
+                      self?.viewModel.status == .opened,
+                      self?.viewModel.contentType == .customExpanded else { return }
+                self?.window?.makeKeyAndOrderFront(nil)
+            }
+            .store(in: &cancellables)
+
+
         // Start with ignoring mouse events (closed state)
         notchWindow.ignoresMouseEvents = true
         updateWindowPresentation(window: notchWindow, viewModel: viewModel)
@@ -222,6 +236,7 @@ class NotchWindowController: NSWindowController {
     // MARK: - Window presentation
 
     private func updateWindowPresentation(window: NotchPanel, viewModel: NotchViewModel) {
+        window.setExpandedPresentation(viewModel.status == .opened)
         let shouldHideWindow = viewModel.shouldHideWindowPresentation
 
         if shouldHideWindow {

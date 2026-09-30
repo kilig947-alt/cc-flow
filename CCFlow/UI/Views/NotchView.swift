@@ -50,7 +50,7 @@ struct NotchView: View {
     @ObservedObject private var giflowStore = GiflowStore.shared
     // Spec: 观察 NowPlayingProvider —— `compactFeature` 自动规则依赖 `nowPlaying.isPlaying`，
     // 播放状态变化时需重新渲染紧凑态左半区（决定是否切到音乐视图）
-    @ObservedObject private var nowPlayingProvider = NowPlayingProvider.shared
+    @State private var musicIsPlaying = NowPlayingProvider.shared.nowPlaying?.isPlaying == true
     @State private var pendingSessionDeliveryState = SessionPendingDeliveryState()
     @State private var manualAttentionTracker = SessionManualAttentionTracker()
     @State private var pendingSessionRetryWorkItem: DispatchWorkItem?
@@ -63,6 +63,8 @@ struct NotchView: View {
     // flow Island固定展示：启动时即应为可见状态，避免窗口已 orderFront 但 SwiftUI
     // 内容因初始 opacity 为 0 而需要等待 .onAppear 或一次点击后才渲染。
     @State private var isVisible: Bool = true
+    @State private var usesSeparateHeaderSurface = false
+    @State private var headerHandoffGeneration = UUID()
     @State private var isHovering: Bool = false
     @State private var isBouncing: Bool = false
     @State private var hasPrimedSoundTransitions: Bool = false
@@ -219,13 +221,13 @@ struct NotchView: View {
                 && TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace(),
             isPanelOpen: viewModel.status != .closed,
             isFullscreenSuppressed: viewModel.shouldSuppressAutomaticPresentation,
-            isReminderMuted: areReminderNotificationsSuppressed
+            isReminderMuted: areReminderNotificationsSuppressed,
+            isLeftFeatureOpen: viewModel.status == .opened && viewModel.contentType == .customExpanded
         )
     }
 
-    /// Blocking approvals and questions must remain visible even when the terminal
-    /// itself is on-screen. Smart suppression is intended for informational
-    /// reminders; applying it here can strand a session waiting for a response.
+    /// Approvals bypass terminal smart suppression, but never take over an open
+    /// left feature. Their unresolved state remains visible in the task badge.
     private var manualAttentionPresentationDecision: AutomaticNotificationPresentationDecision {
         AutomaticNotificationPresentationPolicy.resolve(
             mode: settings.notificationPresentationMode,
@@ -234,6 +236,7 @@ struct NotchView: View {
             isPanelOpen: viewModel.status != .closed,
             isFullscreenSuppressed: viewModel.shouldSuppressAutomaticPresentation,
             isReminderMuted: areReminderNotificationsSuppressed,
+            isLeftFeatureOpen: viewModel.status == .opened && viewModel.contentType == .customExpanded,
             priority: .manualAttention
         )
     }
@@ -298,7 +301,7 @@ struct NotchView: View {
     private func handleLeftExpandedResizeDrag(translation: CGSize, isLeftCorner: Bool) {
         if leftExpandedResizeStartSize == nil {
             leftExpandedResizeStartSize = viewModel.openedSize
-            // 标记拖拽激活，抑制 handleFileDragHover 误切换到中转站
+            // 标记拖拽激活，暂停尺寸变化动画
             viewModel.isLeftExpandedResizeDragActive = true
         }
         guard let start = leftExpandedResizeStartSize else { return }
@@ -407,6 +410,10 @@ struct NotchView: View {
                 unregisterAppActiveNotifications()
             }
             .onChange(of: viewModel.status) { oldStatus, newStatus in
+                if newStatus != .opened {
+                    usesSeparateHeaderSurface = false
+                    headerHandoffGeneration = UUID()
+                }
                 handleStatusChange(from: oldStatus, to: newStatus)
             }
     }
@@ -474,6 +481,9 @@ struct NotchView: View {
 
     private var contentTypeAwareBody: some View {
         settingsAwareBody
+            .onReceive(NowPlayingProvider.shared.$nowPlaying.map { $0?.isPlaying == true }.removeDuplicates()) {
+                musicIsPlaying = $0
+            }
             .onChange(of: viewModel.contentType.id) { _, _ in
                 maybePresentNextCompletionNotification()
             }
@@ -568,6 +578,20 @@ struct NotchView: View {
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowOpenLeftFeatureShortcut)) { note in
                 guard let featureID = note.userInfo?["featureID"] as? String,
                       LeftFeatureStore.shared.enabledFeatures.contains(where: { $0.id == featureID }) else { return }
+                // Async input completion must not select the feature again, reset
+                // its size, or reopen an Island the user has since dismissed.
+                if note.userInfo?["focusOnly"] as? Bool == true {
+                    guard viewModel.status == .opened,
+                          viewModel.contentType == .customExpanded,
+                          LeftFeatureStore.shared.expandedActiveFeature?.id == featureID else { return }
+                    if note.userInfo?["focusInput"] as? Bool == true {
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                    return
+                }
+                if note.userInfo?["focusInput"] as? Bool == true {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
                 LeftFeatureStore.shared.setExpandedActiveFeature(id: featureID)
                 viewModel.presentCustomExpanded(reason: .click)
                 if featureID == LeftFeature.usageID {
@@ -579,12 +603,6 @@ struct NotchView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowHookWalkthroughDemoShouldCloseNotch)) { _ in
                 closeDockedNotchForHookWalkthroughDemo()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForFilePicker)) { _ in
-                viewModel.notchClose()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseForBrowserConnection)) { _ in
-                viewModel.notchClose()
             }
             .onReceive(NotificationCenter.default.publisher(for: .ccFlowCollapseIsland)) { _ in
                 viewModel.dismissExpandedPresentationForExternalNavigation()
@@ -695,11 +713,32 @@ struct NotchView: View {
                     .padding(.horizontal, topCornerRadius)
             }
             .shadow(color: shadowColor, radius: 6)
+            // Feature contents (editor text / results) must not negotiate the
+            // outer panel's size. Only feature sizing and user resize control it.
+            .frame(
+                width: isOpened && viewModel.contentType == .customExpanded ? notchSize.width : nil,
+                height: isOpened && viewModel.contentType == .customExpanded ? notchSize.height : nil,
+                alignment: .top
+            )
             .frame(
                 maxWidth: isOpened ? notchSize.width : nil,
                 maxHeight: isOpened ? notchSize.height : nil,
                 alignment: .top
             )
+            .transaction(value: isOpened) { transaction in
+                guard isOpened else { return }
+                let generation = headerHandoffGeneration
+                // Keep the original header, mask and content in one rendering tree
+                // for the entire spring, including its settling phase. Only then
+                // move the header to its menu-bar-level surface, without animation.
+                transaction.addAnimationCompletion(criteria: .removed) {
+                    guard viewModel.status == .opened,
+                          headerHandoffGeneration == generation else { return }
+                    var handoff = Transaction(animation: nil)
+                    handoff.disablesAnimations = true
+                    withTransaction(handoff) { usesSeparateHeaderSurface = true }
+                }
+            }
             .animation(isOpened ? openAnimation : closeAnimation, value: viewModel.status)
             // Spec: resize handle 拖拽期间禁用尺寸动画，避免面板追逐光标产生抖动
             .animation(viewModel.isLeftExpandedResizeDragActive ? nil : viewModel.closedNotchResizeAnimation, value: notchSize)
@@ -707,7 +746,7 @@ struct NotchView: View {
             .animation(.smooth, value: hasPendingPermission)
             .animation(.smooth, value: hasHumanIntervention)
             .animation(.smooth, value: hasCompletedReadyState)
-            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isBouncing)
+            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isOpened ? false : isBouncing)
             .contentShape(Rectangle())
             .onHover { hovering in
                 withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
@@ -765,9 +804,20 @@ struct NotchView: View {
     private var notchLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header row - always present, contains pet and spinner that persist across states
-            headerRow
-                .frame(height: max(24, closedNotchSize.height))
-                .zIndex(1)
+            Group {
+                if viewModel.status == .opened && usesSeparateHeaderSurface {
+                    NotchHeaderSurface(
+                        horizontalOutset: cornerRadiusInsets.opened.top + 12,
+                        topCornerRadius: topCornerRadius
+                    ) {
+                        headerRow
+                    }
+                } else {
+                    headerRow
+                }
+            }
+            .frame(height: max(24, closedNotchSize.height))
+            .zIndex(1)
 
             // Main content only when opened
             if viewModel.status == .opened {
@@ -804,7 +854,7 @@ struct NotchView: View {
                 ZStack {
                     HStack(spacing: 0) {
                     // Spec: 紧凑态左半区根据 LeftFeatureStore.compactFeature 分发到对应功能视图
-                    // （音乐 / 中转站 / 自定义 HTML）；无功能时显示最小占位。
+                    // （音乐 / 自定义 HTML）；无功能时显示最小占位。
                     // 展开态不渲染左半区，由 contentView 中的 LeftFeatureContainerView 接管。
                     if viewModel.status != .opened {
                         compactLeftRegion
@@ -903,7 +953,7 @@ struct NotchView: View {
                     .foregroundColor(.white)
                     .monospacedDigit()
                     .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityLabel("活跃会话 \(activeCount)")
+                    .accessibilityLabel(AppLocalization.format("活跃会话 %@", String(describing: activeCount)))
             }
         }
         .padding(.trailing, 4)
@@ -925,7 +975,7 @@ struct NotchView: View {
     private var flowIslandLeftCompactWidth: CGFloat {
         guard !usesClosedIconOnlyLayout else { return 8 }
         let hasActiveGiflow = giflowStore.isRecording || giflowStore.isExporting
-        return (hasActiveGiflow || leftFeatureStore.compactFeature != nil) ? flowIslandLeftCompactAvailableWidth : 8
+        return (hasActiveGiflow || leftFeatureStore.compactFeature(isMusicPlaying: musicIsPlaying) != nil) ? flowIslandLeftCompactAvailableWidth : 8
     }
 
     /// Spec: 紧凑态左半区可用宽度 —— 横向占满"宠物/任务计数区左侧"剩余空间，
@@ -951,7 +1001,7 @@ struct NotchView: View {
             CustomAreaHintCompactView(hint: hint)
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 .id(hint.id)
-        } else if let feature = leftFeatureStore.compactFeature {
+        } else if let feature = leftFeatureStore.compactFeature(isMusicPlaying: musicIsPlaying) {
             compactFeatureView(for: feature)
         } else {
             placeholderContent
@@ -971,22 +1021,12 @@ struct NotchView: View {
             CalendarFeatureView(compact: true)
         case .github:
             GitHubFeatureView(compact: true)
-        case .fileCards:
-            FileCardsFeatureView(compact: true)
-        case .naturalSearch:
-            FileCardsFeatureView(compact: true)
-        case .downloadMonitor:
-            DownloadMonitorFeatureView(compact: true)
-        case .browserResources:
-            BrowserResourcesFeatureView(compact: true)
-        case .mailAssistant:
-            MailAssistantFeatureView(compact: true)
+        case .translation:
+            TranslationCompactView()
         case .giflow:
             GiflowCompactView()
         case .music:
             MusicCompactView()
-        case .shelf:
-            ShelfCompactView()
         case .customArea(let areaID):
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                 CustomAreaWebView(source: .localArea(area))
@@ -1134,7 +1174,7 @@ struct NotchView: View {
             // 自定义内容展开时额外显示"切换到任务列表"按钮。
             HStack(spacing: 8) {
                 if viewModel.contentType == .customExpanded {
-                    InstanceListToggleButton {
+                    InstanceListToggleButton(pendingCount: sessionMonitor.instances.filter(\.needsAttention).count) {
                         viewModel.presentSessionList(reason: .click)
                     }
                 }
@@ -1644,12 +1684,15 @@ struct NotchView: View {
                 presentSessionListOnCompletionIfNeeded()
             }
 
-            // Trigger bounce animation to get user's attention
-            DispatchQueue.main.async {
-                isBouncing = true
-                // Bounce back after a short delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    isBouncing = false
+            // The completion bounce belongs to the compact badge, never the
+            // expanded panel's layout/height measurement transaction.
+            if viewModel.status != .opened {
+                DispatchQueue.main.async {
+                    guard viewModel.status != .opened else { return }
+                    isBouncing = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        isBouncing = false
+                    }
                 }
             }
 
@@ -1884,6 +1927,12 @@ struct NotchView: View {
     }
 
     private func maybePresentNextCompletionNotification() {
+        // Discard even if an older notification is still active internally.
+        // Otherwise newly queued events could replay after leaving the feature.
+        if automaticNotificationPresentationDecision == .discard {
+            completionNotificationQueue.removeAll()
+            return
+        }
         guard activeCompletionNotification == nil else { return }
         guard !completionNotificationQueue.isEmpty else { return }
         switch automaticNotificationPresentationDecision {
@@ -2151,10 +2200,6 @@ struct NotchView: View {
 
     private func productivityIconName(for kind: ProductivityProactiveEventKind) -> String {
         switch kind {
-        case .downloadStarted: "arrow.down.circle"
-        case .downloadCompleted: "checkmark.circle.fill"
-        case .browserResourceSaved: "bookmark.fill"
-        case .mailReceived: "envelope.badge.fill"
         case .calendarReminderDue: "calendar.badge.clock"
         }
     }
@@ -2398,8 +2443,8 @@ private struct NotchPanelPinButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(isPinned ? "取消固定" : "固定面板")
-        .accessibilityLabel(isPinned ? "取消固定" : "固定面板")
+        .help(Text(appLocalized: isPinned ? "取消固定" : "固定面板"))
+        .accessibilityLabel(Text(appLocalized: isPinned ? "取消固定" : "固定面板"))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2453,6 +2498,7 @@ private struct NotchDesktopWidgetButton: View {
 
 /// 展开态头部"切换到任务列表"按钮：自定义内容面板右上角入口，点击回到任务列表。
 private struct InstanceListToggleButton: View {
+    let pendingCount: Int
     let action: () -> Void
 
     @State private var isHovering = false
@@ -2468,6 +2514,19 @@ private struct InstanceListToggleButton: View {
                         .fill(backgroundFillColor)
                 )
                 .contentShape(Rectangle())
+                .overlay(alignment: .topTrailing) {
+                    if pendingCount > 0 {
+                        Text(pendingCount > 99 ? "99+" : "\(pendingCount)")
+                            .font(.system(size: 9, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 3)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Color.orange, in: Capsule())
+                            .offset(x: 4, y: -4)
+                            .allowsHitTesting(false)
+                    }
+                }
         }
         .buttonStyle(.plain)
         .help("任务列表")
@@ -2480,7 +2539,7 @@ private struct InstanceListToggleButton: View {
     }
 
     private var iconForegroundStyle: AnyShapeStyle {
-        AnyShapeStyle(isHovering ? Color.black : Color.white.opacity(0.92))
+        AnyShapeStyle(isHovering ? Color.black : (pendingCount > 0 ? Color.orange : Color.white.opacity(0.92)))
     }
 
     private var backgroundFillColor: Color {
@@ -2508,8 +2567,8 @@ private struct NotchSoundToggleButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(isOn ? "关闭声音" : "开启声音")
-        .accessibilityLabel(isOn ? "关闭声音" : "开启声音")
+        .help(Text(appLocalized: isOn ? "关闭声音" : "开启声音"))
+        .accessibilityLabel(Text(appLocalized: isOn ? "关闭声音" : "开启声音"))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2551,8 +2610,8 @@ private struct NotchNotificationPresentationModeButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(mode == .active ? "切换到静默模式" : "切换到活跃模式")
-        .accessibilityLabel(mode == .active ? "切换到静默模式" : "切换到活跃模式")
+        .help(Text(appLocalized: mode == .active ? "切换到静默模式" : "切换到活跃模式"))
+        .accessibilityLabel(Text(appLocalized: mode == .active ? "切换到静默模式" : "切换到活跃模式"))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering

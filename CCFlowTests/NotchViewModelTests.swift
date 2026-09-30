@@ -5,6 +5,23 @@ import XCTest
 @testable import CC_FLOW
 
 final class NotchViewModelTests: XCTestCase {
+    func testRepeatedNotificationOpenPreservesMeasuredHeightAndDoesNotRepublishPresentation() async {
+        await MainActor.run {
+            let viewModel = makeViewModel()
+            viewModel.notchOpen(reason: .notification)
+            viewModel.updateOpenedMeasuredHeight(320, preventsDecrease: true)
+            var statusUpdates = 0
+            var reasonUpdates = 0
+            let status = viewModel.$status.dropFirst().sink { _ in statusUpdates += 1 }
+            let reason = viewModel.$openReason.dropFirst().sink { _ in reasonUpdates += 1 }
+            for _ in 0..<10 { viewModel.notchOpen(reason: .notification) }
+            XCTAssertEqual(viewModel.openedSize.height, 320)
+            XCTAssertEqual(statusUpdates, 0)
+            XCTAssertEqual(reasonUpdates, 0)
+            withExtendedLifetime((status, reason)) {}
+        }
+    }
+
     func testPresentNotificationChatOpensClosedNotchAndShowsTargetSession() async {
         await MainActor.run {
             let viewModel = makeViewModel()

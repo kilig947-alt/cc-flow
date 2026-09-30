@@ -3,8 +3,6 @@ import Security
 
 enum ProductivitySecret: String {
     case githubPAT = "github-pat"
-    case openAIAPIKey = "openai-api-key"
-    case browserPairingToken = "browser-pairing-token"
 }
 
 nonisolated struct ProductivitySecretsStore: Sendable {

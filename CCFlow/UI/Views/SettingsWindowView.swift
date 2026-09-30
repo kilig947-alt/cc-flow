@@ -855,7 +855,6 @@ private struct SettingsPanelContentView: View {
     @ObservedObject private var customAreaStore = CustomAreaStore.shared
     @ObservedObject private var leftFeatureStore = LeftFeatureStore.shared
     @ObservedObject private var generatedPanelScanner = GeneratedPanelScanner.shared
-    @ObservedObject private var aiProviderSettings = AIProviderSettings.shared
     @ObservedObject private var productivityPermissionCenter = ProductivityPermissionCenter.shared
     @ObservedObject private var githubService = GitHubService.shared
     // Spec: mineradio-bridge-compat-layer —— 三平台登录状态指示
@@ -917,8 +916,6 @@ private struct SettingsPanelContentView: View {
     @State private var autoFilledIconImage: String?
     @State private var isFetchingMetadata = false
     @State private var githubPATDraft = ""
-    @State private var openAIKeyDraft = ""
-    @State private var browserPairingTokenDraft = ""
     @State private var productivitySecretMessage: String?
     @State private var generatedPanelPromptCopied = false
     @State private var showingGeneratedPanelDirectoryImporter = false
@@ -1235,7 +1232,7 @@ private struct SettingsPanelContentView: View {
                 mineradioLogoutPlatform = nil
             }
         } message: { platform in
-            Text("退出后将清除 \(platform.displayName) 的登录 cookie，Mineradio 将无法访问该平台资源。")
+            Text(AppLocalization.format("退出后将清除 %@ 的登录 cookie，Mineradio 将无法访问该平台资源。", AppLocalization.string(platform.displayName)))
         }
         .sheet(isPresented: $showingAddCustomAreaSheet) {
             addCustomAreaSheet
@@ -1822,12 +1819,18 @@ private struct SettingsPanelContentView: View {
                     action: .giflowOpenRecordings,
                     shortcut: shortcutBinding(for: .giflowOpenRecordings)
                 )
+                SettingsLineDivider()
+                ShortcutSettingsLine(action: .translationSelection, shortcut: shortcutBinding(for: .translationSelection))
+                SettingsLineDivider()
+                ShortcutSettingsLine(action: .translationScreenshot, shortcut: shortcutBinding(for: .translationScreenshot))
+                SettingsLineDivider()
+                ShortcutSettingsLine(action: .translationInput, shortcut: shortcutBinding(for: .translationInput))
             }
 
             SettingsSectionCard(title: "说明") {
                 SettingsInfoLine(
                     title: "默认键位",
-                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表，Option + 5/6/7 触发 Giflow 截取录制与历史。"
+                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表，Option + 5/6/7 触发 Giflow 截取录制与历史；Option + D/S/A 分别触发 Tflow 选词、截图和输入翻译（需启用 Tflow）。"
                 ) {
                     EmptyView()
                 }
@@ -1997,7 +2000,7 @@ private struct SettingsPanelContentView: View {
                     ),
                     range: Double(BridgeRuntimeConfigSnapshot.minimumDebugLogRetentionDays)...Double(BridgeRuntimeConfigSnapshot.maximumDebugLogRetentionDays),
                     step: 1,
-                    format: { "\(Int($0.rounded())) 天" }
+                    format: { AppLocalization.format("%@ 天", String(describing: Int($0.rounded()))) }
                 )
                 .disabled(!settings.hookDebugLoggingEnabled)
                 .opacity(settings.hookDebugLoggingEnabled ? 1 : 0.45)
@@ -2170,9 +2173,9 @@ private struct SettingsPanelContentView: View {
                     HStack {
                         Image(systemName: item.isReady ? "checkmark.circle.fill" : "exclamationmark.circle")
                             .foregroundStyle(item.isReady ? .green : .yellow)
-                        Text(item.name)
+                        Text(appLocalized: item.name)
                         Spacer()
-                        Text(item.status).foregroundStyle(.secondary)
+                        Text(appLocalized: item.status).foregroundStyle(.secondary)
                     }
                     .font(.system(size: 12))
                 }
@@ -2192,7 +2195,7 @@ private struct SettingsPanelContentView: View {
                 Text("GitHub 优先使用本机 gh 登录；Personal Access Token 仅作为备用并保存到 macOS 钥匙串。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                Label(githubService.status, systemImage: githubService.profile == nil ? "exclamationmark.circle" : "checkmark.circle.fill")
+                Label(LocalizedStringKey(githubService.status), systemImage: githubService.profile == nil ? "exclamationmark.circle" : "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(githubService.profile == nil ? Color.secondary : Color.green)
                 HStack {
@@ -2218,63 +2221,8 @@ private struct SettingsPanelContentView: View {
                         }
                     }
                 }
-                Divider()
-                Picker("AI Provider", selection: $aiProviderSettings.selection) {
-                    ForEach(AIProviderSelection.allCases) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                if aiProviderSettings.selection == .openAICompatible {
-                    TextField("API Base URL", text: $aiProviderSettings.baseURL)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("模型", text: $aiProviderSettings.model)
-                        .textFieldStyle(.roundedBorder)
-                    HStack {
-                        SecureField("API Key", text: $openAIKeyDraft)
-                            .textFieldStyle(.roundedBorder)
-                        Button("保存") {
-                            do {
-                                try ProductivitySecretsStore.shared.set(openAIKeyDraft, for: .openAIAPIKey)
-                                openAIKeyDraft = ""
-                                productivitySecretMessage = "API Key 已保存到钥匙串"
-                            } catch {
-                                productivitySecretMessage = error.localizedDescription
-                            }
-                        }
-                        .disabled(openAIKeyDraft.isEmpty)
-                        Button("删除", role: .destructive) {
-                            do {
-                                try ProductivitySecretsStore.shared.delete(.openAIAPIKey)
-                                productivitySecretMessage = "API Key 已删除"
-                            } catch {
-                                productivitySecretMessage = error.localizedDescription
-                            }
-                        }
-                    }
-                }
-                Divider()
-                Text("Chrome / Edge / Safari 配对")
-                    .font(.system(size: 12, weight: .semibold))
-                HStack {
-                    TextField("点击显示配对令牌", text: $browserPairingTokenDraft)
-                        .textFieldStyle(.roundedBorder)
-                    Button("显示并复制") {
-                        browserPairingTokenDraft = BrowserBridgeService.shared.pairingToken
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
-                    }
-                    Button("轮换") {
-                        browserPairingTokenDraft = BrowserBridgeService.shared.rotateToken()
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(browserPairingTokenDraft, forType: .string)
-                    }
-                }
-                BrowserExtensionConnectionButtons()
-                Text("本地端点：127.0.0.1:\(BrowserBridgeService.port) · \(BrowserBridgeService.shared.status)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 if let productivitySecretMessage {
-                    Text(productivitySecretMessage)
+                    Text(appLocalized: productivitySecretMessage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -2390,7 +2338,7 @@ private struct SettingsPanelContentView: View {
                 generatedPanelActionMessage = nil
                 _ = generatedPanelScanner.importSelectedDirectory(url)
             case .failure(let error):
-                generatedPanelActionMessage = "选择目录失败：\(error.localizedDescription)"
+                generatedPanelActionMessage = AppLocalization.format("选择目录失败：%@", String(describing: error.localizedDescription))
             }
         }
         .onReceive(generatedPanelScanner.$lastResult.dropFirst()) { result in
@@ -2409,7 +2357,7 @@ private struct SettingsPanelContentView: View {
         }
         let result = generatedPanelScanner.lastResult
         if !result.importedNames.isEmpty {
-            return ("已导入：\(result.importedNames.joined(separator: "、"))", "checkmark.circle.fill", false)
+            return (AppLocalization.format("已导入：%@", result.importedNames.joined(separator: ", ")), "checkmark.circle.fill", false)
         }
         if let issue = result.issues.first {
             return ("\(issue.directoryName)：\(issue.message)", "exclamationmark.triangle.fill", true)
@@ -2515,8 +2463,8 @@ private struct SettingsPanelContentView: View {
                 }
             }
             .disabled(generatedPanelScanner.isScanning)
-            .help(generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能")
-            .accessibilityLabel(generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能")
+            .help(Text(appLocalized: generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能"))
+            .accessibilityLabel(Text(appLocalized: generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能"))
 
             Button {
                 showingGeneratedPanelDirectoryImporter = true
@@ -2531,7 +2479,7 @@ private struct SettingsPanelContentView: View {
             .accessibilityLabel("选择目录导入")
 
             if let status = generatedPanelStatusText {
-                Label(status.text, systemImage: status.symbol)
+                Label(LocalizedStringKey(status.text), systemImage: status.symbol)
                     .font(.system(size: 10))
                     .foregroundStyle(status.isError ? Color.red : Color.secondary)
                     .lineLimit(1)
@@ -2554,13 +2502,13 @@ private struct SettingsPanelContentView: View {
                 guard generatedPanelLaunchToken == launchToken else { return }
                 generatedPanelLaunchFailure = succeeded
                     ? nil
-                    : "提示词已复制，但未能打开 \(destination.applicationDisplayName)。请确认应用已安装。"
+                    : AppLocalization.format("提示词已复制，但未能打开 %@。请确认应用已安装。", String(describing: destination.applicationDisplayName))
             }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "arrow.up.forward.app.fill")
                     .font(.system(size: 11))
-                Text(destination.buttonTitle)
+                Text(appLocalized: destination.buttonTitle)
                     .font(.system(size: 11, weight: .medium))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -2604,7 +2552,7 @@ private struct SettingsPanelContentView: View {
     /// 单个功能行：图标 + 名称（可点击进入编辑）+ 右侧操作组 + 启用开关。
     /// - `.customArea`: 打开目录（Finder）/ 编辑 / 删除
     /// - `.webURL`: 删除
-    /// - `.music` / `.shelf`: 内置功能仅显示「内置」标签
+    /// - `.music`: 内置功能仅显示「内置」标签
     @ViewBuilder
     private func featureRow(_ feature: LeftFeature) -> some View {
         HStack(spacing: 12) {
@@ -2626,8 +2574,13 @@ private struct SettingsPanelContentView: View {
 
             // 右侧操作组：按 kind 分发
             switch feature.kind {
-            case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-                 .downloadMonitor, .browserResources, .mailAssistant, .giflow:
+            case .translation:
+                Button("翻译服务") { TranslationStore.shared.openServiceSettings() }
+                    .buttonStyle(.borderless)
+                    .disabled(!feature.isEnabled)
+                    .help(Text(appLocalized: feature.isEnabled ? "在灵动岛中配置翻译服务" : "请先启用 Tflow 翻译"))
+                Button("编辑") { editingBuiltinFeature = feature }.buttonStyle(.borderless)
+            case .usage, .systemMonitor, .calendar, .github, .giflow:
                 Button("编辑") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
@@ -2691,7 +2644,7 @@ private struct SettingsPanelContentView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.red)
 
-            case .music, .shelf:
+            case .music:
                 // 内置功能也支持编辑（图标 / 名称 / 展开尺寸 / 固定）
                 Button("编辑") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
@@ -2738,7 +2691,7 @@ private struct SettingsPanelContentView: View {
                     .foregroundColor(shortcutManager.registrationError(forFeatureID: feature.id) == nil ? nil : .red)
             }
             .buttonStyle(.borderless)
-            .help(shortcutManager.registrationError(forFeatureID: feature.id) ?? "设置全局快捷键")
+            .help(Text(appLocalized: shortcutManager.registrationError(forFeatureID: feature.id) ?? "设置全局快捷键"))
             .accessibilityLabel(Text(appLocalized: "设置全局快捷键"))
 
             // 启用开关（所有功能都有）
@@ -2755,17 +2708,16 @@ private struct SettingsPanelContentView: View {
     /// 点击功能行图标/名称进入编辑：
     /// - `.customArea`: 弹出本地目录编辑表单
     /// - `.webURL`: 弹出网站 URL 编辑表单
-    /// - `.music` / `.shelf`: 弹出内置功能编辑表单
+    /// - `.music`: 弹出内置功能编辑表单
     private func editFeature(_ feature: LeftFeature) {
         switch feature.kind {
-        case .usage, .systemMonitor, .calendar, .github, .fileCards, .naturalSearch,
-             .downloadMonitor, .browserResources, .mailAssistant, .giflow:
+        case .usage, .systemMonitor, .calendar, .github, .giflow, .translation:
             editingBuiltinFeature = feature
         case .customArea(let areaID):
             editCustomArea(areaID: areaID)
         case .webURL:
             editingWebURLFeature = feature
-        case .music, .shelf, .newsnow:
+        case .music, .newsnow:
             editingBuiltinFeature = feature
         case .mineradio:
             editingMineradioFeature = feature
@@ -2811,11 +2763,11 @@ private struct SettingsPanelContentView: View {
                     .font(.system(size: 11))
                 switch state {
                 case .unknown:
-                    Text(platform.displayName)
+                    Text(appLocalized: platform.displayName)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary)
                 case .loggedOut:
-                    Text(platform.displayName)
+                    Text(appLocalized: platform.displayName)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.secondary.opacity(0.7))
                 case .loggedIn(let nickname):
@@ -2834,7 +2786,7 @@ private struct SettingsPanelContentView: View {
             )
         }
         .buttonStyle(.plain)
-        .help(state.isLoggedIn ? "点击退出 \(platform.displayName) 登录" : "点击登录 \(platform.displayName)")
+        .help(Text(appLocalized: state.isLoggedIn ? AppLocalization.format("点击退出 %@ 登录", AppLocalization.string(platform.displayName)) : AppLocalization.format("点击登录 %@", AppLocalization.string(platform.displayName))))
     }
 
     /// Spec: mineradio-bridge-compat-layer —— 待退出登录的平台（confirmationDialog 用）
@@ -2852,7 +2804,7 @@ private struct SettingsPanelContentView: View {
             // 类型选择
             Picker("类型", selection: $newFeatureType) {
                 ForEach(NewFeatureType.allCases) { type in
-                    Text(type.rawValue).tag(type)
+                    Text(appLocalized: type.rawValue).tag(type)
                 }
             }
             .pickerStyle(.segmented)
@@ -2924,7 +2876,7 @@ private struct SettingsPanelContentView: View {
                             iconImageError = "图片保存失败"
                         }
                     } catch {
-                        iconImageError = "读取图片失败：\(error.localizedDescription)"
+                        iconImageError = AppLocalization.format("读取图片失败：%@", String(describing: error.localizedDescription))
                     }
                 }
             case .failure:
@@ -3000,7 +2952,7 @@ private struct SettingsPanelContentView: View {
                 }
             }
             if let iconImageError {
-                Text(iconImageError)
+                Text(appLocalized: iconImageError)
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -3254,6 +3206,7 @@ private struct SettingsPanelContentView: View {
         let formatter = ISO8601DateFormatter()
         if let date = formatter.date(from: installedAt) {
             let displayFormatter = DateFormatter()
+            displayFormatter.locale = settings.locale
             displayFormatter.dateStyle = .medium
             displayFormatter.timeStyle = .short
             return displayFormatter.string(from: date)
@@ -3445,11 +3398,19 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                     .padding(.leading, 24)
                 } label: {
                     HStack(spacing: 10) {
-                        TextField("规则名称", text: $rule.name)
+                        TextField("规则名称", text: Binding(
+                            get: {
+                                let isDefaultName = CompletionPromptRegexRule.defaultTemplates.contains {
+                                    $0.id == rule.id && $0.name == rule.name
+                                }
+                                return isDefaultName ? AppLocalization.string(rule.name) : rule.name
+                            },
+                            set: { rule.name = $0 }
+                        ))
                             .textFieldStyle(.plain)
                             .font(.system(size: 12, weight: .semibold))
                         Spacer(minLength: 8)
-                        Text(ruleModeLabel(rule))
+                        Text(appLocalized: ruleModeLabel(rule))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
                         Toggle("启用", isOn: $rule.isEnabled)
@@ -3483,7 +3444,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
         minimumHeight: CGFloat
     ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(title)
+            Text(appLocalized: title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
             TextEditor(text: text)
@@ -3530,7 +3491,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
     }
 
     private func validationText(_ message: String) -> some View {
-        Text(message)
+        Text(appLocalized: message)
             .font(.system(size: 10, weight: .medium))
             .foregroundColor(TerminalColors.amber)
             .fixedSize(horizontal: false, vertical: true)
@@ -3941,7 +3902,7 @@ private struct HookManagementLine: View {
                 Spacer(minLength: 12)
 
                 if isInstallDisabled, let noticeMessage {
-                    Text(verbatim: noticeMessage)
+                    Text(appLocalized: noticeMessage)
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(TerminalColors.amber.opacity(0.92))
                         .padding(.horizontal, 10)
@@ -5046,7 +5007,7 @@ private struct SettingsValueLine: View {
 
             Spacer(minLength: 12)
 
-            Text(value)
+            Text(appLocalized: value)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.white.opacity(0.72))
         }
@@ -5182,7 +5143,7 @@ private struct FeatureShortcutEditor: View {
             }
             .frame(minHeight: 44)
 
-            Text(errorText ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
+            Text(appLocalized: errorText ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(errorText == nil ? .secondary : .red)
                 .accessibilityLabel(Text(errorText ?? ""))
@@ -5196,7 +5157,7 @@ private struct FeatureShortcutEditor: View {
                            for: shortcut,
                            excludingFeatureID: feature.id
                        ) {
-                        errorText = "该快捷键已被『\(owner)』使用"
+                        errorText = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
                         NSSound.beep()
                     } else {
                         onSave(shortcut)
@@ -5247,7 +5208,7 @@ private struct FeatureShortcutEditor: View {
             for: recorded,
             excludingFeatureID: feature.id
         ) {
-            errorText = "该快捷键已被『\(owner)』使用"
+            errorText = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
             NSSound.beep()
             return
         }
@@ -5377,7 +5338,7 @@ private struct ShortcutRecorderControl: View {
             )
         }
         .buttonStyle(.plain)
-        .help(AppLocalization.string(isRecording ? "停止录制快捷键" : "开始录制快捷键"))
+        .help(Text(appLocalized: AppLocalization.string(isRecording ? "停止录制快捷键" : "开始录制快捷键")))
         .accessibilityLabel(Text(appLocalized: isRecording ? "停止录制快捷键" : "开始录制快捷键"))
     }
 
@@ -5439,7 +5400,7 @@ private struct ShortcutRecorderControl: View {
                for: candidate,
                excludingAction: action
            ) {
-            helperTextKey = "该快捷键已被『\(owner)』使用"
+            helperTextKey = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
             NSSound.beep()
             return
         }
@@ -6037,7 +5998,7 @@ private struct SoundPackEventLine: View {
             VStack(alignment: .leading, spacing: 5) {
                 SoundEventTextBlock(title: event.title, subtitle: event.subtitle)
 
-                Text(categorySummary)
+                Text(appLocalized: categorySummary)
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.38))
                     .lineLimit(1)
