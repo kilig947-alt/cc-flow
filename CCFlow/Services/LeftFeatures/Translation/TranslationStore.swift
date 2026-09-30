@@ -32,6 +32,7 @@ final class TranslationStore: ObservableObject {
     private var requestTokens: [TranslationProvider: UUID] = [:]
     private var context: (text: String, source: TranslationLanguage, target: TranslationLanguage)?
     private let translateText: TranslationOperation
+    private let readSecret: (TranslationProvider) -> String
     private let readInput: (pid_t?) async -> TranslationInput
     private var inputTask: Task<Void, Never>?
     private var generation = UUID()
@@ -43,8 +44,10 @@ final class TranslationStore: ObservableObject {
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard, translation: TranslationOperation? = nil,
-         input: ((pid_t?) async -> TranslationInput)? = nil) {
+         input: ((pid_t?) async -> TranslationInput)? = nil,
+         secret: @escaping (TranslationProvider) -> String = { TranslationKeychain.read($0) }) {
         self.defaults = defaults
+        readSecret = secret
         readInput = input ?? { await TranslationInputReader.shared.read(selectionFrom: $0) }
         translateText = translation ?? { text, source, target, configuration, secret in
             try await TranslationClient().translate(text, source: source, target: target, configuration: configuration, secret: secret)
@@ -89,8 +92,17 @@ final class TranslationStore: ObservableObject {
             : self.target
         guard source != target else { notice = "源语言与目标语言相同，请调整语言"; return }
         context = (input, source, target)
-        results = services.map { TranslationResult(provider: $0.provider, expanded: $0.expandsByDefault) }
-        for service in services where service.expandsByDefault { startTranslation(service.provider) }
+        let missingSecrets = Set(services.filter {
+            $0.provider.requiresSecret && readSecret($0.provider).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }.map(\.provider))
+        // Stable partition preserves configured order within each group.
+        let orderedServices = services.filter { !missingSecrets.contains($0.provider) }
+            + services.filter { missingSecrets.contains($0.provider) }
+        results = orderedServices.map {
+            TranslationResult(provider: $0.provider,
+                              expanded: $0.expandsByDefault && !missingSecrets.contains($0.provider))
+        }
+        for result in results where result.expanded { startTranslation(result.provider) }
     }
 
     func setDefaultExpanded(_ provider: TranslationProvider, expanded: Bool) {
@@ -129,7 +141,7 @@ final class TranslationStore: ObservableObject {
             let value: String?
             let errorMessage: String?
             do {
-                let secret = provider == .myMemory ? "" : TranslationKeychain.read(provider)
+                let secret = provider == .myMemory ? "" : readSecret(provider)
                 value = try await translateText(context.text, context.source, context.target, configuration, secret)
                 errorMessage = nil
             } catch {

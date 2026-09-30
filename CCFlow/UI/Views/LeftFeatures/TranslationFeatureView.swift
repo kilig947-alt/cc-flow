@@ -143,22 +143,31 @@ private struct TranslationResultCard: View {
                 } else if !result.loading {
                     Text(SessionTextSanitizer.boundedDisplayText(result.text, maxCharacters: 20000, truncationNotice: AppLocalization.string("\n…可复制完整译文")) ?? "").font(.system(size: 15)).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    HStack {
-                        TranslationSpeechButton(text: result.text, id: "translation-result-" + result.id)
-                        TranslationCopyButton(text: result.text)
-                    }.buttonStyle(.borderless)
-                    if TranslationCopyFormat.supports(result.text) {
-                        ViewThatFits(in: .horizontal) {
-                            formatButtons
-                            ScrollView(.horizontal, showsIndicators: false) { formatButtons }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 6) {
+                            standardButtons
+                            if TranslationCopyFormat.supports(result.text) { formatButtons }
                         }
-                    }
+                        VStack(alignment: .leading, spacing: 6) {
+                            standardButtons
+                            if TranslationCopyFormat.supports(result.text) {
+                                ScrollView(.horizontal, showsIndicators: false) { formatButtons }
+                            }
+                        }
+                    }.buttonStyle(.borderless)
                 }
             }
         }.padding(12).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
     private var defaultExpanded: Bool {
         store.configurations.first { $0.provider == result.provider }?.expandsByDefault ?? true
+    }
+
+    private var standardButtons: some View {
+        HStack(spacing: 6) {
+            TranslationSpeechButton(text: result.text, id: "translation-result-" + result.id)
+            TranslationCopyButton(text: result.text)
+        }
     }
 
     private var formatButtons: some View {

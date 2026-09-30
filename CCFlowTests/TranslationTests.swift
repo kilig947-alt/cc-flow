@@ -4,6 +4,43 @@ import AppKit
 
 final class TranslationTests: XCTestCase {
     @MainActor
+    func testMissingKeysCollapseAndSortLastWithoutChangingPreferences() async throws {
+        let name = "TranslationMissingKeys.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let providers: [TranslationProvider] = [.zhipu, .siliconFlow, .myMemory, .ollama]
+        var configurations = TranslationServiceConfiguration.mergingPresets(into: providers.map {
+            TranslationServiceConfiguration.preset($0)
+        })
+        for index in configurations.indices {
+            configurations[index].enabled = providers.contains(configurations[index].provider)
+        }
+        defaults.set(try JSONEncoder().encode(configurations), forKey: "tflow.translation.services")
+        var keys: [TranslationProvider: String] = [.zhipu: " \n", .siliconFlow: "configured"]
+        var requested: Set<TranslationProvider> = []
+        let completed = expectation(description: "Only ready services requested")
+        completed.expectedFulfillmentCount = 3
+        let store = TranslationStore(defaults: defaults, translation: { _, _, _, config, _ in
+            requested.insert(config.provider)
+            completed.fulfill()
+            return "译文"
+        }, secret: { keys[$0] ?? "" })
+        Self.retainedStores.append(store)
+        store.text = "Hello"
+        store.translate()
+        XCTAssertEqual(store.results.map(\.provider), [.siliconFlow, .myMemory, .ollama, .zhipu])
+        XCTAssertFalse(try XCTUnwrap(store.results.last).expanded)
+        XCTAssertTrue(try XCTUnwrap(store.configurations.first { $0.provider == .zhipu }).expandsByDefault)
+        await fulfillment(of: [completed], timeout: 2)
+        XCTAssertEqual(requested, [.siliconFlow, .myMemory, .ollama])
+        keys[.zhipu] = "configured"
+        store.translate()
+        XCTAssertEqual(store.results.map(\.provider), providers)
+        XCTAssertTrue(try XCTUnwrap(store.results.first).expanded)
+        store.text = "" // Cancel requests from the second invocation.
+    }
+
+    @MainActor
     func testEveryBrandedProviderHasBundledOriginalArtwork() throws {
         for provider in TranslationProvider.allCases where provider != .ai {
             let name = try XCTUnwrap(provider.iconAssetName)
