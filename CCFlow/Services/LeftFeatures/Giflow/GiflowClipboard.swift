@@ -16,7 +16,7 @@ enum GiflowClipboard {
         }
         pasteboard.clearContents()
         guard pasteboard.writeObjects([item]) else {
-            throw NSError(domain: "GiflowClipboard", code: 1, userInfo: [NSLocalizedDescriptionKey: "无法写入系统剪贴板，请重试"])
+            throw NSError(domain: "GiflowClipboard", code: 1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("clipboard.cannot_write_to_the_system_clipboard_please_try")])
         }
     }
 }

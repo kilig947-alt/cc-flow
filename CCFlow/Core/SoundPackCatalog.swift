@@ -14,30 +14,30 @@ enum NotificationEvent: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .processingStarted:
-            return "开始处理"
+            return AppLocalization.runtimeString("sound.processing_started")
         case .attentionRequired:
-            return "需要介入"
+            return AppLocalization.runtimeString("sound.needs_attention")
         case .taskCompleted:
-            return "完成"
+            return AppLocalization.runtimeString("completion.completed")
         case .taskError:
-            return "任务失败"
+            return AppLocalization.runtimeString("sound.task_failed")
         case .resourceLimit:
-            return "资源受限"
+            return AppLocalization.runtimeString("sound.resource_constrained")
         }
     }
 
     var subtitle: String {
         switch self {
         case .processingStarted:
-            return "会话开始处理、运行工具或进入阶段切换。"
+            return AppLocalization.runtimeString("sound.a_session_starts_processing_runs_a_tool_or")
         case .attentionRequired:
-            return "等待审批、回答问题或其他需要你接手的时刻。"
+            return AppLocalization.runtimeString("sound.waiting_for_approval_answering_questions_or_any_other")
         case .taskCompleted:
-            return "当前处理结束，回到等待你下一步输入。"
+            return AppLocalization.runtimeString("sound.the_current_task_finished_and_is_waiting_for")
         case .taskError:
-            return "工具或子代理执行失败。"
+            return AppLocalization.runtimeString("sound.a_tool_or_subagent_failed")
         case .resourceLimit:
-            return "进入 PreCompact / compacting，通常表示上下文或资源逼近限制。"
+            return AppLocalization.runtimeString("sound.entered_precompact_compacting_which_usually_means_context_or")
         }
     }
 
@@ -82,18 +82,18 @@ enum SoundThemeMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .builtIn:
-            return "系统音"
+            return AppLocalization.runtimeString("sound.system_sounds")
         case .soundPack:
-            return "主题包"
+            return AppLocalization.runtimeString("settings.sound_pack")
         }
     }
 
     var subtitle: String {
         switch self {
         case .builtIn:
-            return "为不同阶段分别选择 macOS 系统音。"
+            return AppLocalization.runtimeString("sound.choose_a_macos_system_sound_for_each_phase")
         case .soundPack:
-            return "使用兼容 OpenPeon / CESP 的本地音效包。"
+            return AppLocalization.runtimeString("sound.use_a_local_openpeon_cesp_compatible_sound_pack")
         }
     }
 }
@@ -189,8 +189,8 @@ final class SoundPackCatalog: NSObject, ObservableObject, NSSoundDelegate {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = AppLocalization.string("导入")
-        panel.message = AppLocalization.string("选择包含 openpeon.json 的音效包目录。")
+        panel.prompt = AppLocalization.string("sound.import")
+        panel.message = AppLocalization.string("sound.choose_a_sound_pack_directory_that_contains_openpeon")
 
         guard panel.runModal() == .OK, let url = panel.url?.standardizedFileURL else {
             return false
@@ -213,7 +213,7 @@ final class SoundPackCatalog: NSObject, ObservableObject, NSSoundDelegate {
     }
 
     func displayName(for path: String?) -> String {
-        pack(for: path)?.displayName ?? "未选择"
+        pack(for: path)?.displayName ?? AppLocalization.runtimeString("sound.not_selected")
     }
 
     @discardableResult

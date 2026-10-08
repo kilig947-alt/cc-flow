@@ -20,27 +20,27 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "通用"
-        case .shortcuts: return "快捷键"
-        case .display: return "显示"
-        case .mascot: return "宠物"
-        case .sound: return "声音"
-        case .integration: return "集成"
-        case .leftContent: return "左侧功能"
-        case .about: return "关于"
+        case .general: return AppLocalization.runtimeString("settings.general")
+        case .shortcuts: return AppLocalization.runtimeString("session.shortcuts")
+        case .display: return AppLocalization.runtimeString("settings.display")
+        case .mascot: return AppLocalization.runtimeString("settings.mascots")
+        case .sound: return AppLocalization.runtimeString("settings.sound")
+        case .integration: return AppLocalization.runtimeString("settings.integrations")
+        case .leftContent: return AppLocalization.runtimeString("settings.left_features")
+        case .about: return AppLocalization.runtimeString("settings.about")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: return "系统与基础行为"
-        case .shortcuts: return "全局展开与自定义"
-        case .display: return "显示器与位置"
-        case .mascot: return "客户端宠物与动作"
-        case .sound: return "通知与提示音"
-        case .integration: return "Hooks 与 权限设置"
-        case .leftContent: return "Flow Island与展开区域"
-        case .about: return "版本与更新"
+        case .general: return AppLocalization.runtimeString("settings.system_behavior")
+        case .shortcuts: return AppLocalization.runtimeString("settings.global_actions_and_custom_bindings")
+        case .display: return AppLocalization.runtimeString("settings.displays_and_placement")
+        case .mascot: return AppLocalization.runtimeString("settings.client_mascots_and_motion")
+        case .sound: return AppLocalization.runtimeString("settings.notifications_and_sounds")
+        case .integration: return AppLocalization.runtimeString("settings.hooks_and_permissions")
+        case .leftContent: return AppLocalization.runtimeString("settings.flow_island_and_expanded_area")
+        case .about: return AppLocalization.runtimeString("settings.version_and_updates")
         }
     }
 
@@ -82,6 +82,13 @@ enum NewFeatureType: String, CaseIterable, Identifiable {
     case localDirectory = "本地目录"
     case webURL = "网站 URL"
 
+    var titleKey: String {
+        switch self {
+        case .localDirectory: return "settings.local_directory"
+        case .webURL: return "settings.website_url"
+        }
+    }
+
     var id: String { rawValue }
 }
 
@@ -121,13 +128,13 @@ final class SettingsPanelViewModel: ObservableObject {
     @Published private(set) var hookInstallationStates: [String: Bool] = [:]
     @Published var accessibilityEnabled = false
     @Published var isExportingLogs = false
-    @Published var logExportStatus = AppLocalization.string("导出最近 10 分钟的诊断日志与配置")
+    @Published var logExportStatus = AppLocalization.string("settings.export_diagnostic_logs_and_settings_from_the_last")
     @Published private(set) var reinstallingHookProfileID: String?
     @Published private(set) var hookReinstallFeedbacks: [String: HookReinstallFeedback] = [:]
     @Published private(set) var customHookInstallations: [HookInstaller.CustomHookInstallation] = []
     @Published private(set) var bridgeHealthStatus = HookInstaller.BridgeHealthStatus(
         isHealthy: false,
-        message: AppLocalization.string("Bridge 链路尚未检测")
+        message: AppLocalization.string("settings.bridge_link_has_not_been_checked_yet")
     )
 
     private var hookFeedbackClearTasks: [String: Task<Void, Never>] = [:]
@@ -221,7 +228,7 @@ final class SettingsPanelViewModel: ObservableObject {
 
     func refreshLocalizedState() {
         guard !isExportingLogs else { return }
-        logExportStatus = AppLocalization.string("导出最近 10 分钟的诊断日志与配置")
+        logExportStatus = AppLocalization.string("settings.export_diagnostic_logs_and_settings_from_the_last")
     }
 
     func refreshBridgeHealthStatus() {
@@ -308,8 +315,8 @@ final class SettingsPanelViewModel: ObservableObject {
             reinstallingHookProfileID = nil
             hookReinstallFeedbacks[profile.id] = HookReinstallFeedback(
                 message: didInstall
-                    ? AppLocalization.string("已更新 Hook 配置")
-                    : AppLocalization.string("更新失败，请稍后重试"),
+                    ? AppLocalization.string("settings.hook_configuration_updated")
+                    : AppLocalization.string("settings.update_failed_please_try_again"),
                 isError: !didInstall
             )
 
@@ -349,8 +356,8 @@ final class SettingsPanelViewModel: ObservableObject {
             reinstallingHookProfileID = nil
             hookReinstallFeedbacks[profile.id] = HookReinstallFeedback(
                 message: didInstall
-                    ? AppLocalization.string("重新安装成功")
-                    : AppLocalization.string("重新安装失败，请稍后重试"),
+                    ? AppLocalization.string("settings.reinstalled_successfully")
+                    : AppLocalization.string("settings.reinstall_failed_please_try_again_later"),
                 isError: !didInstall
             )
 
@@ -413,7 +420,7 @@ final class SettingsPanelViewModel: ObservableObject {
 
     func hookNotice(for profile: ManagedHookClientProfile) -> String? {
         if !profile.supportsHookIntegration {
-            return "官方暂未支持 Hooks 配置"
+            return AppLocalization.runtimeString("settings.official_hooks_configuration_is_not_yet_supported")
         }
         return nil
     }
@@ -454,7 +461,7 @@ final class SettingsPanelViewModel: ObservableObject {
         guard panel.runModal() == .OK, let destinationURL = panel.url else { return }
 
         isExportingLogs = true
-        logExportStatus = AppLocalization.string("正在导出日志…")
+        logExportStatus = AppLocalization.string("settings.exporting_logs")
 
         Task {
             do {
@@ -462,12 +469,12 @@ final class SettingsPanelViewModel: ObservableObject {
                 await MainActor.run {
                     if result.warnings.isEmpty {
                         logExportStatus = AppLocalization.format(
-                            "已导出到 %@",
+                            "settings.exported_to",
                             result.archiveURL.lastPathComponent
                         )
                     } else {
                         logExportStatus = AppLocalization.format(
-                            "已导出，附带 %lld 条警告",
+                            "settings.exported_with_warning_s",
                             result.warnings.count
                         )
                     }
@@ -476,7 +483,7 @@ final class SettingsPanelViewModel: ObservableObject {
             } catch {
                 await MainActor.run {
                     logExportStatus = AppLocalization.format(
-                        "导出失败：%@",
+                        "features.export_failed",
                         error.localizedDescription
                     )
                     isExportingLogs = false
@@ -582,25 +589,25 @@ private struct SoundSettingsContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            SettingsSectionCard(title: "通知") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.notifications")) {
                 SettingsToggleLine(
-                    title: "启用提示音",
-                    subtitle: "不同阶段可分别播放不同音效。",
+                    title: AppLocalization.runtimeString("settings.enable_sounds"),
+                    subtitle: AppLocalization.runtimeString("settings.play_different_sounds_for_different_session_phases"),
                     isOn: $settings.soundEnabled
                 )
                 SettingsLineDivider()
 
                 SettingsInfoLine(
-                    title: "声音模式",
-                    subtitle: "系统音适合快速配置；主题包兼容 OpenPeon / CESP 格式。"
+                    title: AppLocalization.runtimeString("settings.sound_mode"),
+                    subtitle: AppLocalization.runtimeString("settings.system_sounds_are_quick_to_configure_while_sound")
                 ) {
                     soundThemeModePicker
                 }
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "音量",
-                    subtitle: "控制 CC FLOW 播放提示音时的音量大小",
+                    title: AppLocalization.runtimeString("settings.volume"),
+                    subtitle: AppLocalization.runtimeString("settings.adjust_the_volume_of_cc_flow_notification_sounds"),
                     value: $settings.soundVolume,
                     range: 0...1,
                     step: 0.05,
@@ -610,7 +617,7 @@ private struct SoundSettingsContent: View {
             }
 
             if settings.soundThemeMode == .builtIn {
-                SoundEventSection(title: "阶段音效") {
+                SoundEventSection(title: AppLocalization.runtimeString("settings.phase_sounds")) {
                     ForEach(Array(NotificationEvent.allCases.enumerated()), id: \.element.id) { index, event in
                         SoundEventSettingsLine(
                             event: event,
@@ -626,7 +633,7 @@ private struct SoundSettingsContent: View {
                     }
                 }
             } else {
-                SettingsSectionCard(title: "主题音效包") {
+                SettingsSectionCard(title: AppLocalization.runtimeString("settings.sound_packs")) {
                     SoundPackSourceInfoLine {
                         soundPackPicker
                     }
@@ -642,13 +649,13 @@ private struct SoundSettingsContent: View {
                     }
 
                     if soundPacks.availablePacks.isEmpty {
-                        SettingsValueLine(title: "可用主题包", value: "未发现")
+                        SettingsValueLine(title: AppLocalization.runtimeString("settings.available_sound_packs"), value: AppLocalization.runtimeString("settings.none_found"))
                     } else {
-                        SettingsValueLine(title: "可用主题包", value: "\(soundPacks.availablePacks.count)")
+                        SettingsValueLine(title: AppLocalization.runtimeString("settings.available_sound_packs"), value: "\(soundPacks.availablePacks.count)")
                     }
                 }
 
-                SoundEventSection(title: "阶段映射") {
+                SoundEventSection(title: AppLocalization.runtimeString("settings.phase_mapping")) {
                     ForEach(Array(NotificationEvent.allCases.enumerated()), id: \.element.id) { index, event in
                         SoundPackEventLine(
                             event: event,
@@ -679,7 +686,7 @@ private struct SoundSettingsContent: View {
     }
 
     private var soundThemeModePicker: some View {
-        Picker("声音模式", selection: $settings.soundThemeMode) {
+        Picker("settings.sound_mode", selection: $settings.soundThemeMode) {
             ForEach(SoundThemeMode.allCases) { mode in
                 Text(appLocalized: mode.title).tag(mode)
             }
@@ -689,9 +696,9 @@ private struct SoundSettingsContent: View {
     }
 
     private var soundPackPicker: some View {
-        Picker("主题包", selection: $settings.selectedSoundPackPath) {
+        Picker("settings.sound_pack", selection: $settings.selectedSoundPackPath) {
             if soundPacks.availablePacks.isEmpty {
-                Text(appLocalized: "未发现").tag("")
+                Text(appLocalized: "settings.none_found").tag("")
             } else {
                 ForEach(soundPacks.availablePacks) { pack in
                     Text(pack.displayName).tag(pack.rootURL.path)
@@ -769,19 +776,19 @@ private struct SettingsCategoryLoadingView: View {
     }
 
     private var loadingTitle: String {
-        AppLocalization.format("正在加载%@设置…", AppLocalization.string(category.title))
+        AppLocalization.format("settings.loading_settings", AppLocalization.string(category.title))
     }
 
     private var loadingSubtitle: String {
         switch category {
         case .display:
-            return AppLocalization.string("正在刷新显示器与用量展示状态")
+            return AppLocalization.string("settings.refreshing_display_and_usage_status")
         case .sound:
-            return AppLocalization.string("正在扫描可用声音主题包")
+            return AppLocalization.string("settings.scanning_available_sound_packs")
         case .integration:
-            return AppLocalization.string("正在检查 Hooks、IDE 扩展与客户端安装状态")
+            return AppLocalization.string("settings.checking_hooks_ide_extensions_and_installed_clients")
         case .general, .shortcuts, .mascot, .leftContent, .about:
-            return AppLocalization.string("马上就好")
+            return AppLocalization.string("settings.almost_ready")
         }
     }
 }
@@ -1002,7 +1009,7 @@ private struct SettingsPanelContentView: View {
             viewModel.refreshLocalizedState()
         }
         .alert(
-            "重新安装 Hooks？",
+            "settings.reinstall_hooks",
             isPresented: Binding(
                 get: { pendingHookReinstallProfile != nil },
                 set: { isPresented in
@@ -1013,8 +1020,8 @@ private struct SettingsPanelContentView: View {
             ),
             presenting: pendingHookReinstallProfile
         ) { profile in
-            Button("取消", role: .cancel) {}
-            Button("重新安装") {
+            Button("common.cancel", role: .cancel) {}
+            Button("settings.reinstall") {
                 viewModel.reinstallHooks(for: profile)
                 pendingHookReinstallProfile = nil
             }
@@ -1022,29 +1029,29 @@ private struct SettingsPanelContentView: View {
             Text(verbatim: AppLocalization.format(profile.reinstallDescriptionFormat, profile.title))
         }
         .alert(
-            AppLocalization.string("信任 Codex Hooks"),
+            AppLocalization.string("settings.trust_codex_hooks"),
             isPresented: $showingCodexHookTrustGuide
         ) {
-            Button(AppLocalization.string("打开终端并复制命令")) {
+            Button(AppLocalization.string("settings.open_terminal_copy")) {
                 viewModel.prepareCodexHookTrustReview(openTerminal: true)
             }
-            Button(AppLocalization.string("仅复制命令")) {
+            Button(AppLocalization.string("settings.copy_command")) {
                 viewModel.prepareCodexHookTrustReview(openTerminal: false)
             }
-            Button(AppLocalization.string("取消"), role: .cancel) {}
+            Button(AppLocalization.string("common.cancel"), role: .cancel) {}
         } message: {
-            Text(appLocalized: "Codex 要求用户亲自审核命令 Hooks。请在终端粘贴并运行已复制的命令，进入 Codex 后输入 /hooks，信任并启用 CC FLOW 的全部 Hooks，然后重启 Codex App。")
+            Text(appLocalized: "settings.codex_requires_you_to_review_command_hooks_paste")
         }
         .alert(
-            AppLocalization.string("一键卸载所有 Hooks 配置文件？"),
+            AppLocalization.string("settings.uninstall_all_hooks_configuration_files_2"),
             isPresented: $showingUninstallAllHooksConfirmation
         ) {
-            Button(AppLocalization.string("取消"), role: .cancel) {}
-            Button(AppLocalization.string("一键卸载所有 Hooks 配置文件"), role: .destructive) {
+            Button(AppLocalization.string("common.cancel"), role: .cancel) {}
+            Button(AppLocalization.string("settings.uninstall_all_hooks_configuration_files"), role: .destructive) {
                 viewModel.uninstallAllHooks()
             }
         } message: {
-            Text(appLocalized: "这会移除 Island 为所有本机集成写入的托管 Hooks 配置文件，包括自定义配置记录。")
+            Text(appLocalized: "settings.this_removes_the_managed_hooks_configuration_files_island")
         }
         .sheet(isPresented: $showingCustomHookInstallSheet) {
             CustomHookInstallSheet(viewModel: viewModel) {
@@ -1120,24 +1127,24 @@ private struct SettingsPanelContentView: View {
         .sheet(item: $editingNewsNowFeature) { feature in
             // NewsNow 实例 URL 编辑表单
             VStack(alignment: .leading, spacing: 16) {
-                Text("编辑 AI HOT 地址")
+                Text("settings.edit_ai_hot_url")
                     .font(.system(size: 14, weight: .semibold))
                 TextField("https://aihot.virxact.com/", text: $newsNowBaseURLDraft)
                     .textFieldStyle(.roundedBorder)
-                Text("AI 行业动态聚合页面。默认使用 AI HOT 公开地址。")
+                Text("settings.ai_industry_news_aggregator_uses_the_public_ai")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 Toggle(
-                    "跨域登录留在 WebView",
+                    "settings.keep_cross_site_sign_in_in_webview",
                     isOn: $newsNowKeepsCrossDomainLoginInWebView
                 )
                 .font(.caption)
                 HStack {
                     Spacer()
-                    Button("取消") {
+                    Button("common.cancel") {
                         editingNewsNowFeature = nil
                     }
-                    Button("保存") {
+                    Button("common.save") {
                         let trimmed = newsNowBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                         if isValidNewsNowURL(trimmed) {
                             leftFeatureStore.updateNewsNowBaseURL(id: feature.id, baseURL: trimmed)
@@ -1163,24 +1170,24 @@ private struct SettingsPanelContentView: View {
         // Spec: mineradio-bridge-compat-layer —— Mineradio 页面 URL 编辑表单
         .sheet(item: $editingMineradioFeature) { feature in
             VStack(alignment: .leading, spacing: 16) {
-                Text("编辑 Mineradio 页面 URL")
+                Text("settings.edit_mineradio_page_url")
                     .font(.system(size: 14, weight: .semibold))
                 TextField("https://mineradio.art/", text: $mineradioPageURLDraft)
                     .textFieldStyle(.roundedBorder)
-                Text("指向 Mineradio 网页版。默认使用官方实例。")
+                Text("settings.mineradio_web_player_url_uses_the_official_instance")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                 Toggle(
-                    "跨域登录留在 WebView",
+                    "settings.keep_cross_site_sign_in_in_webview",
                     isOn: $mineradioKeepsCrossDomainLoginInWebView
                 )
                 .font(.caption)
                 HStack {
                     Spacer()
-                    Button("取消") {
+                    Button("common.cancel") {
                         editingMineradioFeature = nil
                     }
-                    Button("保存") {
+                    Button("common.save") {
                         let trimmed = mineradioPageURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                         if isValidMineradioURL(trimmed) {
                             leftFeatureStore.updateMineradioPageURL(id: feature.id, pageURL: trimmed)
@@ -1216,7 +1223,7 @@ private struct SettingsPanelContentView: View {
         }
         // Spec: mineradio-bridge-compat-layer —— 退出登录确认
         .confirmationDialog(
-            "确认退出登录？",
+            "settings.sign_out",
             isPresented: Binding(
                 get: { mineradioLogoutPlatform != nil },
                 set: { if !$0 { mineradioLogoutPlatform = nil } }
@@ -1224,15 +1231,15 @@ private struct SettingsPanelContentView: View {
             titleVisibility: .visible,
             presenting: mineradioLogoutPlatform
         ) { platform in
-            Button("退出登录", role: .destructive) {
+            Button("settings.sign_out_2", role: .destructive) {
                 mineradioCoordinator.logout(platform)
                 mineradioLogoutPlatform = nil
             }
-            Button("取消", role: .cancel) {
+            Button("common.cancel", role: .cancel) {
                 mineradioLogoutPlatform = nil
             }
         } message: { platform in
-            Text(AppLocalization.format("退出后将清除 %@ 的登录 cookie，Mineradio 将无法访问该平台资源。", AppLocalization.string(platform.displayName)))
+            Text(AppLocalization.format("settings.signing_out_clears_cookies_mineradio_will_no_longer", AppLocalization.string(platform.displayName)))
         }
         .sheet(isPresented: $showingAddCustomAreaSheet) {
             addCustomAreaSheet
@@ -1453,7 +1460,7 @@ private struct SettingsPanelContentView: View {
         HStack(spacing: 10) {
             WindowControlButton(
                 color: Color(red: 1.0, green: 0.37, blue: 0.36),
-                accessibilityLabel: "关闭"
+                accessibilityLabel: AppLocalization.runtimeString("common.close")
             ) {
                 if let onClose {
                     onClose()
@@ -1464,7 +1471,7 @@ private struct SettingsPanelContentView: View {
 
             WindowControlButton(
                 color: Color(red: 1.0, green: 0.74, blue: 0.18),
-                accessibilityLabel: "最小化"
+                accessibilityLabel: AppLocalization.runtimeString("settings.minimize")
             ) {
                 if let onMinimize {
                     onMinimize()
@@ -1627,18 +1634,18 @@ private struct SettingsPanelContentView: View {
 
     private var generalContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsSectionCard(title: "系统") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.system")) {
                 SettingsInfoLine(
-                    title: "语言",
-                    subtitle: "默认跟随系统语言，也可以单独固定为简体中文或 English。"
+                    title: AppLocalization.runtimeString("settings.language"),
+                    subtitle: AppLocalization.runtimeString("settings.follow_the_system_language_by_default_or_pin")
                 ) {
                     appLanguagePicker
                 }
                 SettingsLineDivider()
 
                 SettingsToggleLine(
-                    title: "登录时打开",
-                    subtitle: "启动 macoS 后自动显示 Flow Island",
+                    title: AppLocalization.runtimeString("settings.launch_at_login"),
+                    subtitle: AppLocalization.runtimeString("settings.show_island_automatically_after_macos_starts"),
                     isOn: Binding(
                         get: { viewModel.launchAtLogin },
                         set: { viewModel.setLaunchAtLogin($0) }
@@ -1646,22 +1653,22 @@ private struct SettingsPanelContentView: View {
                 )
                 SettingsLineDivider()
 
-                SettingsInfoLine(title: "显示器", subtitle: "选择 Flow Island 所在显示器") {
+                SettingsInfoLine(title: AppLocalization.runtimeString("settings.display_2"), subtitle: AppLocalization.runtimeString("settings.choose_which_display_island_appears_on")) {
                     screenPicker
                 }
             }
 
-            SettingsSectionCard(title: "行为") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.behavior")) {
                 SettingsToggleLine(
-                    title: "鼠标移入展开 Flow Island",
-                    subtitle: "关闭后需要点击 Flow Island 才会展开",
+                    title: AppLocalization.runtimeString("settings.expand_flow_island_on_hover"),
+                    subtitle: AppLocalization.runtimeString("settings.when_off_click_flow_island_to_expand_it"),
                     isOn: $settings.openOnHover
                 )
 
                 if settings.openOnHover {
                     SettingsSliderLine(
-                        title: "悬浮展开延迟",
-                        subtitle: "鼠标悬停多久后自动展开 flow Island",
+                        title: AppLocalization.runtimeString("settings.hover_delay"),
+                        subtitle: AppLocalization.runtimeString("settings.how_long_to_hover_before_flow_island_expands"),
                         value: Binding<Double>(
                             get: { Double(settings.hoverOpenDelayMs) },
                             set: { settings.hoverOpenDelayMs = Int($0) }
@@ -1674,23 +1681,23 @@ private struct SettingsPanelContentView: View {
                 SettingsLineDivider()
 
                 SettingsToggleLine(
-                    title: "鼠标离开时自动收起",
-                    subtitle: "hover 展开的预览面板会在鼠标离开后自动关闭",
+                    title: AppLocalization.runtimeString("settings.auto_collapse_on_mouse_leave"),
+                    subtitle: AppLocalization.runtimeString("settings.automatically_close_the_hover_preview_panel_when_the"),
                     isOn: $settings.autoCollapseOnLeave
                 )
                 SettingsLineDivider()
 
                 SettingsToggleLine(
-                    title: "固定显示 Flow Island展开区域",
-                    subtitle: "启动时默认展开，并保持展开不自动缩小",
+                    title: AppLocalization.runtimeString("settings.keep_flow_island_expanded"),
+                    subtitle: AppLocalization.runtimeString("settings.expand_on_launch_and_keep_the_panel_open"),
                     isOn: $settings.keepIslandOpen
                 )
             }
 
-            SettingsSectionCard(title: "应用") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.app")) {
                 SettingsActionLine(
-                    title: "退出应用",
-                    subtitle: "立即关闭 CC FLOW"
+                    title: AppLocalization.runtimeString("settings.quit_app"),
+                    subtitle: AppLocalization.runtimeString("settings.quit_cc_flow_immediately")
                 ) {
                     NSApplication.shared.terminate(nil)
                 } accessory: {
@@ -1704,10 +1711,10 @@ private struct SettingsPanelContentView: View {
 
     private var displayContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsSectionCard(title: "显示器") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.display_2")) {
                 SettingsInfoLine(
-                    title: "当前显示器",
-                    subtitle: "切换后会重新挂载 Flow Island 窗口位置"
+                    title: AppLocalization.runtimeString("settings.current_display"),
+                    subtitle: AppLocalization.runtimeString("settings.reposition_the_island_window_after_switching")
                 ) {
                     screenPicker
                 }
@@ -1715,16 +1722,16 @@ private struct SettingsPanelContentView: View {
 
                 if let selectedScreen = screenSelector.selectedScreen {
                     SettingsValueLine(
-                        title: "当前输出",
+                        title: AppLocalization.runtimeString("settings.current_output"),
                         value: selectedScreen.localizedName
                     )
                 }
             }
 
-            SettingsSectionCard(title: "Flow Island设置") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.flow_island_settings")) {
                 SettingsSliderLine(
-                    title: "Flow Island高度",
-                    subtitle: "调整紧凑态Flow Island的高度，可承载歌词、彩色文本等富内容",
+                    title: AppLocalization.runtimeString("settings.flow_island_height"),
+                    subtitle: AppLocalization.runtimeString("settings.adjust_compact_flow_island_height_to_fit_lyrics"),
                     value: Binding<Double>(
                         get: { Double(settings.compactLeftHeight) },
                         set: { settings.compactLeftHeight = CGFloat($0) }
@@ -1736,8 +1743,8 @@ private struct SettingsPanelContentView: View {
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "Flow Island宽度",
-                    subtitle: "调整紧凑态Flow Island的宽度；较窄时会降级为单图标显示",
+                    title: AppLocalization.runtimeString("settings.flow_island_width"),
+                    subtitle: AppLocalization.runtimeString("settings.adjust_compact_flow_island_width_narrow_widths_show"),
                     value: $settings.notchModuleWidth,
                     range: AppSettings.notchModuleWidthRange,
                     step: 10,
@@ -1746,8 +1753,8 @@ private struct SettingsPanelContentView: View {
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "展开默认宽度",
-                    subtitle: "统一调整活跃会话、通知和未自定义尺寸的左侧功能宽度",
+                    title: AppLocalization.runtimeString("settings.default_expanded_width"),
+                    subtitle: AppLocalization.runtimeString("settings.sets_one_width_for_active_sessions_notifications_and"),
                     value: $settings.expandedPanelWidth,
                     range: AppSettings.expandedPanelWidthRange,
                     step: 10,
@@ -1789,7 +1796,7 @@ private struct SettingsPanelContentView: View {
 
     private var shortcutsContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsSectionCard(title: "全局快捷键") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.global_shortcuts")) {
                 ShortcutSettingsLine(
                     action: .openActiveSession,
                     shortcut: shortcutBinding(for: .openActiveSession)
@@ -1827,26 +1834,26 @@ private struct SettingsPanelContentView: View {
                 ShortcutSettingsLine(action: .translationInput, shortcut: shortcutBinding(for: .translationInput))
             }
 
-            SettingsSectionCard(title: "说明") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.info")) {
                 SettingsInfoLine(
-                    title: "默认键位",
-                    subtitle: "默认使用 Option + J 打开活跃会话，Option + K 展开左侧功能，Option + L 展开会话列表，Option + 5/6/7 触发 Giflow 截取录制与历史；Option + D/S/A 分别触发 Tflow 选词、截图和输入翻译（需启用 Tflow）。"
+                    title: AppLocalization.runtimeString("settings.default_bindings"),
+                    subtitle: AppLocalization.runtimeString("settings.defaults_option_j_opens_the_active_session_option")
                 ) {
                     EmptyView()
                 }
                 SettingsLineDivider()
 
                 SettingsInfoLine(
-                    title: "录制规则",
-                    subtitle: "录制状态下直接按新组合键即可；清空会关闭对应全局快捷键，重置按钮才会恢复默认。"
+                    title: AppLocalization.runtimeString("settings.recording"),
+                    subtitle: AppLocalization.runtimeString("settings.while_recording_press_the_new_key_combination_directly")
                 ) {
                     EmptyView()
                 }
                 SettingsLineDivider()
 
                 SettingsInfoLine(
-                    title: "列表键盘操作",
-                    subtitle: "呼出会话列表后，可用 ↑ / ↓ 选中会话，按 Enter 打开对应窗口。"
+                    title: AppLocalization.runtimeString("settings.session_list_keyboard_controls"),
+                    subtitle: AppLocalization.runtimeString("settings.once_the_session_list_is_open_use_up")
                 ) {
                     EmptyView()
                 }
@@ -1864,11 +1871,11 @@ private struct SettingsPanelContentView: View {
 
     private var integrationContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsSectionCard(title: "系统权限") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.system_permissions")) {
                 SettingsStatusLine(
-                    title: "辅助功能",
-                    subtitle: viewModel.accessibilityEnabled ? "已授权，可进行窗口聚焦与前台检测" : "未授权，部分自动聚焦能力不可用",
-                    status: viewModel.accessibilityEnabled ? "已开启" : "待开启",
+                    title: AppLocalization.runtimeString("settings.accessibility"),
+                    subtitle: viewModel.accessibilityEnabled ? AppLocalization.runtimeString("settings.authorized_for_window_focusing_and_foreground_detection") : AppLocalization.runtimeString("settings.not_authorized_some_auto_focus_features_are_unavailable"),
+                    status: viewModel.accessibilityEnabled ? AppLocalization.runtimeString("settings.enabled") : AppLocalization.runtimeString("settings.pending"),
                     statusColor: viewModel.accessibilityEnabled ? TerminalColors.green : TerminalColors.amber
                 ) {
                     if !viewModel.accessibilityEnabled {
@@ -1877,9 +1884,9 @@ private struct SettingsPanelContentView: View {
                 }
             }
 
-            SettingsSectionCard(title: "审批与提问") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.approvals_questions")) {
                 SettingsInfoLine(
-                    title: "工具审批",
+                    title: AppLocalization.runtimeString("session.tool_approval"),
                     subtitle: settings.toolApprovalMode.subtitle
                 ) {
                     Picker("", selection: $settings.toolApprovalMode) {
@@ -1898,7 +1905,7 @@ private struct SettingsPanelContentView: View {
 
             let hookProfiles = viewModel.visibleHookProfiles
             if !hookProfiles.isEmpty {
-                SettingsSectionCard(title: "Hooks 管理") {
+                SettingsSectionCard(title: AppLocalization.runtimeString("settings.hooks")) {
                     let profiles = hookProfiles
                     ForEach(Array(profiles.enumerated()), id: \.element.id) { index, profile in
                         if index == 0 || profiles[index - 1].brand != profile.brand {
@@ -1969,7 +1976,7 @@ private struct SettingsPanelContentView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 13, weight: .semibold))
-                                Text(appLocalized: "添加自定义配置")
+                                Text(appLocalized: "settings.add_custom_configuration")
                                     .font(.system(size: 12, weight: .semibold))
                             }
                             .foregroundColor(.white.opacity(0.7))
@@ -1983,32 +1990,32 @@ private struct SettingsPanelContentView: View {
                 }
             }
 
-            SettingsSectionCard(title: "Hook 调试日志") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.hook_debug_logs")) {
                 SettingsToggleLine(
-                    title: "记录 Hook 调试日志",
-                    subtitle: "关闭后 Bridge 不再追加 ~/Library/Logs/cc-flow 下的 Hook 调试记录，并在下次 Hook 触发时清理既有日志。",
+                    title: AppLocalization.runtimeString("settings.record_hook_debug_logs"),
+                    subtitle: AppLocalization.runtimeString("settings.when_off_the_bridge_stops_appending_hook_debug"),
                     isOn: $settings.hookDebugLoggingEnabled
                 )
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "日志保留天数",
-                    subtitle: "超过该天数的 hook 调试日志会被自动删除。",
+                    title: AppLocalization.runtimeString("settings.log_retention"),
+                    subtitle: AppLocalization.runtimeString("settings.hook_debug_logs_older_than_this_are_deleted"),
                     value: Binding(
                         get: { Double(settings.hookDebugLogRetentionDays) },
                         set: { settings.hookDebugLogRetentionDays = Int($0.rounded()) }
                     ),
                     range: Double(BridgeRuntimeConfigSnapshot.minimumDebugLogRetentionDays)...Double(BridgeRuntimeConfigSnapshot.maximumDebugLogRetentionDays),
                     step: 1,
-                    format: { AppLocalization.format("%@ 天", String(describing: Int($0.rounded()))) }
+                    format: { AppLocalization.format("settings.days", String(describing: Int($0.rounded()))) }
                 )
                 .disabled(!settings.hookDebugLoggingEnabled)
                 .opacity(settings.hookDebugLoggingEnabled ? 1 : 0.45)
                 SettingsLineDivider()
 
                 SettingsSliderLine(
-                    title: "最大日志占用",
-                    subtitle: "当 ~/Library/Logs/cc-flow 超过该大小时，会优先删除最旧的 Hook 调试日志。",
+                    title: AppLocalization.runtimeString("settings.maximum_log_usage"),
+                    subtitle: AppLocalization.runtimeString("settings.when_library_logs_cc_flow_exceeds_this_size"),
                     value: Binding(
                         get: { Double(settings.hookDebugLogMaxDirectoryMegabytes) },
                         set: { settings.hookDebugLogMaxDirectoryMegabytes = Int($0.rounded()) }
@@ -2025,7 +2032,7 @@ private struct SettingsPanelContentView: View {
                 HStack(spacing: 7) {
                     Image(systemName: "trash")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(appLocalized: "一键卸载所有 Hooks 配置文件")
+                    Text(appLocalized: "settings.uninstall_all_hooks_configuration_files")
                         .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundColor(TerminalColors.red)
@@ -2034,7 +2041,7 @@ private struct SettingsPanelContentView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text(appLocalized: "一键卸载所有 Hooks 配置文件"))
+            .accessibilityLabel(Text(appLocalized: "settings.uninstall_all_hooks_configuration_files"))
         }
     }
 
@@ -2045,22 +2052,22 @@ private struct SettingsPanelContentView: View {
         case .opencode: return "OpenCode"
         case .trae: return "TRAE"
         case .antigravity: return "Antigravity"
-        case .neutral: return "其他"
+        case .neutral: return AppLocalization.runtimeString("settings.other")
         }
     }
 
     private var aboutContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            SettingsSectionCard(title: "应用信息") {
-                SettingsValueLine(title: "版本", value: appVersion)
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.app_info")) {
+                SettingsValueLine(title: AppLocalization.runtimeString("settings.version"), value: appVersion)
                 SettingsLineDivider()
-                SettingsValueLine(title: "安装时间", value: versionMetadata)
+                SettingsValueLine(title: AppLocalization.runtimeString("settings.installed_2"), value: versionMetadata)
             }
 
-            SettingsSectionCard(title: "更新") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.updates")) {
                 SettingsToggleLine(
-                    title: "自动检查更新",
-                    subtitle: "启动时和空闲时自动检查、下载并安装更新；关闭后仅在手动检查时更新",
+                    title: AppLocalization.runtimeString("settings.automatic_update_checks"),
+                    subtitle: AppLocalization.runtimeString("settings.automatically_check_download_and_install_updates_on_launch"),
                     isOn: $settings.automaticUpdateChecksEnabled
                 )
                 SettingsLineDivider()
@@ -2078,8 +2085,8 @@ private struct SettingsPanelContentView: View {
                     SettingsLineDivider()
 
                     SettingsActionLine(
-                        title: "立即重启安装",
-                        subtitle: "不等待空闲，立即退出 CC FLOW 并完成已下载的更新"
+                        title: AppLocalization.runtimeString("settings.restart_and_install_now"),
+                        subtitle: AppLocalization.runtimeString("settings.quit_cc_flow_and_install_the_downloaded_update")
                     ) {
                         updateManager.installAndRelaunch()
                     } accessory: {
@@ -2090,8 +2097,8 @@ private struct SettingsPanelContentView: View {
                 }
             }
 
-            SettingsSectionCard(title: "链接") {
-                SettingsActionLine(title: "GitHub", subtitle: "访问项目主页与反馈问题") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.links")) {
+                SettingsActionLine(title: "GitHub", subtitle: AppLocalization.runtimeString("settings.visit_the_project_home_page_or_report_an")) {
                     if let url = URL(string: "https://github.com/kilig947-alt/cc-flow") {
                         NSWorkspace.shared.open(url)
                     }
@@ -2104,7 +2111,7 @@ private struct SettingsPanelContentView: View {
                 SettingsLineDivider()
 
                 SettingsActionLine(
-                    title: "导出诊断日志",
+                    title: AppLocalization.runtimeString("settings.export_diagnostics"),
                     subtitle: viewModel.logExportStatus
                 ) {
                     viewModel.exportLogs()
@@ -2121,10 +2128,10 @@ private struct SettingsPanelContentView: View {
                 }
             }
 
-            SettingsSectionCard(title: "重置") {
+            SettingsSectionCard(title: AppLocalization.runtimeString("settings.reset")) {
                 SettingsActionLine(
-                    title: "清除所有缓存",
-                    subtitle: "卸载 Hook、清除偏好设置与本地数据，让应用恢复到首次安装状态；执行后应用将自动退出，需要手动重新打开"
+                    title: AppLocalization.runtimeString("settings.clear_all_data"),
+                    subtitle: AppLocalization.runtimeString("settings.uninstall_hooks_and_clear_preferences_and_local_data")
                 ) {
                     showingClearCacheConfirmation = true
                 } accessory: {
@@ -2135,17 +2142,17 @@ private struct SettingsPanelContentView: View {
             }
         }
         .confirmationDialog(
-            "确认清除所有缓存？",
+            "settings.clear_all_data_2",
             isPresented: $showingClearCacheConfirmation,
             titleVisibility: .visible
         ) {
-            Button("清除并退出", role: .destructive) {
+            Button("settings.clear_and_quit", role: .destructive) {
                 AppCacheResetManager.performFullReset()
                 AppCacheResetManager.terminateApp()
             }
-            Button("取消", role: .cancel) {}
+            Button("common.cancel", role: .cancel) {}
         } message: {
-            Text("此操作将卸载所有 Hook 安装、删除偏好设置和本地数据目录（包括自定义区域、宠物主题、Hook 调试日志等），无法撤销。执行完成后请手动重新打开应用。")
+            Text("settings.this_will_uninstall_all_hooks_and_delete_preferences")
         }
     }
 
@@ -2167,7 +2174,7 @@ private struct SettingsPanelContentView: View {
     }
 
     private var productivityPermissionsCard: some View {
-        SettingsSectionCard(title: "权限与数据来源") {
+        SettingsSectionCard(title: AppLocalization.runtimeString("settings.permissions_and_data_sources")) {
             VStack(spacing: 8) {
                 ForEach(productivityPermissionCenter.items) { item in
                     HStack {
@@ -2181,7 +2188,7 @@ private struct SettingsPanelContentView: View {
                 }
                 HStack {
                     Spacer()
-                    Button("刷新状态") { productivityPermissionCenter.refresh() }
+                    Button("settings.refresh_status") { productivityPermissionCenter.refresh() }
                 }
             }
             .padding(.horizontal, 18)
@@ -2190,9 +2197,9 @@ private struct SettingsPanelContentView: View {
     }
 
     private var productivityCredentialsCard: some View {
-        SettingsSectionCard(title: "生产力连接") {
+        SettingsSectionCard(title: AppLocalization.runtimeString("settings.productivity_connections")) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("GitHub 优先使用本机 gh 登录；Personal Access Token 仅作为备用并保存到 macOS 钥匙串。")
+                Text("settings.github_uses_local_gh_authentication_first_a_personal")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Label(LocalizedStringKey(githubService.status), systemImage: githubService.profile == nil ? "exclamationmark.circle" : "checkmark.circle.fill")
@@ -2201,21 +2208,21 @@ private struct SettingsPanelContentView: View {
                 HStack {
                     SecureField("GitHub Personal Access Token", text: $githubPATDraft)
                         .textFieldStyle(.roundedBorder)
-                    Button("保存") {
+                    Button("common.save") {
                         do {
                             try ProductivitySecretsStore.shared.set(githubPATDraft, for: .githubPAT)
                             githubPATDraft = ""
-                            productivitySecretMessage = "已保存到钥匙串"
+                            productivitySecretMessage = AppLocalization.runtimeString("settings.saved_to_keychain")
                             GitHubService.shared.refresh()
                         } catch {
                             productivitySecretMessage = error.localizedDescription
                         }
                     }
                     .disabled(githubPATDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    Button("删除", role: .destructive) {
+                    Button("common.delete", role: .destructive) {
                         do {
                             try ProductivitySecretsStore.shared.delete(.githubPAT)
-                            productivitySecretMessage = "备用 Token 已删除"
+                            productivitySecretMessage = AppLocalization.runtimeString("settings.fallback_token_deleted")
                         } catch {
                             productivitySecretMessage = error.localizedDescription
                         }
@@ -2235,13 +2242,13 @@ private struct SettingsPanelContentView: View {
     // MARK: - Left Content: TRAE Work Design Generator
 
     private var generatedPanelDesignCard: some View {
-        SettingsSectionCard(title: "用 Design 生成功能") {
+        SettingsSectionCard(title: AppLocalization.runtimeString("settings.generate_feature_with_design")) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text("选择 Design 应用后会先复制提示词；粘贴到设计对话中，生成完成后面板会自动加入上方功能列表。")
+                    Text("settings.choose_a_design_app_to_copy_the_prompt_then")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2273,7 +2280,7 @@ private struct SettingsPanelContentView: View {
                     .padding(.top, 12)
 
                 HStack(spacing: 8) {
-                    Text("生成功能提示词")
+                    Text("settings.feature_generation_prompt")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
 
@@ -2287,7 +2294,7 @@ private struct SettingsPanelContentView: View {
                         }
                     } label: {
                         Label(
-                            generatedPanelPromptCopied ? "已复制" : "复制提示词",
+                            generatedPanelPromptCopied ? AppLocalization.runtimeString("settings.copied") : AppLocalization.runtimeString("settings.copy_prompt"),
                             systemImage: generatedPanelPromptCopied ? "checkmark" : "doc.on.doc"
                         )
                         .font(.system(size: 10, weight: .medium))
@@ -2338,7 +2345,7 @@ private struct SettingsPanelContentView: View {
                 generatedPanelActionMessage = nil
                 _ = generatedPanelScanner.importSelectedDirectory(url)
             case .failure(let error):
-                generatedPanelActionMessage = AppLocalization.format("选择目录失败：%@", String(describing: error.localizedDescription))
+                generatedPanelActionMessage = AppLocalization.format("settings.failed_to_select_directory", String(describing: error.localizedDescription))
             }
         }
         .onReceive(generatedPanelScanner.$lastResult.dropFirst()) { result in
@@ -2357,12 +2364,12 @@ private struct SettingsPanelContentView: View {
         }
         let result = generatedPanelScanner.lastResult
         if !result.importedNames.isEmpty {
-            return (AppLocalization.format("已导入：%@", result.importedNames.joined(separator: ", ")), "checkmark.circle.fill", false)
+            return (AppLocalization.format("settings.imported", result.importedNames.joined(separator: ", ")), "checkmark.circle.fill", false)
         }
         if let issue = result.issues.first {
             return ("\(issue.directoryName)：\(issue.message)", "exclamationmark.triangle.fill", true)
         }
-        return ("没有发现新面板", "checkmark.circle", false)
+        return (AppLocalization.runtimeString("settings.no_new_panels_found"), "checkmark.circle", false)
     }
 
     // MARK: - Left Content: Feature List
@@ -2372,7 +2379,7 @@ private struct SettingsPanelContentView: View {
     /// 标题右侧提供「添加自定义功能」入口，与功能管理合并在一处。
     private var featureListCard: some View {
         SettingsSectionCard(
-            title: "功能列表",
+            title: AppLocalization.runtimeString("settings.features"),
             titleLeadingAccessory: { generatedPanelRecoveryControls },
             titleAccessory: { addCustomAreaTitleButton }
         ) {
@@ -2392,7 +2399,7 @@ private struct SettingsPanelContentView: View {
             .frame(height: featureListHeight)
         }
         .confirmationDialog(
-            "确认删除该自定义功能？",
+            "settings.delete_this_custom_feature",
             isPresented: Binding(
                 get: { pendingDeleteAreaID != nil },
                 set: { if !$0 { pendingDeleteAreaID = nil } }
@@ -2400,18 +2407,18 @@ private struct SettingsPanelContentView: View {
             titleVisibility: .visible,
             presenting: pendingDeleteAreaID
         ) { areaID in
-            Button("删除", role: .destructive) {
+            Button("common.delete", role: .destructive) {
                 customAreaStore.removeArea(id: areaID)
                 pendingDeleteAreaID = nil
             }
-            Button("取消", role: .cancel) {
+            Button("common.cancel", role: .cancel) {
                 pendingDeleteAreaID = nil
             }
         } message: { _ in
-            Text("删除后该功能将从列表移除，相关文件目录不会自动清理。")
+            Text("settings.the_feature_will_be_removed_from_the_list")
         }
         .confirmationDialog(
-            "确认删除该网站功能？",
+            "settings.delete_this_website_feature",
             isPresented: Binding(
                 get: { pendingDeleteWebURLFeature != nil },
                 set: { if !$0 { pendingDeleteWebURLFeature = nil } }
@@ -2419,15 +2426,15 @@ private struct SettingsPanelContentView: View {
             titleVisibility: .visible,
             presenting: pendingDeleteWebURLFeature
         ) { feature in
-            Button("删除", role: .destructive) {
+            Button("common.delete", role: .destructive) {
                 leftFeatureStore.removeWebURLFeature(id: feature.id)
                 pendingDeleteWebURLFeature = nil
             }
-            Button("取消", role: .cancel) {
+            Button("common.cancel", role: .cancel) {
                 pendingDeleteWebURLFeature = nil
             }
         } message: { _ in
-            Text("删除后该 URL 功能将从列表移除。")
+            Text("settings.the_url_feature_will_be_removed_from_the")
         }
     }
 
@@ -2457,14 +2464,14 @@ private struct SettingsPanelContentView: View {
                     Image(systemName: "arrow.clockwise")
                 } else {
                     Label(
-                        generatedPanelScanner.isScanning ? "正在扫描…" : "扫描生成功能",
+                        generatedPanelScanner.isScanning ? AppLocalization.runtimeString("settings.scanning") : AppLocalization.runtimeString("settings.scan_generated_features"),
                         systemImage: "arrow.clockwise"
                     )
                 }
             }
             .disabled(generatedPanelScanner.isScanning)
-            .help(Text(appLocalized: generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能"))
-            .accessibilityLabel(Text(appLocalized: generatedPanelScanner.isScanning ? "正在扫描生成功能" : "扫描生成功能"))
+            .help(Text(appLocalized: generatedPanelScanner.isScanning ? AppLocalization.runtimeString("settings.scanning_generated_features") : AppLocalization.runtimeString("settings.scan_generated_features")))
+            .accessibilityLabel(Text(appLocalized: generatedPanelScanner.isScanning ? AppLocalization.runtimeString("settings.scanning_generated_features") : AppLocalization.runtimeString("settings.scan_generated_features")))
 
             Button {
                 showingGeneratedPanelDirectoryImporter = true
@@ -2472,11 +2479,11 @@ private struct SettingsPanelContentView: View {
                 if usesCompactButtons {
                     Image(systemName: "folder.badge.plus")
                 } else {
-                    Label("选择目录导入", systemImage: "folder.badge.plus")
+                    Label("settings.import_from_directory", systemImage: "folder.badge.plus")
                 }
             }
-            .help("选择目录导入")
-            .accessibilityLabel("选择目录导入")
+            .help("settings.import_from_directory")
+            .accessibilityLabel("settings.import_from_directory")
 
             if let status = generatedPanelStatusText {
                 Label(LocalizedStringKey(status.text), systemImage: status.symbol)
@@ -2502,7 +2509,7 @@ private struct SettingsPanelContentView: View {
                 guard generatedPanelLaunchToken == launchToken else { return }
                 generatedPanelLaunchFailure = succeeded
                     ? nil
-                    : AppLocalization.format("提示词已复制，但未能打开 %@。请确认应用已安装。", String(describing: destination.applicationDisplayName))
+                    : AppLocalization.format("settings.prompt_copied_but_could_not_open_make_sure", String(describing: destination.applicationDisplayName))
             }
         } label: {
             HStack(spacing: 5) {
@@ -2524,7 +2531,7 @@ private struct SettingsPanelContentView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityHint("复制生成功能提示词并打开应用")
+        .accessibilityHint("settings.copy_feature_prompt_and_open_app")
     }
 
     private func copyGeneratedPanelPrompt() {
@@ -2541,7 +2548,7 @@ private struct SettingsPanelContentView: View {
             HStack(spacing: 4) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 13))
-                Text("添加自定义功能")
+                Text("settings.add_custom_feature")
                     .font(.system(size: 12, weight: .medium))
             }
         }
@@ -2575,13 +2582,13 @@ private struct SettingsPanelContentView: View {
             // 右侧操作组：按 kind 分发
             switch feature.kind {
             case .translation:
-                Button("翻译服务") { TranslationStore.shared.openServiceSettings() }
+                Button("settings.translation_services") { TranslationStore.shared.openServiceSettings() }
                     .buttonStyle(.borderless)
                     .disabled(!feature.isEnabled)
-                    .help(Text(appLocalized: feature.isEnabled ? "在灵动岛中配置翻译服务" : "请先启用 Tflow 翻译"))
-                Button("编辑") { editingBuiltinFeature = feature }.buttonStyle(.borderless)
+                    .help(Text(appLocalized: feature.isEnabled ? AppLocalization.runtimeString("settings.configure_translation_services_in_flow_island") : AppLocalization.runtimeString("settings.enable_tflow_translation_first")))
+                Button("settings.edit") { editingBuiltinFeature = feature }.buttonStyle(.borderless)
             case .usage, .systemMonitor, .calendar, .github, .giflow:
-                Button("编辑") { editingBuiltinFeature = feature }
+                Button("settings.edit") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
             case .customArea(let areaID):
@@ -2594,7 +2601,7 @@ private struct SettingsPanelContentView: View {
                             .font(.system(size: 13))
                     }
                     .buttonStyle(.borderless)
-                    .help("在 TRAE CN 中打开")
+                    .help("settings.open_in_trae_cn")
 
                     // 打开目录（Finder）
                     Button {
@@ -2603,15 +2610,15 @@ private struct SettingsPanelContentView: View {
                         Image(systemName: "folder")
                     }
                     .buttonStyle(.borderless)
-                    .help("在 Finder 中打开")
+                    .help("settings.show_in_finder")
 
                     // 编辑
-                    Button("编辑") { editCustomArea(areaID: areaID) }
+                    Button("settings.edit") { editCustomArea(areaID: areaID) }
                         .buttonStyle(.borderless)
                         .font(.system(size: 12))
                 }
                 // 删除（弹出确认对话框）
-                Button("删除") { pendingDeleteAreaID = areaID }
+                Button("common.delete") { pendingDeleteAreaID = areaID }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
                     .foregroundColor(.red)
@@ -2631,22 +2638,22 @@ private struct SettingsPanelContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(.borderless)
-                .help("在浏览器中打开")
+                .help("settings.open_in_browser")
 
                 // 编辑
-                Button("编辑") { editingWebURLFeature = feature }
+                Button("settings.edit") { editingWebURLFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
 
                 // 删除（弹出确认对话框）
-                Button("删除") { pendingDeleteWebURLFeature = feature }
+                Button("common.delete") { pendingDeleteWebURLFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
                     .foregroundColor(.red)
 
             case .music:
                 // 内置功能也支持编辑（图标 / 名称 / 展开尺寸 / 固定）
-                Button("编辑") { editingBuiltinFeature = feature }
+                Button("settings.edit") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
 
@@ -2658,10 +2665,10 @@ private struct SettingsPanelContentView: View {
                     Image(systemName: "globe")
                 }
                 .buttonStyle(.borderless)
-                .help("编辑实例 URL")
+                .help("settings.edit_instance_url")
 
                 // 编辑（图标 / 名称 / 展开尺寸 / 固定）
-                Button("编辑") { editingBuiltinFeature = feature }
+                Button("settings.edit") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
 
@@ -2677,9 +2684,9 @@ private struct SettingsPanelContentView: View {
                     Image(systemName: "globe")
                 }
                 .buttonStyle(.borderless)
-                .help("编辑页面 URL")
+                .help("settings.edit_page_url")
                 // 编辑（图标 / 名称 / 展开尺寸 / 固定）
-                Button("编辑") { editingBuiltinFeature = feature }
+                Button("settings.edit") { editingBuiltinFeature = feature }
                     .buttonStyle(.borderless)
                     .font(.system(size: 12))
             }
@@ -2691,8 +2698,8 @@ private struct SettingsPanelContentView: View {
                     .foregroundColor(shortcutManager.registrationError(forFeatureID: feature.id) == nil ? nil : .red)
             }
             .buttonStyle(.borderless)
-            .help(Text(appLocalized: shortcutManager.registrationError(forFeatureID: feature.id) ?? "设置全局快捷键"))
-            .accessibilityLabel(Text(appLocalized: "设置全局快捷键"))
+            .help(Text(appLocalized: shortcutManager.registrationError(forFeatureID: feature.id) ?? AppLocalization.runtimeString("settings.set_global_shortcut")))
+            .accessibilityLabel(Text(appLocalized: "settings.set_global_shortcut"))
 
             // 启用开关（所有功能都有）
             Toggle("", isOn: Binding(
@@ -2786,7 +2793,7 @@ private struct SettingsPanelContentView: View {
             )
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: state.isLoggedIn ? AppLocalization.format("点击退出 %@ 登录", AppLocalization.string(platform.displayName)) : AppLocalization.format("点击登录 %@", AppLocalization.string(platform.displayName))))
+        .help(Text(appLocalized: state.isLoggedIn ? AppLocalization.format("settings.click_to_sign_out_of", AppLocalization.string(platform.displayName)) : AppLocalization.format("settings.click_to_sign_in_to", AppLocalization.string(platform.displayName))))
     }
 
     /// Spec: mineradio-bridge-compat-layer —— 待退出登录的平台（confirmationDialog 用）
@@ -2798,13 +2805,13 @@ private struct SettingsPanelContentView: View {
     /// Spec: webURL 模式下 URL 放第一位，URL 合法时 debounce 后自动获取网站 favicon + 标题填入图标和名称字段。
     private var addCustomAreaSheet: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("新建功能")
+            Text("settings.new_feature")
                 .font(.headline)
 
             // 类型选择
-            Picker("类型", selection: $newFeatureType) {
+            Picker("settings.type", selection: $newFeatureType) {
                 ForEach(NewFeatureType.allCases) { type in
-                    Text(appLocalized: type.rawValue).tag(type)
+                    Text(appLocalized: type.titleKey).tag(type)
                 }
             }
             .pickerStyle(.segmented)
@@ -2815,10 +2822,10 @@ private struct SettingsPanelContentView: View {
                 // 本地目录：图标 → 名称 → 目录提示 → 网络开关
                 newFeatureIconRow
                 newFeatureNameRow
-                Text("目录将按名称自动生成")
+                Text("settings.a_directory_will_be_generated_from_the_name")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Toggle("允许请求外部接口", isOn: $newCustomAreaAllowsNetwork)
+                Toggle("custom_area.allow_external_requests", isOn: $newCustomAreaAllowsNetwork)
                     .font(.caption)
 
             case .webURL:
@@ -2826,21 +2833,21 @@ private struct SettingsPanelContentView: View {
                 newFeatureURLRow
                 newFeatureNameRow
                 newFeatureIconRow
-                Toggle("跨域登录留在 WebView", isOn: $newWebURLKeepsCrossDomainLoginInWebView)
+                Toggle("settings.keep_cross_site_sign_in_in_webview", isOn: $newWebURLKeepsCrossDomainLoginInWebView)
                     .font(.caption)
-                    .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
-                Toggle("加载 Mineradio Bridge", isOn: $newWebURLLoadsMineradioBridge)
+                    .help("custom_area.keep_authentication_redirects_and_popups_in_the_current")
+                Toggle("custom_area.load_mineradio_bridge", isOn: $newWebURLLoadsMineradioBridge)
                     .font(.caption)
-                    .help("向该网站注入 Mineradio Bridge 兼容层，用于音乐 API、Cookie 和二进制资源代理。")
+                    .help("custom_area.inject_the_mineradio_bridge_compatibility_layer_for_music")
             }
 
             HStack {
                 Spacer()
-                Button("取消") {
+                Button("common.cancel") {
                     resetAddCustomAreaForm()
                     showingAddCustomAreaSheet = false
                 }
-                Button("添加") {
+                Button("settings.add") {
                     addCustomArea()
                 }
                 .buttonStyle(.borderedProminent)
@@ -2873,10 +2880,10 @@ private struct SettingsPanelContentView: View {
                             // 选了图片后清空文字输入，避免歧义
                             newCustomAreaIconText = ""
                         } else {
-                            iconImageError = "图片保存失败"
+                            iconImageError = AppLocalization.runtimeString("custom_area.failed_to_save_image")
                         }
                     } catch {
-                        iconImageError = AppLocalization.format("读取图片失败：%@", String(describing: error.localizedDescription))
+                        iconImageError = AppLocalization.format("custom_area.failed_to_read_image", String(describing: error.localizedDescription))
                     }
                 }
             case .failure:
@@ -2897,7 +2904,7 @@ private struct SettingsPanelContentView: View {
                 if isFetchingMetadata {
                     ProgressView()
                         .controlSize(.mini)
-                    Text("获取图标和名称…")
+                    Text("custom_area.fetching_icon_and_name")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -2909,7 +2916,7 @@ private struct SettingsPanelContentView: View {
                     scheduleMetadataFetch(for: newValue)
                 }
             if !newFeatureURLString.isEmpty, !isNewWebURLValid {
-                Text("请输入合法的 http 或 https 链接")
+                Text("custom_area.enter_a_valid_http_or_https_url")
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -2919,10 +2926,10 @@ private struct SettingsPanelContentView: View {
     /// 名称输入行。
     private var newFeatureNameRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("名称")
+            Text("custom_area.name")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("名称", text: $newCustomAreaName)
+            TextField("custom_area.name", text: $newCustomAreaName)
                 .textFieldStyle(.roundedBorder)
         }
     }
@@ -2930,19 +2937,19 @@ private struct SettingsPanelContentView: View {
     /// 图标输入行（文字 + 图片选择 + 实时预览）。
     private var newFeatureIconRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("图标")
+            Text("custom_area.icon")
                 .font(.caption)
                 .foregroundColor(.secondary)
             HStack(spacing: 10) {
                 FeatureIconView(iconID: resolvedNewCustomAreaIconID, fallbackSymbol: "globe", size: 18, color: .accentColor)
                     .frame(width: 22)
-                TextField("输入文字或选择图片", text: $newCustomAreaIconText)
+                TextField("custom_area.enter_text_or_choose_an_image", text: $newCustomAreaIconText)
                     .textFieldStyle(.roundedBorder)
-                Button("选择图片…") {
+                Button("custom_area.choose_image") {
                     showingIconImagePicker = true
                 }
                 if newCustomAreaIconImage != nil {
-                    Button("删除图片") {
+                    Button("custom_area.delete_image") {
                         newCustomAreaIconImage = nil
                         autoFilledIconImage = nil
                         iconImageError = nil
@@ -3088,16 +3095,16 @@ private struct SettingsPanelContentView: View {
     /// - Picker 选择 Flow Island 紧凑态展示的功能（「自动」或任一已启用功能）
     /// - 选择非「自动」功能时显示「显示提示」开关（控制自定义 HTML JS Bridge 提示是否在紧凑态显示）
     private var flowIslandDisplayCard: some View {
-        SettingsSectionCard(title: "Flow Island显示") {
+        SettingsSectionCard(title: AppLocalization.runtimeString("settings.flow_island_display")) {
             SettingsInfoLine(
-                title: "Flow Island显示功能",
-                subtitle: "选择Flow Island紧凑态展示的功能；选择「自动」时按规则解析"
+                title: AppLocalization.runtimeString("settings.compact_feature"),
+                subtitle: AppLocalization.runtimeString("settings.choose_the_feature_shown_in_compact_flow_island")
             ) {
-                Picker("Flow Island显示功能", selection: Binding(
+                Picker("settings.compact_feature", selection: Binding(
                     get: { leftFeatureStore.compactFeatureID ?? "" },
                     set: { leftFeatureStore.setCompactFeature(id: $0.isEmpty ? nil : $0) }
                 )) {
-                    Text(appLocalized: "自动").tag("")
+                    Text(appLocalized: "common.automatic").tag("")
                     ForEach(leftFeatureStore.enabledFeatures) { feature in
                         Text(feature.displayName).tag(feature.id)
                     }
@@ -3111,8 +3118,8 @@ private struct SettingsPanelContentView: View {
             // Spec: 选择非「自动」功能时显示「显示提示」开关
             if leftFeatureStore.compactFeatureID != nil {
                 SettingsInfoLine(
-                    title: "显示提示",
-                    subtitle: "开启后，自定义HTML通过JS Bridge推送的提醒会显示在Flow Island紧凑态"
+                    title: AppLocalization.runtimeString("settings.show_hints"),
+                    subtitle: AppLocalization.runtimeString("settings.show_hints_sent_by_custom_html_through_js")
                 ) {
                     Toggle("", isOn: $settings.showCompactHintEnabled)
                         .labelsHidden()
@@ -3124,8 +3131,8 @@ private struct SettingsPanelContentView: View {
 
             // Spec: 远程 URL 功能收起后保活开关
             SettingsInfoLine(
-                title: "收起后保持运行",
-                subtitle: "开启后，URL功能在Flow Island收起时继续运行（音频/JS/网络不中断）"
+                title: AppLocalization.runtimeString("settings.keep_running_when_collapsed"),
+                subtitle: AppLocalization.runtimeString("settings.keep_url_features_running_when_flow_island_collapses")
             ) {
                 Toggle("", isOn: $settings.keepWebURLAliveWhenCollapsed)
                     .labelsHidden()
@@ -3135,8 +3142,8 @@ private struct SettingsPanelContentView: View {
     }
 
     private var screenPicker: some View {
-        Picker("显示器", selection: screenSelectionBinding) {
-            Text(appLocalized: "自动").tag("automatic")
+        Picker("settings.display_2", selection: screenSelectionBinding) {
+            Text(appLocalized: "common.automatic").tag("automatic")
             ForEach(screenSelector.availableScreens, id: \.self) { screen in
                 Text(screen.localizedName).tag(screenToken(for: screen))
             }
@@ -3146,7 +3153,7 @@ private struct SettingsPanelContentView: View {
     }
 
     private var appLanguagePicker: some View {
-        Picker("语言", selection: $settings.appLanguage) {
+        Picker("settings.language", selection: $settings.appLanguage) {
             ForEach(AppLanguage.allCases) { language in
                 Text(appLocalized: language.title).tag(language)
             }
@@ -3199,7 +3206,7 @@ private struct SettingsPanelContentView: View {
     private var versionMetadata: String {
         guard let metadata = HookInstaller.getVersionMetadata(),
               let installedAt = metadata["installedAt"] as? String else {
-            return AppLocalization.string("首次安装")
+            return AppLocalization.string("settings.first_install")
         }
 
         // Format the date
@@ -3218,17 +3225,17 @@ private struct SettingsPanelContentView: View {
     private var updateTitle: String {
         switch updateManager.state {
         case .idle, .upToDate:
-            return AppLocalization.string("检查更新")
+            return AppLocalization.string("settings.check_for_updates")
         case .checking:
-            return AppLocalization.string("检查中...")
+            return AppLocalization.string("settings.checking")
         case .found, .downloading, .extracting:
-            return AppLocalization.string("静默更新中")
+            return AppLocalization.string("settings.updating_in_background")
         case .readyToInstall:
-            return AppLocalization.string("等待重启安装")
+            return AppLocalization.string("settings.waiting_to_restart_and_install")
         case .installing:
-            return AppLocalization.string("正在安装更新")
+            return AppLocalization.string("settings.installing_update")
         case .error:
-            return AppLocalization.string("重试更新")
+            return AppLocalization.string("settings.retry_update")
         }
     }
 
@@ -3238,26 +3245,26 @@ private struct SettingsPanelContentView: View {
             return updateManager.isConfigured
                 ? AppLocalization.string(
                     settings.automaticUpdateChecksEnabled
-                        ? "启动时和空闲时自动检查、下载并安装更新"
-                        : "自动更新已关闭，可随时手动检查"
+                        ? AppLocalization.runtimeString("settings.automatically_check_download_and_install_updates_on_launch_and")
+                        : AppLocalization.runtimeString("settings.automatic_updates_are_off_you_can_check_manually")
                 )
                 : updateManager.configurationStatus.message
         case .upToDate:
-            return AppLocalization.string("当前已经是最新版本")
+            return AppLocalization.string("settings.you_re_already_on_the_latest_version")
         case .checking:
-            return AppLocalization.string("正在后台检查更新")
+            return AppLocalization.string("settings.checking_for_updates_in_background")
         case .found(let version, _):
-            return AppLocalization.format("发现新版本 v%@，将静默下载并安装", version)
+            return AppLocalization.format("settings.version_v_found_downloading_and_installing_silently", version)
         case .downloading:
-            return AppLocalization.string("正在后台下载更新")
+            return AppLocalization.string("settings.downloading_update_in_background")
         case .extracting:
-            return AppLocalization.string("正在准备安装更新")
+            return AppLocalization.string("settings.preparing_update")
         case .readyToInstall(let version):
-            return AppLocalization.format("v%@ 已就绪，可立即重启安装，或等空闲时自动安装", version)
+            return AppLocalization.format("settings.v_is_ready_restart_now_or_wait_for", version)
         case .installing:
-            return AppLocalization.string("正在静默安装并重启")
+            return AppLocalization.string("settings.installing_and_restarting_silently")
         case .error:
-            return AppLocalization.string("后台更新失败，点击后重新检查")
+            return AppLocalization.string("settings.background_update_failed_click_to_check_again")
         }
     }
 
@@ -3268,7 +3275,7 @@ private struct SettingsPanelContentView: View {
             ProgressView()
                 .controlSize(.small)
         case .upToDate:
-            Text(appLocalized: "最新")
+            Text(appLocalized: "settings.latest")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(TerminalColors.green)
         case .found(let version, _), .readyToInstall(let version):
@@ -3299,9 +3306,9 @@ private struct CompletionPromptRegexRulesSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("完成回复识别")
+                Text("settings.completion_reply_detection")
                     .font(.system(size: 13, weight: .medium))
-                Text("当 Stop 回复没有原生提问时，用正则提取问题和选项；选择结果会作为新消息回传到原会话。原生审批与提问始终优先。")
+                Text("settings.when_a_stop_response_has_no_native_question")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -3323,7 +3330,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 10) {
                         labeledEditor(
-                            title: "触发正则",
+                            title: AppLocalization.runtimeString("settings.trigger_regex"),
                             text: $rule.triggerPattern,
                             minimumHeight: 56
                         )
@@ -3333,18 +3340,18 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                             validationText(error)
                         }
 
-                        Toggle("仅自由输入，不显示预设选项", isOn: $rule.isFreeformOnly)
+                        Toggle("settings.free_text_only_no_preset_options", isOn: $rule.isFreeformOnly)
                             .toggleStyle(.checkbox)
                             .font(.system(size: 11))
 
                         if !rule.isFreeformOnly {
                             if rule.capturesTriggerGroupsAsOptions {
-                                Text("触发正则的捕获组 1、2… 将依次作为 A、B… 选项。")
+                                Text("settings.capture_groups_1_2_become_options_a_b")
                                     .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                             } else {
                                 labeledEditor(
-                                    title: "选项正则（捕获组 1 = 键，捕获组 2 = 文本；留空使用固定选项）",
+                                    title: AppLocalization.runtimeString("settings.option_regex_group_1_key_group_2_text"),
                                     text: $rule.optionPattern,
                                     minimumHeight: 56
                                 )
@@ -3356,28 +3363,28 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                                 }
                             }
 
-                            Toggle("允许多选", isOn: $rule.allowsMultiple)
+                            Toggle("settings.allow_multiple_selections", isOn: $rule.allowsMultiple)
                                 .toggleStyle(.checkbox)
                                 .font(.system(size: 11))
 
                             if rule.capturesTriggerGroupsAsOptions {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text("回传模板")
+                                    Text("settings.reply_template")
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundColor(.secondary)
-                                    TextField("选择 {key}：{option}", text: $rule.replyTemplate)
+                                    TextField("completion.select_key_option", text: $rule.replyTemplate)
                                         .textFieldStyle(.roundedBorder)
                                 }
                             } else if rule.optionPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                                 staticOptionsEditor(rule: $rule)
                             } else {
                                 VStack(alignment: .leading, spacing: 5) {
-                                    Text("回传模板")
+                                    Text("settings.reply_template")
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundColor(.secondary)
-                                    TextField("选择 {key}：{option}", text: $rule.replyTemplate)
+                                    TextField("completion.select_key_option", text: $rule.replyTemplate)
                                         .textFieldStyle(.roundedBorder)
-                                    Text("可使用 {key} 和 {option} 占位符。")
+                                    Text("settings.use_key_and_option_placeholders")
                                         .font(.system(size: 10))
                                         .foregroundColor(.secondary)
                                 }
@@ -3389,7 +3396,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                             Button(role: .destructive) {
                                 removeRule(rule.id)
                             } label: {
-                                Label("删除规则", systemImage: "trash")
+                                Label("settings.delete_rule", systemImage: "trash")
                             }
                             .buttonStyle(.borderless)
                         }
@@ -3398,12 +3405,9 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                     .padding(.leading, 24)
                 } label: {
                     HStack(spacing: 10) {
-                        TextField("规则名称", text: Binding(
+                        TextField("settings.rule_name", text: Binding(
                             get: {
-                                let isDefaultName = CompletionPromptRegexRule.defaultTemplates.contains {
-                                    $0.id == rule.id && $0.name == rule.name
-                                }
-                                return isDefaultName ? AppLocalization.string(rule.name) : rule.name
+                                rule.localizedName
                             },
                             set: { rule.name = $0 }
                         ))
@@ -3413,7 +3417,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
                         Text(appLocalized: ruleModeLabel(rule))
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
-                        Toggle("启用", isOn: $rule.isEnabled)
+                        Toggle("translation.enabled", isOn: $rule.isEnabled)
                             .toggleStyle(.switch)
                             .controlSize(.small)
                             .font(.system(size: 10, weight: .medium))
@@ -3424,9 +3428,9 @@ private struct CompletionPromptRegexRulesSettingsView: View {
             }
 
             HStack(spacing: 8) {
-                Button("新增规则", action: addRule)
+                Button("settings.add_rule", action: addRule)
                     .buttonStyle(.bordered)
-                Button("恢复默认模板") {
+                Button("settings.restore_default_templates") {
                     settings.completionPromptRegexRules = CompletionPromptRegexRule.defaultTemplates
                     expandedRuleIDs.removeAll()
                 }
@@ -3463,15 +3467,15 @@ private struct CompletionPromptRegexRulesSettingsView: View {
         rule: Binding<CompletionPromptRegexRule>
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("固定选项")
+            Text("settings.fixed_options")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
             ForEach(rule.staticOptions) { $option in
                 HStack(spacing: 7) {
-                    TextField("按钮文字", text: $option.title)
+                    TextField("settings.button_label", text: $option.title)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 130)
-                    TextField("回传内容", text: $option.reply)
+                    TextField("settings.reply_content", text: $option.reply)
                         .textFieldStyle(.roundedBorder)
                     Button(role: .destructive) {
                         removeStaticOption(ruleID: rule.wrappedValue.id, optionID: option.id)
@@ -3484,7 +3488,7 @@ private struct CompletionPromptRegexRulesSettingsView: View {
             Button {
                 appendStaticOption(to: rule.wrappedValue.id)
             } label: {
-                Label("添加选项", systemImage: "plus")
+                Label("settings.add_option", systemImage: "plus")
             }
             .buttonStyle(.borderless)
         }
@@ -3499,20 +3503,20 @@ private struct CompletionPromptRegexRulesSettingsView: View {
 
     private func ruleModeLabel(_ rule: CompletionPromptRegexRule) -> String {
         if rule.isFreeformOnly {
-            return "自由输入"
+            return AppLocalization.runtimeString("settings.free_text")
         }
         if rule.capturesTriggerGroupsAsOptions {
-            return rule.allowsMultiple ? "行内多选" : "行内单选"
+            return rule.allowsMultiple ? AppLocalization.runtimeString("settings.inline_multiple_choice") : AppLocalization.runtimeString("settings.inline_single_choice")
         }
         if rule.optionPattern.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return rule.allowsMultiple ? "固定多选" : "固定单选"
+            return rule.allowsMultiple ? AppLocalization.runtimeString("settings.fixed_multiple_choice") : AppLocalization.runtimeString("settings.fixed_single_choice")
         }
-        return rule.allowsMultiple ? "提取多选" : "提取单选"
+        return rule.allowsMultiple ? AppLocalization.runtimeString("settings.extracted_multiple_choice") : AppLocalization.runtimeString("settings.extracted_single_choice")
     }
 
     private func addRule() {
         let rule = CompletionPromptRegexRule(
-            name: "自定义规则",
+            name: AppLocalization.runtimeString("settings.custom_rule"),
             triggerPattern: #"(?is)请输入你的触发正则"#,
             staticOptions: [
                 CompletionPromptStaticOption(title: "确认", reply: "确认，请继续。"),
@@ -3615,7 +3619,7 @@ private struct SidebarItemView: View {
                                 .strokeBorder(Color.black.opacity(0.42), lineWidth: 1)
                         )
                         .offset(x: 2, y: -2)
-                        .accessibilityLabel("有需要注意的集成提示")
+                        .accessibilityLabel("settings.integration_notice_available")
                 }
             }
 
@@ -3683,9 +3687,9 @@ private enum PanelDesignDestination {
 
     var buttonTitle: String {
         switch self {
-        case .codex: return "去 Codex Design 生成"
-        case .claude: return "去 Claude Code Design 生成"
-        case .traeWork: return "去 TRAE Work Design 生成"
+        case .codex: return AppLocalization.runtimeString("settings.create_in_codex_design")
+        case .claude: return AppLocalization.runtimeString("settings.create_in_claude_code_design")
+        case .traeWork: return AppLocalization.runtimeString("settings.create_in_trae_work_design")
         }
     }
 
@@ -3936,7 +3940,7 @@ private struct HookManagementLine: View {
                 if hookStatus.isInstalled {
                     if hookStatus == .awaitingCodexTrust {
                         HookManagementButton(
-                            title: "信任指引",
+                            title: AppLocalization.runtimeString("settings.trust_guide"),
                             tint: TerminalColors.amber,
                             isDisabled: isReinstalling,
                             action: trustGuideAction
@@ -3944,34 +3948,34 @@ private struct HookManagementLine: View {
                     }
                     if supportsEventSelection {
                         HookManagementButton(
-                            title: "配置",
+                            title: AppLocalization.runtimeString("settings.configure"),
                             tint: tint,
                             isDisabled: isReinstalling,
                             action: configureAction
                         )
                     }
                     HookManagementButton(
-                        title: "打开配置目录",
+                        title: AppLocalization.runtimeString("settings.open_folder"),
                         tint: TerminalColors.blue,
                         isDisabled: isReinstalling,
                         action: openConfigurationDirectoryAction
                     )
                     HookManagementButton(
-                        title: isReinstalling ? "重新安装中..." : "重新安装",
+                        title: isReinstalling ? AppLocalization.runtimeString("settings.reinstalling") : AppLocalization.runtimeString("settings.reinstall"),
                         tint: tint,
                         isLoading: isReinstalling,
                         isDisabled: isReinstalling,
                         action: reinstallAction
                     )
                     HookManagementButton(
-                        title: "卸载",
+                        title: AppLocalization.runtimeString("settings.uninstall"),
                         tint: TerminalColors.amber,
                         isDisabled: isReinstalling,
                         action: uninstallAction
                     )
                 } else {
                     HookManagementButton(
-                        title: "安装",
+                        title: AppLocalization.runtimeString("settings.install"),
                         tint: tint,
                         isDisabled: isReinstalling || isInstallDisabled,
                         action: installAction
@@ -4012,10 +4016,10 @@ private struct HookManagementLine: View {
 
     private var statusTitle: String {
         switch hookStatus {
-        case .notInstalled: return "未安装"
-        case .installed: return "已安装"
-        case .awaitingCodexTrust: return "待 Codex 信任"
-        case .active: return "已生效"
+        case .notInstalled: return AppLocalization.runtimeString("settings.not_installed")
+        case .installed: return AppLocalization.runtimeString("settings.installed")
+        case .awaitingCodexTrust: return AppLocalization.runtimeString("settings.trust_required")
+        case .active: return AppLocalization.runtimeString("settings.active")
         }
     }
 
@@ -4059,7 +4063,7 @@ private struct CustomHookInstallationLine: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
 
-                        Text(appLocalized: "自定义")
+                        Text(appLocalized: "settings.custom")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(TerminalColors.blue)
                             .padding(.horizontal, 6)
@@ -4079,7 +4083,7 @@ private struct CustomHookInstallationLine: View {
 
                 Spacer(minLength: 12)
 
-                Text(appLocalized: "已安装")
+                Text(appLocalized: "settings.installed")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(TerminalColors.green)
                     .padding(.horizontal, 10)
@@ -4096,7 +4100,7 @@ private struct CustomHookInstallationLine: View {
 
             HStack(spacing: 10) {
                 HookManagementButton(
-                    title: "卸载",
+                    title: AppLocalization.runtimeString("settings.uninstall"),
                     tint: TerminalColors.amber,
                     action: uninstallAction
                 )
@@ -4125,18 +4129,18 @@ private struct CustomHookInstallSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(appLocalized: "添加自定义 Hook 配置")
+            Text(appLocalized: "settings.add_custom_hook_configuration")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.white)
 
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(appLocalized: "选择应用")
+                    Text(appLocalized: "settings.choose_app")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
 
                     Picker("", selection: $selectedProfileID) {
-                        Text(appLocalized: "请选择...").tag("")
+                        Text(appLocalized: "settings.please_select").tag("")
                         ForEach(availableProfiles) { profile in
                             Text(profile.title).tag(profile.id)
                         }
@@ -4146,7 +4150,7 @@ private struct CustomHookInstallSheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(appLocalized: "安装目录")
+                    Text(appLocalized: "settings.installation_directory")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
 
@@ -4167,7 +4171,7 @@ private struct CustomHookInstallSheet: View {
                             )
 
                         Button(action: selectDirectory) {
-                            Text(appLocalized: "选择目录")
+                            Text(appLocalized: "settings.choose_directory")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.8))
                                 .padding(.horizontal, 12)
@@ -4204,7 +4208,7 @@ private struct CustomHookInstallSheet: View {
                 Spacer()
 
                 Button(action: onDismiss) {
-                    Text(appLocalized: "取消")
+                    Text(appLocalized: "common.cancel")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.horizontal, 18)
@@ -4221,7 +4225,7 @@ private struct CustomHookInstallSheet: View {
                 .buttonStyle(.plain)
 
                 Button(action: install) {
-                    Text(appLocalized: "安装")
+                    Text(appLocalized: "settings.install")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(canInstall ? .white : .white.opacity(0.4))
                         .padding(.horizontal, 18)
@@ -4255,18 +4259,18 @@ private struct CustomHookInstallSheet: View {
 
     private var installPathPlaceholder: String {
         guard let profile = ClientProfileRegistry.managedHookProfile(id: selectedProfileID) else {
-            return "例如 /path/to/.claude"
+            return AppLocalization.runtimeString("settings.e_g_path_to_claude")
         }
 
         switch profile.installationKind {
         case .jsonHooks, .antigravityHooks, .tomlHooks:
-            return "例如 /path/to/.claude"
+            return AppLocalization.runtimeString("settings.e_g_path_to_claude")
         case .pluginFile:
-            return "例如 /path/to/plugins"
+            return AppLocalization.runtimeString("settings.e_g_path_to_plugins")
         case .pluginDirectory:
-            return "例如 /path/to/plugins"
+            return AppLocalization.runtimeString("settings.e_g_path_to_plugins")
         case .hookDirectory:
-            return "例如 /path/to/hooks"
+            return AppLocalization.runtimeString("settings.e_g_path_to_hooks")
         }
     }
 
@@ -4276,7 +4280,7 @@ private struct CustomHookInstallSheet: View {
 
     private func resolvedInstallTargetDescription(resolvedFileName: String) -> String {
         guard let profile = ClientProfileRegistry.managedHookProfile(id: selectedProfileID) else {
-            return AppLocalization.format("安装后将写入: %@/%@", customPath, resolvedFileName)
+            return AppLocalization.format("settings.will_write_to", customPath, resolvedFileName)
         }
 
         let baseURL = URL(fileURLWithPath: customPath)
@@ -4298,7 +4302,7 @@ private struct CustomHookInstallSheet: View {
             }
         }
 
-        return AppLocalization.format("安装后将写入: %@", targetURL.path)
+        return AppLocalization.format("settings.will_write_to_2", targetURL.path)
     }
 
     private func selectDirectory() {
@@ -4307,8 +4311,8 @@ private struct CustomHookInstallSheet: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.showsHiddenFiles = true
-        panel.message = AppLocalization.string("选择 Hook 配置目录")
-        panel.prompt = AppLocalization.string("选择")
+        panel.message = AppLocalization.string("settings.choose_hook_configuration_directory")
+        panel.prompt = AppLocalization.string("settings.select")
 
         if panel.runModal() == .OK, let url = panel.url {
             customPath = url.path
@@ -4458,7 +4462,7 @@ private struct HookInstallOptionsSheet: View {
                     .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
             )
         } label: {
-            Text(appLocalized: "高级 — 按事件单独配置")
+            Text(appLocalized: "settings.advanced_toggle_individual_events")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white.opacity(0.78))
         }
@@ -4475,7 +4479,7 @@ private struct HookInstallOptionsSheet: View {
             Spacer()
 
             Button(action: onDismiss) {
-                Text(appLocalized: "取消")
+                Text(appLocalized: "common.cancel")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
                     .padding(.horizontal, 18)
@@ -4514,20 +4518,20 @@ private struct HookInstallOptionsSheet: View {
     private var headerSubtitle: String {
         switch mode {
         case .install:
-            return "选择需要安装的 Hook 事件类别。可在高级中按单个事件微调。"
+            return AppLocalization.runtimeString("settings.pick_which_hook_event_categories_to_install_use")
         case .edit:
-            return "调整已安装的 Hook 事件，保存后会刷新该客户端的 hooks 配置。"
+            return AppLocalization.runtimeString("settings.adjust_which_hook_events_are_active_saving_rewrites")
         }
     }
 
     private var footerHint: String {
-        AppLocalization.string("默认全部启用；关闭某些事件后，对应通知或审批将不再触发。")
+        AppLocalization.string("settings.everything_is_enabled_by_default_disable_an_event")
     }
 
     private var confirmTitle: String {
         switch mode {
-        case .install: return "安装"
-        case .edit: return "保存"
+        case .install: return AppLocalization.runtimeString("settings.install")
+        case .edit: return AppLocalization.runtimeString("common.save")
         }
     }
 
@@ -4864,7 +4868,7 @@ private struct SoundPackSourceInfoLine<Accessory: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 16) {
-                Text(appLocalized: "当前主题包")
+                Text(appLocalized: "settings.current_sound_pack")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
 
@@ -4873,7 +4877,7 @@ private struct SoundPackSourceInfoLine<Accessory: View>: View {
                 accessory
             }
 
-            Text(appLocalized: "自动扫描以下目录，也支持手动导入本地目录。")
+            Text(appLocalized: "settings.automatically_scan_the_following_directories_or_import_a")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.white.opacity(0.58))
                 .fixedSize(horizontal: false, vertical: true)
@@ -4934,7 +4938,7 @@ private struct SoundPackImportActionLine<Accessory: View>: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .center, spacing: 16) {
-                    Text(appLocalized: "导入本地主题包")
+                    Text(appLocalized: "settings.import_local_sound_pack")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
 
@@ -4943,13 +4947,13 @@ private struct SoundPackImportActionLine<Accessory: View>: View {
                     accessory
                 }
 
-                Text(appLocalized: "选择一个本地目录，导入后会加入可选列表。")
+                Text(appLocalized: "settings.choose_a_local_directory_to_import_it_into")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.58))
                     .fixedSize(horizontal: false, vertical: true)
 
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(appLocalized: "目录内需要包含以下清单文件")
+                    Text(appLocalized: "settings.the_directory_must_contain_this_manifest_file")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.white.opacity(0.42))
 
@@ -5114,7 +5118,7 @@ private struct FeatureShortcutEditor: View {
         VStack(alignment: .leading, spacing: 18) {
             Text(feature.displayName)
                 .font(.system(size: 16, weight: .bold))
-            Text(appLocalized: "设置全局快捷键，快速在 flow Island打开此功能。")
+            Text(appLocalized: "settings.set_a_global_shortcut_to_open_this_feature")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
 
@@ -5122,42 +5126,42 @@ private struct FeatureShortcutEditor: View {
                 if let shortcut {
                     ShortcutVisualLabel(shortcut: shortcut)
                 } else {
-                    Text(appLocalized: "未设置")
+                    Text(appLocalized: "settings.not_set")
                         .foregroundColor(.secondary)
                 }
                 Spacer()
                 if shortcut != nil {
-                    Button("清除") {
+                    Button("settings.clear") {
                         shortcut = nil
                         errorText = nil
                     }
                 }
-                Button("重置") {
+                Button("settings.reset") {
                     shortcut = nil
                     errorText = nil
                 }
-                Button(isRecording ? "按下新快捷键" : "点击录制") {
+                Button(isRecording ? AppLocalization.runtimeString("settings.press_new_shortcut") : AppLocalization.runtimeString("settings.record_shortcut")) {
                     isRecording ? stopRecording() : startRecording()
                 }
                 .buttonStyle(.borderedProminent)
             }
             .frame(minHeight: 44)
 
-            Text(appLocalized: errorText ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
+            Text(appLocalized: errorText ?? (isRecording ? AppLocalization.runtimeString("settings.recording_press_esc_to_cancel_or_delete_to") : AppLocalization.runtimeString("settings.use_at_least_one_modifier_key")))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(errorText == nil ? .secondary : .red)
                 .accessibilityLabel(Text(errorText ?? ""))
 
             HStack {
                 Spacer()
-                Button("取消") { stopRecording(); onCancel() }
-                Button("保存") {
+                Button("common.cancel") { stopRecording(); onCancel() }
+                Button("common.save") {
                     if let shortcut,
                        let owner = LeftFeatureStore.shared.conflictingShortcutOwner(
                            for: shortcut,
                            excludingFeatureID: feature.id
                        ) {
-                        errorText = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
+                        errorText = AppLocalization.format("settings.this_shortcut_is_already_used_by", String(describing: owner))
                         NSSound.beep()
                     } else {
                         onSave(shortcut)
@@ -5201,14 +5205,14 @@ private struct FeatureShortcutEditor: View {
             return
         }
         guard let recorded = GlobalShortcut(keyCode: event.keyCode, modifierFlags: event.modifierFlags) else {
-            errorText = "需要同时按下至少一个修饰键"
+            errorText = AppLocalization.runtimeString("settings.use_at_least_one_modifier_key")
             return
         }
         if let owner = LeftFeatureStore.shared.conflictingShortcutOwner(
             for: recorded,
             excludingFeatureID: feature.id
         ) {
-            errorText = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
+            errorText = AppLocalization.format("settings.this_shortcut_is_already_used_by", String(describing: owner))
             NSSound.beep()
             return
         }
@@ -5248,7 +5252,7 @@ private struct ShortcutRecorderControl: View {
             }
 
             HStack(alignment: .center, spacing: 8) {
-                Text(appLocalized: "当前键位")
+                Text(appLocalized: "settings.current")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white.opacity(0.40))
 
@@ -5265,7 +5269,7 @@ private struct ShortcutRecorderControl: View {
                         keyCornerRadius: 10
                     )
                 } else {
-                    Text(appLocalized: "未设置")
+                    Text(appLocalized: "settings.not_set")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white.opacity(0.42))
                 }
@@ -5281,8 +5285,8 @@ private struct ShortcutRecorderControl: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(ShortcutIconButtonStyle())
-                    .help(AppLocalization.string("清空快捷键"))
-                    .accessibilityLabel(Text(appLocalized: "清空快捷键"))
+                    .help(AppLocalization.string("settings.clear_shortcut"))
+                    .accessibilityLabel(Text(appLocalized: "settings.clear_shortcut"))
                 }
 
                 if defaultShortcut != nil {
@@ -5292,14 +5296,14 @@ private struct ShortcutRecorderControl: View {
                         Image(systemName: "arrow.counterclockwise")
                     }
                     .buttonStyle(ShortcutIconButtonStyle())
-                    .help(AppLocalization.string("恢复默认快捷键"))
-                    .accessibilityLabel(Text(appLocalized: "恢复默认快捷键"))
+                    .help(AppLocalization.string("settings.restore_default_shortcut"))
+                    .accessibilityLabel(Text(appLocalized: "settings.restore_default_shortcut"))
                 }
             }
 
             Text(appLocalized: helperTextKey
                 ?? shortcutManager.registrationError(for: action)
-                ?? (isRecording ? "录制中，按 Esc 取消，Delete 清空" : "需要同时按下至少一个修饰键"))
+                ?? (isRecording ? AppLocalization.runtimeString("settings.recording_press_esc_to_cancel_or_delete_to") : AppLocalization.runtimeString("settings.use_at_least_one_modifier_key")))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(helperTextKey == nil && shortcutManager.registrationError(for: action) == nil
                     ? (isRecording ? TerminalColors.green.opacity(0.90) : .white.opacity(0.42))
@@ -5319,7 +5323,7 @@ private struct ShortcutRecorderControl: View {
                 Image(systemName: isRecording ? "record.circle.fill" : "keyboard")
                     .font(.system(size: 11, weight: .bold))
 
-                Text(appLocalized: isRecording ? "按下新快捷键" : "点击录制")
+                Text(appLocalized: isRecording ? AppLocalization.runtimeString("settings.press_new_shortcut") : AppLocalization.runtimeString("settings.record_shortcut"))
                     .font(.system(size: 12, weight: .semibold))
             }
             .foregroundColor(isRecording ? .black : .white.opacity(0.88))
@@ -5338,8 +5342,8 @@ private struct ShortcutRecorderControl: View {
             )
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: AppLocalization.string(isRecording ? "停止录制快捷键" : "开始录制快捷键")))
-        .accessibilityLabel(Text(appLocalized: isRecording ? "停止录制快捷键" : "开始录制快捷键"))
+        .help(Text(appLocalized: AppLocalization.string(isRecording ? AppLocalization.runtimeString("settings.stop_recording_shortcut") : AppLocalization.runtimeString("settings.start_recording_shortcut"))))
+        .accessibilityLabel(Text(appLocalized: isRecording ? AppLocalization.runtimeString("settings.stop_recording_shortcut") : AppLocalization.runtimeString("settings.start_recording_shortcut")))
     }
 
     private func toggleRecording() {
@@ -5387,7 +5391,7 @@ private struct ShortcutRecorderControl: View {
             keyCode: event.keyCode,
             modifierFlags: event.modifierFlags
         ) else {
-            helperTextKey = "需要同时按下至少一个修饰键"
+            helperTextKey = AppLocalization.runtimeString("settings.use_at_least_one_modifier_key")
             return
         }
 
@@ -5400,7 +5404,7 @@ private struct ShortcutRecorderControl: View {
                for: candidate,
                excludingAction: action
            ) {
-            helperTextKey = AppLocalization.format("该快捷键已被『%@』使用", String(describing: owner))
+            helperTextKey = AppLocalization.format("settings.this_shortcut_is_already_used_by", String(describing: owner))
             NSSound.beep()
             return
         }
@@ -5437,7 +5441,7 @@ private struct AutoRoutePromptsIdleDelayPicker: View {
             }
         }
         .labelsHidden()
-        .accessibilityLabel(Text(appLocalized: "静默时长"))
+        .accessibilityLabel(Text(appLocalized: "settings.silent_duration"))
         .settingsMenuPicker(width: 132)
     }
 }
@@ -5452,7 +5456,7 @@ private struct ClosedNotchTrailingContentPicker: View {
             }
         }
         .labelsHidden()
-        .accessibilityLabel(Text(appLocalized: "右侧展示内容"))
+        .accessibilityLabel(Text(appLocalized: "settings.right_side_content"))
         .settingsMenuPicker(width: 190)
     }
 }
@@ -5467,7 +5471,7 @@ private struct FloatingPetSizeModePicker: View {
             }
         }
         .labelsHidden()
-        .accessibilityLabel(Text(appLocalized: "宠物大小"))
+        .accessibilityLabel(Text(appLocalized: "settings.mascot_size"))
         .settingsMenuPicker(width: 132)
         .help(AppLocalization.string(mode.subtitle))
     }
@@ -5475,8 +5479,8 @@ private struct FloatingPetSizeModePicker: View {
 
 struct IslandSurfaceModeSelector: View {
     @Binding var mode: IslandSurfaceMode
-    var title: String? = "展示模式"
-    var subtitle: String? = "选择 CC FLOW 的主显示方式。你随时可以在设置里切换，并立即看到新的渲染效果。"
+    var title: String? = AppLocalization.runtimeString("settings.presentation_mode")
+    var subtitle: String? = AppLocalization.runtimeString("settings.choose_how_cc_flow_renders_by_default_you")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -5652,7 +5656,7 @@ private struct IslandSurfaceModePreviewScene: View {
 
             HStack {
                 Spacer()
-                Text(appLocalized: "顶部 CC FLOW")
+                Text(appLocalized: "settings.top_cc_flow")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.42))
             }
@@ -5668,7 +5672,7 @@ private struct IslandSurfaceModePreviewScene: View {
         return ZStack(alignment: .bottomTrailing) {
             VStack {
                 HStack {
-                    Text(appLocalized: "右下角悬浮")
+                    Text(appLocalized: "settings.bottom_right_floating")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.white.opacity(0.46))
                     Spacer()
@@ -5719,7 +5723,7 @@ private struct IslandSurfaceModePreviewScene: View {
 }
 
 private struct DisplayPreviewMascotPicker: View {
-    private let accessibilityTitleKey = "默认宠物形象"
+    private let accessibilityTitleKey = AppLocalization.runtimeString("settings.default_mascot")
     @Binding var kind: MascotKind
     // 从扫描器取动态主题包列表，避免 MascotKind.allCases 只剩内置 claude 一个选项
     @ObservedObject private var scanner = MascotThemeScanner.shared
@@ -5729,8 +5733,8 @@ private struct DisplayPreviewMascotPicker: View {
             ForEach(scanner.themes) { theme in
                 Text(
                     verbatim: AppLocalization.format(
-                        "%@ · %@",
-                        AppLocalization.string(theme.manifest.kind?.rawValue ?? "通用"),
+                        "common.pair",
+                        AppLocalization.string(theme.manifest.kind?.titleKey ?? "settings.general"),
                         AppLocalization.string(theme.displayName)
                     )
                 )
@@ -5749,11 +5753,11 @@ private struct DisplayPreviewMascotPicker: View {
 private struct FloatingPetPlacementInfoCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(appLocalized: "独立悬浮宠物")
+            Text(appLocalized: "settings.floating_pet")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white)
 
-            Text(appLocalized: "独立悬浮宠物默认贴近当前激活窗口右下角显示。拖动后会记住新位置，右键宠物形象可重新打开设置面板。")
+            Text(appLocalized: "settings.the_floating_pet_appears_near_the_bottom_right")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.white.opacity(0.58))
                 .fixedSize(horizontal: false, vertical: true)
@@ -5929,7 +5933,7 @@ private struct SoundPreviewButton: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .help("试听")
+        .help("settings.preview")
     }
 }
 

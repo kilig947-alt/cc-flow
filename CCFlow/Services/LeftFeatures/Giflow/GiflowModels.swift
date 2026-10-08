@@ -11,8 +11,8 @@ enum GiflowSelectionKind: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .area: return "区域截取"
-        case .fullScreen: return "全屏截取"
+        case .area: return AppLocalization.runtimeString("features.region_recording")
+        case .fullScreen: return AppLocalization.runtimeString("features.full_screen_recording")
         }
     }
 }

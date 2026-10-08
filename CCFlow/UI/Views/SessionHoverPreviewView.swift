@@ -411,7 +411,7 @@ private struct HoverConversationCard: View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
             if let userText = snapshot.userText {
                 HoverConversationLine(
-                    label: "你：",
+                    label: AppLocalization.runtimeString("session.you"),
                     labelColor: .white.opacity(0.54),
                     text: userText,
                     textColor: .white.opacity(0.84),
@@ -461,7 +461,7 @@ private struct HoverApprovalCard: View {
     }
 
     private var toolLabel: String {
-        guard let toolName = session.pendingToolName else { return AppLocalization.string("当前操作") }
+        guard let toolName = session.pendingToolName else { return AppLocalization.string("session.current_action") }
         if session.activePermission != nil {
             return MCPToolFormatter.formatToolName(toolName)
         }
@@ -475,13 +475,13 @@ private struct HoverApprovalCard: View {
         if let intervention = session.intervention, !intervention.message.isEmpty {
             return intervention.message
         }
-        return AppLocalization.string("批准后会继续执行当前会话。")
+        return AppLocalization.string("session.approving_will_continue_the_current_session")
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(verbatim: AppLocalization.format("%@ 请求批准", providerLabel))
+                Text(verbatim: AppLocalization.format("session.requests_approval", providerLabel))
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
 
@@ -500,7 +500,7 @@ private struct HoverApprovalCard: View {
                 HoverTerminalRoutedPromptNotice(session: session)
             } else {
                 HStack(spacing: 8) {
-                    Button(AppLocalization.string("Deny")) {
+                    Button(AppLocalization.string("session.deny")) {
                         sessionMonitor.denyPermission(sessionId: session.sessionId, reason: nil)
                         onActionCompleted()
                     }
@@ -530,7 +530,7 @@ private struct HoverApprovalCard: View {
                         )
                     }
 
-                    Button(AppLocalization.string("Allow")) {
+                    Button(AppLocalization.string("session.allow")) {
                         sessionMonitor.approvePermission(sessionId: session.sessionId)
                         onActionCompleted()
                     }
@@ -601,7 +601,7 @@ private struct HoverQuestionInterventionCard: View {
                 SessionQuestionForm(
                     intervention: intervention,
                     submitLabel: AppLocalization.format(
-                        "提交回 %@",
+                        "session.submit_to",
                         session.messageBadgeDisplayName
                     ),
                     initialDraft: sessionMonitor.questionDraft(
@@ -629,7 +629,7 @@ private struct HoverQuestionInterventionCard: View {
                             interventionId: intervention.id
                         )
                     },
-                    secondaryActionTitle: AppLocalization.string("Return to Session"),
+                    secondaryActionTitle: AppLocalization.string("session.return_to_session"),
                     secondaryActionSystemImage: "arrow.turn.up.left",
                     onSecondaryAction: returnToSession,
                     onSkip: intervention.metadata["source"] == "completionRegex"
@@ -679,7 +679,7 @@ private struct HoverQuestionInterventionCard: View {
         Button {
             returnToSession()
         } label: {
-            Label(AppLocalization.string("Return to Session"), systemImage: "arrow.turn.up.left")
+            Label(AppLocalization.string("session.return_to_session"), systemImage: "arrow.turn.up.left")
         }
         .buttonStyle(
             HoverApprovalButtonStyle(
@@ -695,8 +695,8 @@ private struct HoverTerminalRoutedPromptNotice: View {
 
     var body: some View {
         Text(verbatim: AppLocalization.format(
-            "已保留在%@中处理。CC FLOW 只提醒，不接管此处响应。",
-            session.isInTmux ? AppLocalization.string("终端") : session.interactionDisplayName
+            "session.handled_in_cc_flow_only_notifies_you_and",
+            session.isInTmux ? AppLocalization.string("session.terminal") : session.interactionDisplayName
         ))
         .font(.system(size: 11, weight: .medium))
         .foregroundColor(.white.opacity(0.64))
@@ -892,7 +892,7 @@ private struct HoverSessionBadges: View {
                     .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
             )
             .clipShape(Circle())
-            .help(AppLocalization.string("远程连接"))
+            .help(AppLocalization.string("session.remote_connection"))
     }
 
     @ViewBuilder
@@ -1112,7 +1112,7 @@ private enum HoverPreviewLineBuilder {
             lines.append(
                 HoverPreviewLine(
                     id: "user",
-                    prefix: AppLocalization.string("你："),
+                    prefix: AppLocalization.string("session.you"),
                     prefixColor: .white.opacity(compact ? 0.44 : 0.52),
                     text: userLine,
                     color: .white.opacity(compact ? 0.68 : 0.76)
@@ -1234,12 +1234,12 @@ struct HoverEmptyPreviewView: View {
 
             VStack(alignment: .center, spacing: density == .detachedCompact ? 10 : 14) {
                 VStack(alignment: .center, spacing: density == .detachedCompact ? 6 : 9) {
-                    Text(appLocalized: "No active session")
+                    Text(appLocalized: "session.no_active_session")
                         .font(.system(size: density == .detachedCompact ? 17 : 24, weight: .heavy))
                         .foregroundColor(.white)
                         .shadow(color: Color.black.opacity(0.30), radius: 6, y: 3)
 
-                    Text(appLocalized: "Hover to preview active sessions. Click the Island to open the session list.")
+                    Text(appLocalized: "session.hover_to_preview_click_the_island_for_the")
                         .font(.system(size: density == .detachedCompact ? 10 : 12, weight: .semibold))
                         .foregroundColor(.white.opacity(0.58))
                         .multilineTextAlignment(.center)
@@ -1250,7 +1250,7 @@ struct HoverEmptyPreviewView: View {
 
                 if !visibleShortcutActions.isEmpty {
                     VStack(alignment: .center, spacing: density == .detachedCompact ? 6 : 8) {
-                        HoverEmptySectionDivider(title: "快捷键")
+                        HoverEmptySectionDivider(title: AppLocalization.runtimeString("session.shortcuts"))
                         shortcutHints
                     }
                 }
@@ -1269,14 +1269,14 @@ struct HoverEmptyPreviewView: View {
             VStack(alignment: .center, spacing: 6) {
                 HoverEmptyInteractionHint(
                     icon: "cursorarrow",
-                    label: "Hover",
-                    title: "快速预览当前会话",
+                    label: AppLocalization.runtimeString("session.hover"),
+                    title: AppLocalization.runtimeString("session.preview_sessions"),
                     density: density
                 )
                 HoverEmptyInteractionHint(
                     icon: "cursorarrow.rays",
-                    label: "Click",
-                    title: "展开全部会话列表",
+                    label: AppLocalization.runtimeString("session.click"),
+                    title: AppLocalization.runtimeString("session.open_session_list"),
                     density: density
                 )
             }
@@ -1284,14 +1284,14 @@ struct HoverEmptyPreviewView: View {
             HStack(alignment: .center, spacing: 8) {
                 HoverEmptyInteractionHint(
                     icon: "cursorarrow",
-                    label: "Hover",
-                    title: "快速预览当前会话",
+                    label: AppLocalization.runtimeString("session.hover"),
+                    title: AppLocalization.runtimeString("session.preview_sessions"),
                     density: density
                 )
                 HoverEmptyInteractionHint(
                     icon: "cursorarrow.rays",
-                    label: "Click",
-                    title: "展开全部会话列表",
+                    label: AppLocalization.runtimeString("session.click"),
+                    title: AppLocalization.runtimeString("session.open_session_list"),
                     density: density
                 )
             }
@@ -1449,7 +1449,7 @@ private struct HoverEmptyFooterNote: View {
             Image(systemName: "lightbulb")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(TerminalColors.green.opacity(0.86))
-            Text(appLocalized: "新会话会显示在这里")
+            Text(appLocalized: "session.new_sessions_appear_here")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.white.opacity(0.42))
                 .lineLimit(1)

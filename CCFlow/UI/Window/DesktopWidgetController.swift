@@ -274,7 +274,7 @@ private struct DesktopWidgetRootView: View {
             if let feature {
                 featureLayout(feature)
             } else {
-                Text("功能已不可用")
+                Text("common.feature_unavailable")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -361,7 +361,7 @@ private struct DesktopWidgetRootView: View {
                 .onTapGesture(count: 2) {
                     reload(feature)
                 }
-                .help(Text(appLocalized: feature.kind.supportsDesktopWidgetReload ? "双击刷新" : feature.displayName))
+                .help(Text(appLocalized: feature.kind.supportsDesktopWidgetReload ? AppLocalization.runtimeString("common.double_click_to_refresh") : feature.displayName))
             Text(feature.displayName)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.9))
@@ -378,7 +378,7 @@ private struct DesktopWidgetRootView: View {
                     .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .help(Text(appLocalized: isBorderless ? "固定显示窗口边框" : "切换为无边框模式"))
+            .help(Text(appLocalized: isBorderless ? AppLocalization.runtimeString("common.show_window_border") : AppLocalization.runtimeString("common.switch_to_borderless_mode")))
             if feature.kind.supportsDesktopWidgetReload {
                 Button {
                     reload(feature)
@@ -389,7 +389,7 @@ private struct DesktopWidgetRootView: View {
                         .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
-                .help("刷新网页")
+                .help("common.refresh_page")
             }
             Button(action: onClose) {
                 Image(systemName: "xmark")
@@ -398,7 +398,7 @@ private struct DesktopWidgetRootView: View {
                     .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .help("移除桌面小组件")
+            .help("common.remove_desktop_widget")
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
@@ -455,17 +455,17 @@ private struct DesktopWidgetFeatureContent: View {
             if let area = customAreaStore.areas.first(where: { $0.id == areaID }) {
                 webView(source: .localArea(area))
             } else {
-                unavailable("自定义 HTML 目录不可用")
+                unavailable(AppLocalization.runtimeString("common.custom_html_directory_unavailable"))
             }
         case .webURL(let urlString):
             if let url = URL(string: urlString) { webView(source: .remoteURL(url)) }
-            else { unavailable("网站 URL 无效") }
+            else { unavailable(AppLocalization.runtimeString("common.invalid_website_url")) }
         case .newsnow(let baseURL):
             if let url = URL(string: baseURL) { webView(source: .remoteURL(url)) }
-            else { unavailable("网站 URL 无效") }
+            else { unavailable(AppLocalization.runtimeString("common.invalid_website_url")) }
         case .mineradio(let pageURL):
             if let url = URL(string: pageURL) { webView(source: .mineradio(url)) }
-            else { unavailable("网站 URL 无效") }
+            else { unavailable(AppLocalization.runtimeString("common.invalid_website_url")) }
         }
     }
 

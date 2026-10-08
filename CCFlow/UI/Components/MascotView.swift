@@ -55,11 +55,11 @@ enum MascotClient: String, CaseIterable, Identifiable, Sendable {
     var subtitle: String {
         switch self {
         case .claude:
-            return "Claude Code 会话"
+            return AppLocalization.runtimeString("mascot.claude_code_session")
         case .codex:
-            return "Codex 会话"
+            return AppLocalization.runtimeString("mascot.codex_session")
         case .trae:
-            return "TRAE IDE 会话"
+            return AppLocalization.runtimeString("mascot.trae_ide_session")
         }
     }
 
@@ -239,7 +239,7 @@ struct MascotView: View {
         guard isIdleProtectionActive else {
             return AppLocalization.format("%@ %@", kind.title, status.displayName)
         }
-        return AppLocalization.format("%@ %@ 空闲保护中", kind.title, status.displayName)
+        return AppLocalization.format("mascot.idle_protection_active", kind.title, status.displayName)
     }
 
     /// 静态渲染时间：非 nil 时表示当前应渲染单帧（不驱动 TimelineView）。

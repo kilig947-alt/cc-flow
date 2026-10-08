@@ -63,7 +63,7 @@ final class UpdateManagerTests: XCTestCase {
 
         XCTAssertEqual(
             UpdateManager.terminalState(forUpdateCycleError: error),
-            .error(message: "当前系统版本过低，无法安装可用更新")
+            .error(message: AppLocalization.runtimeString("update.your_system_version_is_too_old_to_install"))
         )
     }
 
@@ -98,7 +98,7 @@ final class UpdateManagerTests: XCTestCase {
 
         XCTAssertEqual(
             UpdateManager.terminalState(forUpdateCycleError: error),
-            .error(message: "更新源不可用：未找到已发布的 appcast.xml")
+            .error(message: AppLocalization.runtimeString("update.update_feed_unavailable_published_appcast_xml_not_found"))
         )
     }
 
@@ -120,7 +120,7 @@ final class UpdateManagerTests: XCTestCase {
 
         XCTAssertEqual(
             UpdateManager.terminalState(forUpdateCycleError: error),
-            .error(message: "网络不可用，请检查连接后重试")
+            .error(message: AppLocalization.runtimeString("update.network_unavailable_check_your_connection_and_try_again"))
         )
     }
 }

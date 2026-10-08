@@ -39,7 +39,7 @@ struct UsageExpandedView: View {
                     tokenSummary: nil,
                     capturedAt: nil,
                     errorMessage: service.isRefreshing && provider == .antigravity
-                        ? "正在检测 Antigravity 本地用量服务…"
+                        ? AppLocalization.runtimeString("usage.detecting_antigravity_local_usage_service")
                         : nil
                 )
         }
@@ -48,11 +48,11 @@ struct UsageExpandedView: View {
     private var header: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(appLocalized: "账号用量")
+                Text(appLocalized: "usage.account_usage")
                     .font(.system(size: 16, weight: .bold))
                 if let date = service.snapshot?.capturedAt {
                     Text(AppLocalization.format(
-                        "更新于 %@",
+                        "usage.updated",
                         date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(localizationLocale))
                     ))
                         .font(.system(size: 10, weight: .medium))
@@ -63,13 +63,13 @@ struct UsageExpandedView: View {
             Button {
                 Task { await service.refresh(reason: .retry) }
             } label: {
-                Label(service.isRefreshing ? "更新中" : "刷新", systemImage: "arrow.clockwise")
+                Label(service.isRefreshing ? AppLocalization.runtimeString("usage.refreshing") : AppLocalization.runtimeString("settings.refresh"), systemImage: "arrow.clockwise")
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
             .frame(minWidth: 70, minHeight: 44)
             .disabled(service.isRefreshing)
-            .accessibilityLabel(Text(appLocalized: "刷新账号用量"))
+            .accessibilityLabel(Text(appLocalized: "usage.refresh_account_usage"))
         }
     }
 
@@ -108,10 +108,10 @@ struct UsageExpandedView: View {
             if let tokens = provider.tokenSummary {
                 Divider().opacity(0.35)
                 HStack(spacing: 18) {
-                    tokenMetric("今日", tokens.today.total)
-                    tokenMetric("7 天", tokens.sevenDays.total)
+                    tokenMetric(AppLocalization.runtimeString("usage.today"), tokens.today.total)
+                    tokenMetric(AppLocalization.runtimeString("usage.duration_7_days"), tokens.sevenDays.total)
                     if let current = tokens.currentSession {
-                        tokenMetric("当前会话", current.total)
+                        tokenMetric(AppLocalization.runtimeString("usage.current_session"), current.total)
                     }
                     Spacer(minLength: 0)
                 }
@@ -134,10 +134,10 @@ struct UsageExpandedView: View {
     private func usageWindowRow(_ window: UsageWindow) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(appLocalized: window.label)
+                Text(verbatim: window.localizedLabel(locale: localizationLocale))
                     .font(.system(size: 11, weight: .semibold))
                 Spacer()
-                Text(AppLocalization.format("剩余 %d%%", Int(window.remainingPercentage.rounded())))
+                Text(AppLocalization.format("usage.remaining", Int(window.remainingPercentage.rounded())))
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                 if let reset = window.resetsAt {
                     Text("· \(reset.formatted(.relative(presentation: .numeric).locale(localizationLocale)))")
@@ -159,8 +159,8 @@ struct UsageExpandedView: View {
             }
                 .frame(height: 8)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(appLocalized: window.label))
-                .accessibilityValue(Text(AppLocalization.format("剩余 %@%%", String(describing: Int(window.remainingPercentage.rounded())))))
+                .accessibilityLabel(Text(verbatim: window.localizedLabel(locale: localizationLocale)))
+                .accessibilityValue(Text(AppLocalization.format("usage.remaining_2", String(describing: Int(window.remainingPercentage.rounded())))))
         }
     }
 
@@ -182,7 +182,7 @@ struct UsageExpandedView: View {
 
     private func tokenBreakdown(_ total: TokenUsageTotal) -> String {
         AppLocalization.format(
-            "今日明细：输入 %@ · 输出 %@ · 缓存读取 %@ · 缓存写入 %@",
+            "usage.today_input_output_cache_read_cache_write",
             UsageCompactView.formatTokens(total.input),
             UsageCompactView.formatTokens(total.output),
             UsageCompactView.formatTokens(total.cacheRead),
@@ -193,7 +193,7 @@ struct UsageExpandedView: View {
     private var loadingState: some View {
         HStack(spacing: 10) {
             ProgressView().controlSize(.small)
-            Text(appLocalized: "正在读取 Claude Code、Codex 和 Antigravity 用量…")
+            Text(appLocalized: "usage.loading_claude_code_codex_and_antigravity_usage")
         }
         .frame(maxWidth: .infinity, minHeight: 180)
         .foregroundColor(.secondary)
@@ -203,9 +203,9 @@ struct UsageExpandedView: View {
         VStack(spacing: 10) {
             Image(systemName: "chart.bar.xaxis")
                 .font(.system(size: 28))
-            Text(appLocalized: "暂无用量数据")
+            Text(appLocalized: "usage.no_usage_data")
                 .font(.system(size: 13, weight: .semibold))
-            Button("重试") { Task { await service.refresh(reason: .retry) } }
+            Button("usage.retry") { Task { await service.refresh(reason: .retry) } }
         }
         .frame(maxWidth: .infinity, minHeight: 180)
         .foregroundColor(.secondary)
@@ -213,20 +213,20 @@ struct UsageExpandedView: View {
 
     private func stateText(_ state: UsageAccountState) -> String {
         switch state {
-        case .available: return "已连接"
-        case .stale: return "数据可能已过期"
-        case .unavailable: return "未检测到限额"
+        case .available: return AppLocalization.runtimeString("github.connected")
+        case .stale: return AppLocalization.runtimeString("usage.data_may_be_stale")
+        case .unavailable: return AppLocalization.runtimeString("usage.limits_not_detected")
         }
     }
 
     private func emptyMessage(for provider: UsageProviderID) -> String {
         switch provider {
         case .claude:
-            return "启动 Claude Code 并完成一次请求后可读取账户限额。"
+            return AppLocalization.runtimeString("usage.start_claude_code_and_complete_one_request_to")
         case .codex:
-            return "尚未在本地 Codex 会话中检测到限额；Token 统计仍可用。"
+            return AppLocalization.runtimeString("usage.no_limits_were_detected_in_local_codex_sessions")
         case .antigravity:
-            return "启动 Antigravity 并登录后可读取各模型限额。"
+            return AppLocalization.runtimeString("usage.launch_antigravity_and_sign_in_to_view_model")
         }
     }
 }

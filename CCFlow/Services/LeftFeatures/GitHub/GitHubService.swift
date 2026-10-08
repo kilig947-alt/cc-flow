@@ -21,7 +21,7 @@ struct GitHubRepositorySummary: Identifiable, Equatable {
 final class GitHubService: ObservableObject {
     static let shared = GitHubService()
     @Published private(set) var profile: GitHubProfile?
-    @Published private(set) var status = AppLocalization.runtimeString("尚未连接")
+    @Published private(set) var status = "github.not_connected"
     @Published private(set) var isLoading = false
     @Published private(set) var contributions: [GitHubContributionDay] = []
     @Published private(set) var repositories: [GitHubRepositorySummary] = []
@@ -51,9 +51,9 @@ final class GitHubService: ObservableObject {
                     let dashboard = try await Self.fetchDashboard()
                     contributions = dashboard.days
                     repositories = dashboard.repositories
-                    status = "已连接"
+                    status = "github.connected"
                 } catch {
-                    status = AppLocalization.runtimeFormat("已连接，贡献数据暂不可用：%@", String(describing: error.localizedDescription))
+                    status = AppLocalization.runtimeFormat("github.connected_but_contribution_data_is_unavailable", String(describing: error.localizedDescription))
                 }
             } catch {
                 status = error.localizedDescription
@@ -163,10 +163,10 @@ private enum GitHubError: LocalizedError {
     case authenticationRequired, invalidResponse, network, http(Int)
     var errorDescription: String? {
         switch self {
-        case .authenticationRequired: AppLocalization.runtimeString("请先运行 gh auth login，或在设置中添加 GitHub PAT")
-        case .invalidResponse: AppLocalization.runtimeString("GitHub 返回的数据无法识别")
-        case .network: AppLocalization.runtimeString("无法连接 GitHub，请检查网络后重试")
-        case .http(let code): AppLocalization.runtimeFormat("GitHub 请求失败（HTTP %@）", String(describing: code))
+        case .authenticationRequired: AppLocalization.runtimeString("github.run_gh_auth_login_or_add_a_github")
+        case .invalidResponse: AppLocalization.runtimeString("github.unrecognized_github_response")
+        case .network: AppLocalization.runtimeString("github.cannot_connect_to_github_check_your_network_and")
+        case .http(let code): AppLocalization.runtimeFormat("github.github_request_failed_http", String(describing: code))
         }
     }
 }

@@ -94,7 +94,7 @@ struct GlobalShortcutHintStrip: View {
 
 struct GlobalShortcutFooterNote: View {
     let actions: [GlobalShortcutAction]
-    var title: String = "快捷键提示"
+    var title: String = AppLocalization.runtimeString("common.shortcut_hints")
 
     @ObservedObject private var settings = AppSettings.shared
 

@@ -201,7 +201,7 @@ final class GiflowRecordingManager: NSObject, ObservableObject {
     private func startScreenCapture(mode: GiflowCaptureMode, settings: GiflowSettings) async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         guard let display = content.displays.first else {
-            throw NSError(domain: "Giflow", code: -1, userInfo: [NSLocalizedDescriptionKey: "未检测到可捕获的显示器"])
+            throw NSError(domain: "Giflow", code: -1, userInfo: [NSLocalizedDescriptionKey: AppLocalization.runtimeString("features.no_capturable_display_detected")])
         }
         self.targetDisplayID = display.displayID
 

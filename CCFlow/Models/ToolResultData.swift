@@ -293,7 +293,7 @@ struct ToolStatusDisplay {
             if let desc = input["description"], !desc.isEmpty {
                 return ToolStatusDisplay(text: desc, isRunning: true)
             }
-            return ToolStatusDisplay(text: "Running agent...", isRunning: true)
+            return ToolStatusDisplay(text: AppLocalization.runtimeString("chat.running_agent"), isRunning: true)
         case "TodoWrite":
             return ToolStatusDisplay(text: "Updating todos...", isRunning: true)
         case "EnterPlanMode":

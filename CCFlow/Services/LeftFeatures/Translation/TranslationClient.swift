@@ -8,11 +8,15 @@ struct TranslationClient {
     init(session: URLSession = .shared) { self.session = session }
 
     static func detectedLanguage(_ text: String) -> TranslationLanguage {
+        recognizedLanguage(text) ?? .en
+    }
+
+    static func recognizedLanguage(_ text: String) -> TranslationLanguage? {
         let recognizer = NLLanguageRecognizer()
         recognizer.processString(text)
-        let language = recognizer.dominantLanguage?.rawValue ?? "en"
+        guard let language = recognizer.dominantLanguage?.rawValue else { return nil }
         if language.hasPrefix("zh") { return .zh }
-        return TranslationLanguage(rawValue: language) ?? .en
+        return TranslationLanguage(rawValue: language)
     }
 
     static func youdaoInput(_ text: String) -> String {
@@ -28,14 +32,14 @@ struct TranslationClient {
               let host = url.host, url.user == nil, url.password == nil,
               url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(host)),
               !path.contains("?"), !path.contains("#"), !path.contains("://") else {
-            throw TranslationFailure.message(AppLocalization.runtimeString("API 地址须为 HTTPS（本地 localhost 可使用 HTTP）；Path 仅填写路径"))
+            throw TranslationFailure.message(AppLocalization.runtimeString("translation.api_url_must_use_https_http_is_allowed"))
         }
         url.path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             .split(separator: "/").map(String.init).joined(separator: "/")
         url.path = "/" + ([url.path, path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))].filter { !$0.isEmpty }.joined(separator: "/"))
         url.query = nil
         url.fragment = nil
-        guard let result = url.url else { throw TranslationFailure.message(AppLocalization.runtimeString("API 地址无效")) }
+        guard let result = url.url else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.invalid_api_url")) }
         return result
     }
 
@@ -43,7 +47,7 @@ struct TranslationClient {
                    configuration c: TranslationServiceConfiguration, secret: String) async throws -> String {
         if c.provider == .dictionary {
             guard text.count <= 200, let definition = DCSCopyTextDefinition(nil, text as CFString, CFRange(location: 0, length: (text as NSString).length)) else {
-                throw TranslationFailure.message(AppLocalization.runtimeString("词典未找到该词条。请使用单词/短语，或在系统词典中下载英汉词典。"))
+                throw TranslationFailure.message(AppLocalization.runtimeString("translation.no_dictionary_entry_found_use_a_word_or"))
             }
             return definition.takeRetainedValue() as String
         }
@@ -51,7 +55,7 @@ struct TranslationClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            throw TranslationFailure.message(AppLocalization.runtimeFormat("%@ 请求失败（HTTP %@），请检查密钥、额度和网络", AppLocalization.runtimeString(c.provider.title), String(describing: status)))
+            throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.request_failed_http_check_key_quota_and_network", c.provider.title, String(describing: status)))
         }
         return try Self.parse(data, provider: c.provider)
     }
@@ -61,7 +65,7 @@ struct TranslationClient {
                         salt: String = UUID().uuidString, timestamp: String = String(Int(Date().timeIntervalSince1970))) throws -> URLRequest {
         let provider = c.provider
         if provider.requiresSecret && secret.isEmpty {
-            throw TranslationFailure.message(AppLocalization.runtimeFormat("请先在服务设置中填写 %@ 密钥", AppLocalization.runtimeString(provider.title)))
+            throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.enter_the_key_in_service_settings_first", provider.title))
         }
         let from = source.code(for: provider), to = target.code(for: provider)
         var endpoint = ""
@@ -70,17 +74,17 @@ struct TranslationClient {
         var headers: [String: String] = [:]
         switch provider {
         case .myMemory:
-            guard text.utf8.count <= 500 else { throw TranslationFailure.message(AppLocalization.runtimeString("MyMemory 单次限 500 UTF-8 字节，请缩短原文或选择其他服务")) }
+            guard text.utf8.count <= 500 else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.mymemory_allows_up_to_500_utf_8_bytes")) }
             endpoint = "https://api.mymemory.translated.net/get"
             let resolvedSource = source == .auto ? detectedLanguage(text) : source
             form = ["q": text, "langpair": resolvedSource.code(for: provider) + "|" + to]
         case .baidu:
-            guard !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("请填写百度 APP ID")) }
+            guard !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_baidu_app_id")) }
             endpoint = "https://fanyi-api.baidu.com/api/trans/vip/translate"
             let sign = Insecure.MD5.hash(data: Data((c.appID + text + salt + secret).utf8)).map { String(format: "%02x", $0) }.joined()
             form = ["q": text, "from": from, "to": to, "appid": c.appID, "salt": salt, "sign": sign]
         case .youdao:
-            guard !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("请填写有道应用 ID")) }
+            guard !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_youdao_app_id")) }
             endpoint = "https://openapi.youdao.com/api"
             let sign = SHA256.hash(data: Data((c.appID + youdaoInput(text) + salt + timestamp + secret).utf8)).map { String(format: "%02x", $0) }.joined()
             form = ["q": text, "from": from, "to": to, "appKey": c.appID, "salt": salt, "sign": sign, "signType": "v3", "curtime": timestamp, "strict": "true"]
@@ -99,7 +103,7 @@ struct TranslationClient {
             if source != .auto { body["source_lang"] = from }
             json = body
         case .dictionary:
-            throw TranslationFailure.message(AppLocalization.runtimeString("系统词典不使用网络接口"))
+            throw TranslationFailure.message(AppLocalization.runtimeString("translation.system_dictionary_does_not_use_a_network_api"))
         case .volcano:
             var body: [String: Any] = ["TextList": [text], "TargetLanguage": to]
             if source != .auto { body["SourceLanguage"] = from }
@@ -108,7 +112,7 @@ struct TranslationClient {
             return request
         case .amazon:
             let region = c.region.isEmpty ? "us-east-1" : c.region
-            guard region.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { throw TranslationFailure.message("AWS 区域格式无效") }
+            guard region.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.invalid_aws_region_format")) }
             let domain = region.hasPrefix("cn-") ? "amazonaws.com.cn" : "amazonaws.com"
             var request = try TranslationCloudSigning.jsonRequest("https://translate.\(region).\(domain)/", body: ["Text": text, "SourceLanguageCode": from, "TargetLanguageCode": to])
             request.setValue("AWSShineFrontendService_20170701.TranslateText", forHTTPHeaderField: "X-Amz-Target")
@@ -131,10 +135,10 @@ struct TranslationClient {
             if source != .auto { body["source"] = from }
             json = body
         default:
-            guard !c.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("请填写 AI 模型名称")) }
+            guard !c.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_an_ai_model_name")) }
             endpoint = try aiURL(base: c.baseURL, path: c.apiPath).absoluteString
             if !secret.isEmpty { headers["Authorization"] = "Bearer \(secret)" }
-            let prompt = c.prompt.replacingOccurrences(of: "{source}", with: source.title).replacingOccurrences(of: "{target}", with: target.title)
+            let prompt = c.prompt.replacingOccurrences(of: "{source}", with: source.promptName).replacingOccurrences(of: "{target}", with: target.promptName)
             json = ["model": c.model, "stream": false, "messages": [["role": "system", "content": prompt], ["role": "user", "content": text]]]
             if provider == .claude {
                 headers.removeValue(forKey: "Authorization")
@@ -172,13 +176,13 @@ struct TranslationClient {
         let result: String?
         switch provider {
         case .myMemory:
-            guard (dict["responseStatus"] as? NSNumber)?.intValue == 200 else { throw TranslationFailure.message("MyMemory 额度不足或语言不受支持") }
+            guard (dict["responseStatus"] as? NSNumber)?.intValue == 200 else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.mymemory_quota_exceeded_or_language_unsupported")) }
             result = (dict["responseData"] as? [String: Any])?["translatedText"] as? String
         case .baidu:
-            if let code = dict["error_code"] { throw TranslationFailure.message(AppLocalization.runtimeFormat("百度翻译错误 %@，请检查账号、额度及语言设置", String(describing: code))) }
+            if let code = dict["error_code"] { throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.baidu_translation_error_check_your_account_quota_and", String(describing: code))) }
             result = (dict["trans_result"] as? [[String: Any]])?.compactMap { $0["dst"] as? String }.joined(separator: "\n")
         case .youdao:
-            guard dict["errorCode"] as? String == "0" else { throw TranslationFailure.message(AppLocalization.runtimeFormat("有道翻译错误 %@，请检查账号与额度", String(describing: dict["errorCode"] ?? AppLocalization.runtimeString("未知")))) }
+            guard dict["errorCode"] as? String == "0" else { throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.youdao_translation_error_check_your_account_and_quota", String(describing: dict["errorCode"] ?? AppLocalization.runtimeString("translation.unknown")))) }
             result = (dict["translation"] as? [String])?.joined(separator: "\n")
         case .microsoft:
             result = ((object as? [[String: Any]])?.first?["translations"] as? [[String: Any]])?.first?["text"] as? String
@@ -199,7 +203,7 @@ struct TranslationClient {
         default:
             result = ((dict["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any])?["content"] as? String
         }
-        guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("服务未返回有效译文")) }
+        guard let result, !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.service_returned_no_valid_translation")) }
         return result
     }
 }

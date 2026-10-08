@@ -55,7 +55,7 @@ struct UsageCompactView: View {
 
     private func accessibilityText(for presentation: UsageCompactBrandPresentation) -> String {
         AppLocalization.format(
-            "%@ 账号用量：剩余 %d%%",
+            "usage.account_usage_remaining",
             presentation.provider.displayName,
             presentation.remainingPercentage
         )

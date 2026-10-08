@@ -20,9 +20,9 @@ struct SessionAuditInnerView: View {
 
             if records.isEmpty {
                 ContentUnavailableView(
-                    "暂无审计记录",
+                    "session.no_audit_records",
                     systemImage: "checkmark.shield",
-                    description: Text("此会话提交审批或问题回答后会显示在这里。")
+                    description: Text("session.approvals_and_answers_submitted_for_this_session_will")
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(24)
@@ -53,7 +53,7 @@ struct SessionAuditInnerView: View {
                         .frame(width: 24, height: 24)
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("审计记录")
+                        Text("session.audit_records")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white.opacity(isHeaderHovered ? 1.0 : 0.85))
                         Text(session.projectName)
@@ -96,7 +96,7 @@ struct SessionAuditInnerView: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help("切换当前会话审计状态")
+            .help("session.change_audit_mode_for_this_session")
 
             Text("\(records.count)")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -122,22 +122,13 @@ struct SessionAuditInnerView: View {
         .zIndex(1) // Render above records list
     }
 
-    private func formattedResultLabel(for label: String) -> String {
-        if label == "允许相同操作" {
-            return "允许相同操作 · 手动"
-        } else if label == "自动允许相同操作" {
-            return "允许相同操作 · 自动"
-        }
-        return label
-    }
-
     private func auditCard(_ record: SessionAuditRecord) -> some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 7) {
                 Image(systemName: record.kind == .approval ? "checkmark.shield" : "questionmark.bubble")
                     .foregroundColor(record.kind == .approval ? TerminalColors.amber : TerminalColors.blue)
 
-                Text(appLocalized: formattedResultLabel(for: record.resultLabel))
+                Text(appLocalized: record.resultLabelKey)
                     .font(.system(size: 12, weight: .bold))
 
                 Spacer()
@@ -152,12 +143,12 @@ struct SessionAuditInnerView: View {
             }
 
             auditSection(
-                title: "审计内容",
+                title: AppLocalization.runtimeString("session.audit_details"),
                 heading: record.requestTitle,
                 content: record.requestContent
             )
             auditSection(
-                title: "提交消息",
+                title: AppLocalization.runtimeString("session.submitted_message"),
                 heading: nil,
                 content: record.submittedMessage
             )
@@ -191,7 +182,7 @@ struct SessionAuditInnerView: View {
                 SessionTextSanitizer.boundedDisplayText(
                     content,
                     maxCharacters: 4_000,
-                    truncationNotice: "内容过长，界面已截断；本地审计文件保留完整内容。"
+                    truncationNotice: AppLocalization.runtimeString("session.text_truncated_for_display_the_local_audit_file")
                 ) ?? ""
             )
             .font(.system(size: 10, weight: .regular, design: .monospaced))

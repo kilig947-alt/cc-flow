@@ -4,6 +4,29 @@ import AppKit
 
 final class TranslationTests: XCTestCase {
     @MainActor
+    func testDisplayedLanguageDirectionFollowsDetectionAndManualSelection() {
+        let name = "TranslationDirection.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = TranslationStore(defaults: defaults)
+        Self.retainedStores.append(store)
+        store.text = "El banco es obligatorio. Por favor, seleccione un banco para continuar."
+        XCTAssertEqual(store.effectiveSourceLanguage, .es)
+        XCTAssertEqual(store.effectiveTargetLanguage, .zh)
+        store.text = "请选择银行后继续进行交易。"
+        XCTAssertEqual(store.effectiveSourceLanguage, .zh)
+        XCTAssertEqual(store.effectiveTargetLanguage, .en)
+        store.source = .fr
+        store.target = .ja
+        XCTAssertEqual(store.effectiveSourceLanguage, .fr)
+        XCTAssertEqual(store.effectiveTargetLanguage, .ja)
+        store.source = .auto
+        store.text = ""
+        XCTAssertNil(store.effectiveSourceLanguage)
+        XCTAssertNil(TranslationClient.recognizedLanguage(""))
+    }
+
+    @MainActor
     func testMissingKeysCollapseAndSortLastWithoutChangingPreferences() async throws {
         let name = "TranslationMissingKeys.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

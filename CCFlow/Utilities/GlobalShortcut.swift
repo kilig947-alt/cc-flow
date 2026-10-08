@@ -167,64 +167,64 @@ enum GlobalShortcutAction: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .translationSelection: return "Tflow 选词翻译"
-        case .translationScreenshot: return "Tflow 截图翻译"
-        case .translationInput: return "Tflow 输入翻译"
+        case .translationSelection: return AppLocalization.runtimeString("common.tflow_selection_translation")
+        case .translationScreenshot: return AppLocalization.runtimeString("common.tflow_screenshot_translation")
+        case .translationInput: return AppLocalization.runtimeString("common.tflow_input_translation")
 
         case .openActiveSession:
-            return "展开活跃会话"
+            return AppLocalization.runtimeString("common.show_active_session")
         case .openLeftFeature:
-            return "展开左侧功能"
+            return AppLocalization.runtimeString("common.open_left_features")
         case .openSessionList:
-            return "展开会话列表"
+            return AppLocalization.runtimeString("common.show_session_list")
         case .giflowSelectionCapture:
-            return "Giflow 区域截取"
+            return AppLocalization.runtimeString("common.giflow_region_recording")
         case .giflowFullScreenCapture:
-            return "Giflow 全屏截取"
+            return AppLocalization.runtimeString("common.giflow_full_screen_recording")
         case .giflowOpenRecordings:
-            return "Giflow 打开录制列表"
+            return AppLocalization.runtimeString("common.giflow_recordings")
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .translationSelection: return "选词翻译"
-        case .translationScreenshot: return "截图翻译"
-        case .translationInput: return "输入翻译"
+        case .translationSelection: return AppLocalization.runtimeString("common.translate_selection")
+        case .translationScreenshot: return AppLocalization.runtimeString("common.translate_screenshot")
+        case .translationInput: return AppLocalization.runtimeString("common.translate_input")
 
         case .openActiveSession:
-            return "活跃会话"
+            return AppLocalization.runtimeString("common.active_session")
         case .openLeftFeature:
-            return "左侧功能"
+            return AppLocalization.runtimeString("settings.left_features")
         case .openSessionList:
-            return "会话列表"
+            return AppLocalization.runtimeString("common.session_list")
         case .giflowSelectionCapture:
-            return "Giflow 选区"
+            return AppLocalization.runtimeString("common.giflow_region")
         case .giflowFullScreenCapture:
-            return "Giflow 全屏"
+            return AppLocalization.runtimeString("common.giflow_full_screen")
         case .giflowOpenRecordings:
-            return "Giflow 列表"
+            return AppLocalization.runtimeString("common.giflow_recordings_2")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .translationSelection: return "选词或剪贴板文字 / 图片翻译。"
-        case .translationScreenshot: return "框选屏幕区域，本地识别文字后翻译。"
-        case .translationInput: return "展开灵动岛左侧翻译功能并聚焦输入框。"
+        case .translationSelection: return AppLocalization.runtimeString("common.translate_selected_text_or_clipboard_text_images")
+        case .translationScreenshot: return AppLocalization.runtimeString("common.select_a_screen_region_recognize_text_locally_and")
+        case .translationInput: return AppLocalization.runtimeString("common.open_tflow_in_the_left_panel_and_focus")
 
         case .openActiveSession:
-            return "优先打开最近需要关注或正在运行的会话。"
+            return AppLocalization.runtimeString("common.open_the_most_relevant_active_or_attention_needed")
         case .openLeftFeature:
-            return "打开最近预览或激活的左侧功能视图。"
+            return AppLocalization.runtimeString("common.open_the_most_recently_previewed_or_active_left")
         case .openSessionList:
-            return "直接展开 Island 的会话列表视图。"
+            return AppLocalization.runtimeString("common.open_island_s_full_session_list_view")
         case .giflowSelectionCapture:
-            return "长按拖拽选择屏幕区域录制 GIF，再次按下可弹出保存/放弃。"
+            return AppLocalization.runtimeString("common.drag_to_select_a_screen_region_to_record")
         case .giflowFullScreenCapture:
-            return "全屏录制 GIF，再次按下可弹出保存/放弃。"
+            return AppLocalization.runtimeString("common.record_the_full_screen_as_gif_press_again")
         case .giflowOpenRecordings:
-            return "展开 Island 中的 Giflow 录制结果历史列表。"
+            return AppLocalization.runtimeString("common.open_giflow_recording_history_in_island")
         }
     }
 

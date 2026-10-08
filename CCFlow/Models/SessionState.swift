@@ -16,22 +16,22 @@ enum SessionScopedApprovalAction: Equatable, Sendable {
     nonisolated var buttonTitleKey: String {
         switch self {
         case .allowSession:
-            return "Allow Session"
+            return AppLocalization.runtimeString("session.allow_session")
         case .autoApprove:
-            return "Always Allow"
+            return AppLocalization.runtimeString("session.always_allow")
         case .allowSimilarOperation:
-            return "Allow Same Operation"
+            return AppLocalization.runtimeString("session.allow_same_operation")
         }
     }
 
     nonisolated var compactButtonTitleKey: String {
         switch self {
         case .allowSession:
-            return "Session"
+            return AppLocalization.runtimeString("session.session")
         case .autoApprove:
-            return "Always"
+            return AppLocalization.runtimeString("session.always")
         case .allowSimilarOperation:
-            return "Same Operation"
+            return AppLocalization.runtimeString("session.same")
         }
     }
 }

@@ -22,6 +22,6 @@ struct NewsNowCompactView: View {
             Capsule(style: .continuous)
                 .fill(Color.white.opacity(0.10))
         )
-        .accessibilityLabel("AI HOT，AI 行业动态聚合")
+        .accessibilityLabel("features.ai_hot_ai_industry_news")
     }
 }

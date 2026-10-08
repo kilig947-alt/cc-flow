@@ -27,7 +27,7 @@ final class UpdateReleaseNotesParserTests: XCTestCase {
         let sections = UpdateReleaseNotesParser.sections(from: markdown)
 
         XCTAssertEqual(sections.count, 1)
-        XCTAssertEqual(sections[0].title, "更新内容")
+        XCTAssertEqual(sections[0].title, AppLocalization.runtimeString("update.what_s_new"))
         XCTAssertTrue(sections[0].markdown.contains("第一条"))
     }
 

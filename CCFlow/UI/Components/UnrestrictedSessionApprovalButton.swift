@@ -38,8 +38,8 @@ struct UnrestrictedSessionApprovalButton: View {
 
     private var titleKey: String {
         isAwaitingConfirmation
-            ? "请确认你的AI会遵循《阿西洛马 AI 原则》?"
-            : "完全放任"
+            ? AppLocalization.runtimeString("session.confirm_your_ai_will_follow_the_asilomar_ai")
+            : AppLocalization.runtimeString("session.allow_everything")
     }
 
     private var backgroundColor: Color {

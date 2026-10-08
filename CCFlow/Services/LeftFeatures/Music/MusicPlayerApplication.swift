@@ -11,8 +11,8 @@ enum MusicPlayerApplication: String, CaseIterable, Equatable {
         switch self {
         case .appleMusic: "Apple Music"
         case .spotify: "Spotify"
-        case .neteaseMusic: "网易云音乐"
-        case .qqMusic: "QQ 音乐"
+        case .neteaseMusic: AppLocalization.runtimeString("music.netease_cloud_music")
+        case .qqMusic: AppLocalization.runtimeString("music.qq_music")
         }
     }
 

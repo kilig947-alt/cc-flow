@@ -8,12 +8,12 @@ enum TranslationOCRProvider: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .system: return AppLocalization.runtimeString("离线文本识别")
-        case .volcano: return AppLocalization.runtimeString("火山 OCR")
-        case .tencent: return AppLocalization.runtimeString("腾讯 OCR")
-        case .tencentImage: return AppLocalization.runtimeString("腾讯图片翻译")
-        case .baidu: return AppLocalization.runtimeString("百度 OCR")
-        case .youdao: return AppLocalization.runtimeString("有道 OCR")
+        case .system: return AppLocalization.runtimeString("translation.offline_text_recognition")
+        case .volcano: return AppLocalization.runtimeString("translation.volcengine_ocr")
+        case .tencent: return AppLocalization.runtimeString("translation.tencent_ocr")
+        case .tencentImage: return AppLocalization.runtimeString("translation.tencent_image_translation")
+        case .baidu: return AppLocalization.runtimeString("translation.baidu_ocr")
+        case .youdao: return AppLocalization.runtimeString("translation.youdao_ocr")
         case .google: return "Google OCR"
         }
     }
@@ -22,7 +22,7 @@ enum TranslationOCRProvider: String, Codable, CaseIterable, Identifiable {
         case .tencent, .tencentImage: return "SecretId"
         case .volcano: return "Access Key ID"
         case .baidu: return "API Key"
-        default: return AppLocalization.runtimeString("应用 ID")
+        default: return AppLocalization.runtimeString("translation.app_id")
         }
     }
     var needsID: Bool { self != .system && self != .google }
@@ -98,16 +98,16 @@ struct TranslationOCRClient {
                 return TranslationOCROutput(text: (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n"))
             }.value
         }
-        guard !secret.isEmpty, !c.provider.needsID || !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeFormat("请先配置 %@ 的凭据", AppLocalization.runtimeString(c.provider.title))) }
+        guard !secret.isEmpty, !c.provider.needsID || !c.appID.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.configure_credentials_for_first", c.provider.title)) }
         // Clipboard images often arrive as TIFF; cloud APIs receive PNG only.
         let usesYoudao = c.provider == .youdao
         let png = try await Task.detached(priority: .userInitiated) {
             guard let image = NSBitmapImageRep(data: data), image.pixelsWide * image.pixelsHigh <= 40_000_000,
                   let png = image.representation(using: .png, properties: [:]), png.count <= 4 * 1024 * 1024 else {
-                throw TranslationFailure.message(AppLocalization.runtimeString("云端 OCR 需 4 MB 以内的图片，请缩小截图区域"))
+                throw TranslationFailure.message(AppLocalization.runtimeString("translation.cloud_ocr_requires_images_under_4_mb_select"))
             }
             if usesYoudao && (min(image.pixelsWide, image.pixelsHigh) <= 10 || max(image.pixelsWide, image.pixelsHigh) >= 2048) {
-                throw TranslationFailure.message(AppLocalization.runtimeString("有道 OCR 要求图片边长大于 10 且小于 2048 像素，请缩小截图区域或切换系统识别"))
+                throw TranslationFailure.message(AppLocalization.runtimeString("translation.youdao_ocr_requires_image_dimensions_between_10_and"))
             }
             return png
         }.value
@@ -121,7 +121,7 @@ struct TranslationOCRClient {
             let tokenData = try await fetch(tokenRequest)
             let object = try JSONSerialization.jsonObject(with: tokenData) as? [String: Any]
             accessToken = object?["access_token"] as? String
-            guard accessToken != nil else { throw TranslationFailure.message("百度 OCR 认证失败，请检查 API Key 与 Secret Key") }
+            guard accessToken != nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.baidu_ocr_authentication_failed_check_api_key_and")) }
         }
         let request = try Self.request(png, configuration: c, secret: secret, target: target, baiduAccessToken: accessToken)
         return try Self.parse(await fetch(request), provider: c.provider)
@@ -129,7 +129,7 @@ struct TranslationOCRClient {
     private func fetch(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode) else {
-            throw TranslationFailure.message(AppLocalization.runtimeFormat("OCR 服务请求失败（HTTP %@），请检查凭据、额度与网络", String(describing: (response as? HTTPURLResponse)?.statusCode ?? 0)))
+            throw TranslationFailure.message(AppLocalization.runtimeFormat("translation.ocr_request_failed_http_check_credentials_quota_and", String(describing: (response as? HTTPURLResponse)?.statusCode ?? 0)))
         }
         return data
     }
@@ -138,10 +138,10 @@ struct TranslationOCRClient {
                         now: Date = Date(), salt: String = UUID().uuidString) throws -> URLRequest {
         let image = png.base64EncodedString()
         if c.provider == .youdao && image.utf8.count >= 2 * 1024 * 1024 {
-            throw TranslationFailure.message(AppLocalization.runtimeString("有道 OCR 要求编码后图片小于 2 MB，请缩小截图区域或切换系统识别"))
+            throw TranslationFailure.message(AppLocalization.runtimeString("translation.youdao_ocr_requires_encoded_images_under_2_mb"))
         }
         switch c.provider {
-        case .system: throw TranslationFailure.message(AppLocalization.runtimeString("系统 OCR 不使用网络接口"))
+        case .system: throw TranslationFailure.message(AppLocalization.runtimeString("translation.system_ocr_does_not_use_a_network_api"))
         case .volcano:
             var request = try TranslationCloudSigning.jsonRequest("https://visual.volcengineapi.com/?Action=OCRNormal&Version=2020-08-26", body: ["image_base64": image])
             try TranslationCloudSigning.signV4(&request, accessKey: c.appID, secret: secret, region: c.region, service: "cv", volc: true, now: now)
@@ -159,7 +159,7 @@ struct TranslationOCRClient {
             var fields: [String: String]
             var url: URL
             if c.provider == .baidu {
-                guard let token = baiduAccessToken else { throw TranslationFailure.message(AppLocalization.runtimeString("缺少百度 OCR 访问令牌")) }
+                guard let token = baiduAccessToken else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.missing_baidu_ocr_access_token")) }
                 var components = URLComponents(string: "https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic")!
                 components.queryItems = [URLQueryItem(name: "access_token", value: token)]
                 url = components.url!
@@ -178,35 +178,35 @@ struct TranslationOCRClient {
         }
     }
     static func parse(_ data: Data, provider: TranslationOCRProvider) throws -> TranslationOCROutput {
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw TranslationFailure.message(AppLocalization.runtimeString("OCR 返回格式无效")) }
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.invalid_ocr_response_format")) }
         var text: String?
         var translated: String?
         switch provider {
         case .system: break
         case .volcano:
-            guard (root["code"] as? NSNumber)?.intValue == 10000 else { throw TranslationFailure.message("火山 OCR 识别失败，请检查凭据与额度") }
+            guard (root["code"] as? NSNumber)?.intValue == 10000 else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.volcengine_ocr_failed_check_credentials_and_quota")) }
             text = ((root["data"] as? [String: Any])?["line_texts"] as? [String])?.joined(separator: "\n")
         case .tencent, .tencentImage:
             let response = root["Response"] as? [String: Any] ?? [:]
-            guard response["Error"] == nil else { throw TranslationFailure.message("腾讯识别失败，请检查服务开通状态、凭据与额度") }
+            guard response["Error"] == nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.tencent_recognition_failed_check_service_activation_credentials_and")) }
             if provider == .tencentImage {
                 text = response["SourceText"] as? String
                 translated = response["TargetText"] as? String
             } else { text = (response["TextDetections"] as? [[String: Any]])?.compactMap { $0["DetectedText"] as? String }.joined(separator: "\n") }
         case .baidu:
-            guard root["error_code"] == nil else { throw TranslationFailure.message("百度 OCR 识别失败，请检查凭据与额度") }
+            guard root["error_code"] == nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.baidu_ocr_failed_check_credentials_and_quota")) }
             text = (root["words_result"] as? [[String: Any]])?.compactMap { $0["words"] as? String }.joined(separator: "\n")
         case .youdao:
-            guard root["errorCode"] as? String == "0" else { throw TranslationFailure.message("有道 OCR 识别失败，请检查凭据与额度") }
+            guard root["errorCode"] as? String == "0" else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.youdao_ocr_failed_check_credentials_and_quota")) }
             let regions = (root["Result"] as? [String: Any])?["regions"] as? [[String: Any]] ?? []
             text = regions.flatMap { $0["lines"] as? [[String: Any]] ?? [] }.compactMap { $0["text"] as? String }.joined(separator: "\n")
         case .google:
             let response = (root["responses"] as? [[String: Any]])?.first ?? [:]
-            guard response["error"] == nil else { throw TranslationFailure.message("Google OCR 识别失败，请检查 API 开通状态与额度") }
+            guard response["error"] == nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.google_ocr_failed_check_api_activation_and_quota")) }
             text = (response["fullTextAnnotation"] as? [String: Any])?["text"] as? String
                 ?? (response["textAnnotations"] as? [[String: Any]])?.first?["description"] as? String ?? ""
         }
-        guard let text else { throw TranslationFailure.message(AppLocalization.runtimeString("OCR 服务未返回有效识别结果")) }
+        guard let text else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.ocr_returned_no_valid_recognition_results")) }
         return TranslationOCROutput(text: text, translation: translated)
     }
 }

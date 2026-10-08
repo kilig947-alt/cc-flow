@@ -7,18 +7,18 @@ enum TranslationProvider: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .zhipu: return "智谱翻译"
-        case .siliconFlow: return "硅基流动翻译"
+        case .zhipu: return AppLocalization.runtimeString("translation.zhipu_translation")
+        case .siliconFlow: return AppLocalization.runtimeString("translation.siliconflow_translation")
         case .myMemory: return "MyMemory"
-        case .baidu: return "百度翻译"
-        case .youdao: return "有道翻译"
+        case .baidu: return AppLocalization.runtimeString("translation.baidu_translate")
+        case .youdao: return AppLocalization.runtimeString("translation.youdao_translate")
         case .microsoft: return "Microsoft Translator"
         case .deepL: return "DeepL API Free"
-        case .ai: return "自定义 AI"
+        case .ai: return AppLocalization.runtimeString("translation.custom_ai")
         case .aiHubMix: return "AiHubMix"
         case .sophNet: return "SophNet"
         case .ai302: return "302AI"
-        case .tencent: return "腾讯翻译君"
+        case .tencent: return AppLocalization.runtimeString("translation.tencent_translator")
         case .openAI: return "OpenAI"
         case .azureOpenAI: return "Azure OpenAI"
         case .gemini: return "Gemini"
@@ -29,39 +29,39 @@ enum TranslationProvider: String, Codable, CaseIterable, Identifiable {
         case .ollama: return "Ollama"
         case .lmStudio: return "LM Studio"
         case .deepSeek: return "DeepSeek"
-        case .qwen: return "千问"
-        case .wenxin: return "文心"
-        case .doubao: return "豆包"
-        case .hunyuan: return "混元"
-        case .moark: return "模力方舟"
+        case .qwen: return AppLocalization.runtimeString("translation.qwen")
+        case .wenxin: return AppLocalization.runtimeString("translation.ernie")
+        case .doubao: return AppLocalization.runtimeString("translation.doubao")
+        case .hunyuan: return AppLocalization.runtimeString("translation.hunyuan")
+        case .moark: return AppLocalization.runtimeString("translation.modelark")
         case .kimi: return "Kimi"
-        case .yi: return "零一万物"
-        case .volcano: return "火山翻译"
-        case .aliyun: return "阿里翻译"
-        case .caiyun: return "彩云小译"
-        case .niutrans: return "小牛翻译"
-        case .google: return "Google 翻译"
-        case .amazon: return "Amazon 翻译"
-        case .dictionary: return "简明词典（系统）"
+        case .yi: return AppLocalization.runtimeString("translation.duration_01_ai")
+        case .volcano: return AppLocalization.runtimeString("translation.volcengine_translate")
+        case .aliyun: return AppLocalization.runtimeString("translation.alibaba_translate")
+        case .caiyun: return AppLocalization.runtimeString("translation.caiyun_translate")
+        case .niutrans: return AppLocalization.runtimeString("translation.niutrans")
+        case .google: return AppLocalization.runtimeString("translation.google_translate")
+        case .amazon: return AppLocalization.runtimeString("translation.amazon_translate")
+        case .dictionary: return AppLocalization.runtimeString("translation.system_dictionary")
 
         }
     }
     var detail: String {
         switch self {
-        case .zhipu: return "预设免费 Flash 模型，需填写自己的智谱 API Key；免费模型也有频率限制。"
-        case .siliconFlow: return "预设免费 Hunyuan-MT-7B 翻译模型，需填写自己的硅基流动 API Key；以平台当前定价为准。"
-        case .myMemory: return "海外 · 免密钥，有每日限额；单次最多 500 UTF-8 字节"
-        case .baidu: return "中国区 · 需申请应用与密钥；免费额度与资格以官网为准"
-        case .youdao: return "中国区 · 需应用 ID 与密钥；新用户免费体验金，用尽后按量计费"
-        case .microsoft: return "海外 · 需创建 Azure Translator F0 免费资源"
-        case .deepL: return "海外 · 需 API Free 账号和密钥，受注册地区及额度限制"
-        case .ai: return "OpenAI 兼容接口 · 支持国内、海外及本地模型，费用由服务方决定"
-        case .dictionary: return "使用 macOS 已安装的词典查询单词与短语；请在系统词典 App 中启用英汉词典。不是整段机器翻译。"
-        case .ollama, .lmStudio: return "先启动本地模型服务，再填写已下载/加载的模型名称。无需云端密钥。"
-        case .tencent: return "腾讯官方推荐的新 TokenHub 翻译模型。旧文本翻译接口不再支持新用户；需 TokenHub API Key。"
-        case .azureOpenAI: return "填写 Azure 资源地址和模型部署名称，使用 v1 接口；需要资源 API Key。"
-        case .doubao: return "填写方舟 API Key，模型填写已开通的模型 ID 或推理接入点 ID。"
-        default: return usesChatAPI ? "填写自己的 API Key 和已开通的模型名称；额度、地区与计费以服务方为准。" : "使用官方翻译 API，需先开通服务并配置凭据；额度与计费以服务方为准。"
+        case .zhipu: return AppLocalization.runtimeString("translation.preset_free_flash_model_requires_your_own_zhipu")
+        case .siliconFlow: return AppLocalization.runtimeString("translation.preset_free_hunyuan_mt_7b_translation_model_requires")
+        case .myMemory: return AppLocalization.runtimeString("translation.international_no_key_required_daily_quota_and_500")
+        case .baidu: return AppLocalization.runtimeString("translation.china_app_and_key_required_see_the_official")
+        case .youdao: return AppLocalization.runtimeString("translation.china_app_id_and_key_required_trial_credit")
+        case .microsoft: return AppLocalization.runtimeString("translation.international_create_an_azure_translator_f0_free_resource")
+        case .deepL: return AppLocalization.runtimeString("translation.international_api_free_account_and_key_required_regional")
+        case .ai: return AppLocalization.runtimeString("translation.openai_compatible_api_supports_regional_international_and_local")
+        case .dictionary: return AppLocalization.runtimeString("translation.look_up_words_and_phrases_using_installed_macos")
+        case .ollama, .lmStudio: return AppLocalization.runtimeString("translation.start_the_local_model_service_then_enter_a")
+        case .tencent: return AppLocalization.runtimeString("translation.tencent_s_recommended_tokenhub_translation_model_the_legacy")
+        case .azureOpenAI: return AppLocalization.runtimeString("translation.enter_the_azure_resource_url_and_model_deployment")
+        case .doubao: return AppLocalization.runtimeString("translation.enter_an_ark_api_key_and_an_enabled")
+        default: return usesChatAPI ? AppLocalization.runtimeString("translation.enter_your_own_api_key_and_an_enabled") : AppLocalization.runtimeString("translation.uses_the_official_translation_api_activate_the_service")
         }
     }
     var usesChatAPI: Bool {
@@ -74,18 +74,18 @@ enum TranslationProvider: String, Codable, CaseIterable, Identifiable {
     var needsAppID: Bool { [.baidu, .youdao, .volcano, .aliyun, .amazon].contains(self) }
     var needsRegion: Bool { [.microsoft, .amazon, .aliyun, .volcano].contains(self) }
     var group: String {
-        if [.dictionary, .ollama, .lmStudio].contains(self) { return "本地服务" }
-        return usesChatAPI && self != .tencent ? "AI 模型" : "通用翻译"
+        if [.dictionary, .ollama, .lmStudio].contains(self) { return AppLocalization.runtimeString("translation.local_services") }
+        return usesChatAPI && self != .tencent ? AppLocalization.runtimeString("translation.ai_models") : AppLocalization.runtimeString("translation.general_translation")
     }
     var defaultEnabled: Bool { self == .myMemory || self == .zhipu || self == .siliconFlow }
     var badge: String {
         switch self {
-        case .zhipu, .siliconFlow: return "免费模型"
-        case .myMemory: return "免密钥"
-        case .dictionary: return "系统内置"
-        case .ollama, .lmStudio: return "本地模型"
-        case .ai: return "自定义"
-        default: return "自备密钥"
+        case .zhipu, .siliconFlow: return AppLocalization.runtimeString("translation.free_model")
+        case .myMemory: return AppLocalization.runtimeString("translation.no_key_required")
+        case .dictionary: return AppLocalization.runtimeString("translation.built_in")
+        case .ollama, .lmStudio: return AppLocalization.runtimeString("translation.local_model")
+        case .ai: return AppLocalization.runtimeString("settings.custom")
+        default: return AppLocalization.runtimeString("translation.bring_your_own_key")
         }
     }
     var documentationURL: URL {
@@ -130,19 +130,26 @@ enum TranslationProvider: String, Codable, CaseIterable, Identifiable {
 enum TranslationLanguage: String, Codable, CaseIterable, Identifiable {
     case auto, zh, en, ja, ko, fr, de, es, ru
     var id: String { rawValue }
-    var title: String {
+    var titleKey: String {
         switch self {
-        case .auto: return "自动检测"
-        case .zh: return "简体中文"
-        case .en: return "英语"
-        case .ja: return "日语"
-        case .ko: return "韩语"
-        case .fr: return "法语"
-        case .de: return "德语"
-        case .es: return "西班牙语"
-        case .ru: return "俄语"
+        case .auto: return "translation.detect_automatically"
+        case .zh: return "settings.language.simplified_chinese"
+        case .en: return "translation.english"
+        case .ja: return "translation.japanese"
+        case .ko: return "translation.korean"
+        case .fr: return "translation.french"
+        case .de: return "translation.german"
+        case .es: return "translation.spanish"
+        case .ru: return "translation.russian"
         }
     }
+    var title: String { AppLocalization.runtimeString(titleKey) }
+
+    /// Prompt placeholders are independent from the app's interface language.
+    var promptName: String {
+        AppLocalization.string(titleKey, locale: Locale(identifier: "zh-Hans"))
+    }
+
     func code(for provider: TranslationProvider) -> String {
         switch (provider, self) {
         case (.baidu, .ja): return "jp"
@@ -277,7 +284,7 @@ extension TranslationServiceConfiguration {
 
     var badge: String {
         if (provider == .zhipu || provider == .siliconFlow), model != Self.preset(provider).model {
-            return "自定义模型"
+            return AppLocalization.runtimeString("translation.custom_model")
         }
         return provider.badge
     }

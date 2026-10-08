@@ -293,7 +293,7 @@ struct SessionQuestionForm: View {
                         onInteractionStateChanged(false)
                         onSkip()
                     } label: {
-                        Text(appLocalized: "跳过")
+                        Text(appLocalized: "session.skip")
                     }
                     .buttonStyle(SessionQuestionButtonStyle(background: Color.white.opacity(0.1)))
                     .disabled(!isEditable)
@@ -305,11 +305,11 @@ struct SessionQuestionForm: View {
                         onInteractionStateChanged(false)
                         onSkipAllForSession()
                     } label: {
-                        Text("本会话全部跳过")
+                        Text("session.skip_all_for_this_session")
                     }
                     .buttonStyle(SessionQuestionButtonStyle(background: TerminalColors.amber.opacity(0.22)))
                     .disabled(!isEditable)
-                    .help("自动跳过本会话后续审计问题，但仍保留审计记录")
+                    .help("session.automatically_skip_subsequent_audit_questions_in_this_session")
                 }
             }
             .padding(.top, 12)
@@ -389,7 +389,7 @@ struct SessionQuestionForm: View {
                             }
 
                             if question.allowsMultiple {
-                                Text("多选")
+                                Text("session.multiple")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(TerminalColors.amber.opacity(0.95))
                                     .padding(.horizontal, 6)
@@ -531,7 +531,7 @@ struct SessionQuestionForm: View {
                 customAnswerField(for: question)
             }
         } else if question.isSecret {
-            SecureField("Answer", text: Binding(
+            SecureField("session.answer", text: Binding(
                 get: { answers[question.id]?.first ?? "" },
                 set: { answers[question.id] = normalizedAnswers(from: $0) }
             ))
@@ -548,7 +548,7 @@ struct SessionQuestionForm: View {
                     .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
             )
         } else {
-            TextField("Answer", text: Binding(
+            TextField("session.answer", text: Binding(
                 get: { answers[question.id]?.first ?? "" },
                 set: { answers[question.id] = normalizedAnswers(from: $0) }
             ))
@@ -579,7 +579,7 @@ struct SessionQuestionForm: View {
             TextField("", text: Binding(
                 get: { otherAnswers[question.id] ?? "" },
                 set: { setCustomAnswer($0, for: question) }
-            ), prompt: Text(appLocalized: "Type Something ..."))
+            ), prompt: Text(appLocalized: "session.type_something"))
             .textFieldStyle(.plain)
             .focused($focusedQuestionID, equals: question.id)
             .submitLabel(.send)

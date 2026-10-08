@@ -8,66 +8,66 @@ final class SettingsWindowControllerTests: XCTestCase {
     func testFloatingPetGuidanceStringsMentionSecondaryClickToReopenSettings() {
         let zhHans = try! localizationFileContents(named: "zh-Hans")
         XCTAssertTrue(
-            zhHans.contains("\"进入独立悬浮宠物模式后，右键宠物形象可重新打开设置面板。\" = \"进入独立悬浮宠物模式后，右键宠物形象可重新打开设置面板。\";")
+            zhHans.contains("\"settings.after_entering_floating_pet_mode_right_click_the\" = \"进入独立悬浮宠物模式后，右键宠物形象可重新打开设置面板。\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"独立悬浮宠物默认贴近当前激活窗口右下角显示。拖动后会记住新位置，右键宠物形象可重新打开设置面板。\" = \"独立悬浮宠物默认贴近当前激活窗口右下角显示。拖动后会记住新位置，右键宠物形象可重新打开设置面板。\";")
+            zhHans.contains("\"settings.the_floating_pet_appears_near_the_bottom_right\" = \"独立悬浮宠物默认贴近当前激活窗口右下角显示。拖动后会记住新位置，右键宠物形象可重新打开设置面板。\";")
         )
 
         let english = try! localizationFileContents(named: "en")
         XCTAssertTrue(
-            english.contains("\"进入独立悬浮宠物模式后，右键宠物形象可重新打开设置面板。\" = \"After entering floating pet mode, right-click the mascot to reopen the Settings panel.\";")
+            english.contains("\"settings.after_entering_floating_pet_mode_right_click_the\" = \"After entering floating pet mode, right-click the mascot to reopen the Settings panel.\";")
         )
         XCTAssertTrue(
-            english.contains("\"独立悬浮宠物默认贴近当前激活窗口右下角显示。拖动后会记住新位置，右键宠物形象可重新打开设置面板。\" = \"The floating pet appears near the bottom-right corner of the active window by default. Dragging remembers the new position, and right-clicking the mascot reopens the Settings panel.\";")
+            english.contains("\"settings.the_floating_pet_appears_near_the_bottom_right\" = \"The floating pet appears near the bottom-right corner of the active window by default. Dragging remembers the new position, and right-clicking the mascot reopens the Settings panel.\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"拖动宠物，让宠物离岛工作\" = \"拖动宠物，让宠物离岛工作\";")
+            zhHans.contains("\"island.drag_the_mascot_to_let_the_pet_work\" = \"拖动宠物，让宠物离岛工作\";")
         )
         XCTAssertTrue(
-            english.contains("\"拖动宠物，让宠物离岛工作\" = \"Drag the mascot to let the pet work away from the Island.\";")
+            english.contains("\"island.drag_the_mascot_to_let_the_pet_work\" = \"Drag the mascot to let the pet work away from the Island.\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"刘海拖拽引导\" = \"刘海拖拽引导\";")
+            zhHans.contains("\"common.notch_drag_guidance\" = \"刘海拖拽引导\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"重新演示老用户首次打开新版本时看到的刘海拖拽提示。\" = \"重新演示老用户首次打开新版本时看到的刘海拖拽提示。\";")
+            zhHans.contains("\"common.replay_the_notch_drag_hint_that_returning_users\" = \"重新演示老用户首次打开新版本时看到的刘海拖拽提示。\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"重新演示\" = \"重新演示\";")
+            zhHans.contains("\"common.replay\" = \"重新演示\";")
         )
         XCTAssertTrue(
-            english.contains("\"刘海拖拽引导\" = \"Notch drag guidance\";")
+            english.contains("\"common.notch_drag_guidance\" = \"Notch drag guidance\";")
         )
         XCTAssertTrue(
-            english.contains("\"重新演示老用户首次打开新版本时看到的刘海拖拽提示。\" = \"Replay the notch drag hint that returning users see the first time they open the new version.\";")
+            english.contains("\"common.replay_the_notch_drag_hint_that_returning_users\" = \"Replay the notch drag hint that returning users see the first time they open the new version.\";")
         )
         XCTAssertTrue(
-            english.contains("\"重新演示\" = \"Replay\";")
+            english.contains("\"common.replay\" = \"Replay\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"最后一步：右键宠物形象\" = \"最后一步：右键宠物形象\";")
+            zhHans.contains("\"island.last_step_right_click_the_mascot\" = \"最后一步：右键宠物形象\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"需要重新打开设置面板时，直接右键宠物形象就可以。\" = \"需要重新打开设置面板时，直接右键宠物形象就可以。\";")
+            zhHans.contains("\"island.when_you_need_the_settings_panel_again_just\" = \"需要重新打开设置面板时，直接右键宠物形象就可以。\";")
         )
         XCTAssertTrue(
-            english.contains("\"最后一步：右键宠物形象\" = \"Last step: right-click the mascot\";")
+            english.contains("\"island.last_step_right_click_the_mascot\" = \"Last step: right-click the mascot\";")
         )
         XCTAssertTrue(
-            english.contains("\"需要重新打开设置面板时，直接右键宠物形象就可以。\" = \"When you need the Settings panel again, just right-click the mascot.\";")
+            english.contains("\"island.when_you_need_the_settings_panel_again_just\" = \"When you need the Settings panel again, just right-click the mascot.\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"重新体验首次引导\" = \"重新体验首次引导\";")
+            zhHans.contains("\"common.replay_first_run_onboarding\" = \"重新体验首次引导\";")
         )
         XCTAssertTrue(
-            zhHans.contains("\"手动打开形态选择引导；选择刘海屏或独立悬浮宠物后，会继续进入 Hooks 演示。\" = \"手动打开形态选择引导；选择刘海屏或独立悬浮宠物后，会继续进入 Hooks 演示。\";")
+            zhHans.contains("\"common.manually_open_the_surface_selection_onboarding_after_choosing\" = \"手动打开形态选择引导；选择刘海屏或独立悬浮宠物后，会继续进入 Hooks 演示。\";")
         )
         XCTAssertTrue(
-            english.contains("\"重新体验首次引导\" = \"Replay first-run onboarding\";")
+            english.contains("\"common.replay_first_run_onboarding\" = \"Replay first-run onboarding\";")
         )
         XCTAssertTrue(
-            english.contains("\"手动打开形态选择引导；选择刘海屏或独立悬浮宠物后，会继续进入 Hooks 演示。\" = \"Manually open the surface selection onboarding. After choosing the top Island or floating pet, CC FLOW continues into the Hooks demo.\";")
+            english.contains("\"common.manually_open_the_surface_selection_onboarding_after_choosing\" = \"Manually open the surface selection onboarding. After choosing the top Island or floating pet, CC FLOW continues into the Hooks demo.\";")
         )
     }
 

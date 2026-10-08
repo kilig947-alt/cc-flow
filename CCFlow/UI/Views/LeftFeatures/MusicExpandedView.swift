@@ -28,7 +28,7 @@ struct MusicExpandedView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             VStack(spacing: 2) {
-                Text(np.title ?? AppLocalization.string("未知曲目"))
+                Text(np.title ?? AppLocalization.string("music.unknown_track"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
@@ -176,14 +176,14 @@ struct MusicExpandedView: View {
             .frame(width: 52, height: 52)
             .accessibilityHidden(true)
 
-            Text("未在播放")
+            Text("music.not_playing")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.secondary)
 
             Button(action: provider.openPreferredPlayer) {
                 Label(
-                    application.map { AppLocalization.format("打开 %@", $0.displayName) }
-                        ?? AppLocalization.string("未找到音乐应用"),
+                    application.map { AppLocalization.format("chat.open", $0.displayName) }
+                        ?? AppLocalization.string("music.no_music_app_found"),
                     systemImage: "arrow.up.forward.app.fill"
                 )
                 .font(.system(size: 12, weight: .semibold))
@@ -192,10 +192,10 @@ struct MusicExpandedView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(application == nil)
-            .accessibilityHint(AppLocalization.string("启动最近使用的音乐播放器"))
+            .accessibilityHint(AppLocalization.string("music.launch_the_most_recently_used_music_player"))
             .help(
-                application.map { AppLocalization.format("启动 %@", $0.displayName) }
-                    ?? AppLocalization.string("未找到可启动的音乐应用")
+                application.map { AppLocalization.format("music.launch", $0.displayName) }
+                    ?? AppLocalization.string("music.no_music_app_is_available_to_open")
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

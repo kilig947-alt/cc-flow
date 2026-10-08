@@ -47,11 +47,11 @@ struct GiflowExpandedView: View {
         VStack(spacing: 0) {
             if let error = store.actionError {
                 HStack {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                    Label(LocalizedStringKey(error), systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 11))
                         .foregroundColor(.red)
                     Spacer()
-                    Button("关闭") { store.actionError = nil }
+                    Button("common.close") { store.actionError = nil }
                         .buttonStyle(.plain)
                 }
                 .padding(10)
@@ -81,7 +81,7 @@ struct GiflowExpandedView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .bold))
-                        Text("录制列表")
+                        Text("features.recordings")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .foregroundColor(.accentColor)
@@ -94,7 +94,7 @@ struct GiflowExpandedView: View {
 
                 Spacer()
 
-                Text("录制偏好设置")
+                Text("features.recording_preferences")
                     .font(.system(size: 13, weight: .bold))
 
                 Spacer()
@@ -102,7 +102,7 @@ struct GiflowExpandedView: View {
                 Button(action: {
                     withAnimation { isShowingSettings = false }
                 }) {
-                    Text("完成")
+                    Text("completion.completed")
                         .font(.system(size: 11, weight: .bold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
@@ -128,7 +128,7 @@ struct GiflowExpandedView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "crop")
                             .font(.system(size: 11))
-                        Text("选区录制")
+                        Text("features.record_region")
                             .font(.system(size: 11, weight: .medium))
                         Text("⌥5")
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -150,7 +150,7 @@ struct GiflowExpandedView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "macwindow")
                             .font(.system(size: 11))
-                        Text("全屏")
+                        Text("features.full_screen")
                             .font(.system(size: 11, weight: .medium))
                         Text("⌥6")
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -179,7 +179,7 @@ struct GiflowExpandedView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("录制偏好设置")
+                .help("features.recording_preferences")
 
                 // 打开目录按钮
                 Button(action: {
@@ -193,7 +193,7 @@ struct GiflowExpandedView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help("在访达中打开保存文件夹")
+                .help("features.open_save_folder_in_finder")
             }
         }
     }
@@ -207,7 +207,7 @@ struct GiflowExpandedView: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .controlSize(.small)
-                    Text("正在后台合成媒体文件...")
+                    Text("features.rendering_media_in_background")
                         .font(.system(size: 11, weight: .medium))
                 }
                 Spacer()
@@ -269,14 +269,14 @@ struct GiflowExpandedView: View {
 
                     if editingItemID == item.id {
                         HStack {
-                            TextField("名称", text: $editingName, onCommit: {
+                            TextField("custom_area.name", text: $editingName, onCommit: {
                                 store.renameItem(item: item, newName: editingName)
                                 editingItemID = nil
                             })
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
 
-                            Button("保存") {
+                            Button("common.save") {
                                 store.renameItem(item: item, newName: editingName)
                                 editingItemID = nil
                             }
@@ -325,7 +325,7 @@ struct GiflowExpandedView: View {
                         HStack(spacing: 3) {
                             Image(systemName: "video.badge.plus")
                                 .font(.system(size: 10))
-                            Text(appLocalized: store.convertingItemID == item.id ? "转换中…" : "另存为 MP4")
+                            Text(appLocalized: store.convertingItemID == item.id ? AppLocalization.runtimeString("features.converting") : AppLocalization.runtimeString("features.save_as_mp4"))
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .padding(.horizontal, 7)
@@ -336,7 +336,7 @@ struct GiflowExpandedView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(store.isExporting)
-                    .help("将当前 GIF 另存为高质量 MP4 视频（新增一条独立记录）")
+                    .help("features.save_this_gif_as_a_high_quality_mp4")
                 }
 
                 // 复制按钮
@@ -356,7 +356,7 @@ struct GiflowExpandedView: View {
                     HStack(spacing: 3) {
                         Image(systemName: copiedItemID == item.id ? "checkmark" : "doc.on.doc")
                             .font(.system(size: 10))
-                        Text(appLocalized: copiedItemID == item.id ? "已复制" : "复制")
+                        Text(appLocalized: copiedItemID == item.id ? AppLocalization.runtimeString("settings.copied") : AppLocalization.runtimeString("common.copy"))
                             .font(.system(size: 11))
                     }
                     .padding(.horizontal, 8)
@@ -366,7 +366,7 @@ struct GiflowExpandedView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("复制文件到剪贴板，可直接在微信/Slack/Finder/终端中粘贴")
+                .help("features.copy_the_file_to_paste_into_wechat_slack")
 
                 // 定位文件
                 Button(action: { store.revealInFinder(item: item) }) {
@@ -377,7 +377,7 @@ struct GiflowExpandedView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("在访达中定位文件")
+                .help("features.show_file_in_finder")
 
                 // 删除
                 Button(action: { store.deleteItem(item: item) }) {
@@ -389,7 +389,7 @@ struct GiflowExpandedView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 .buttonStyle(.plain)
-                .help("删除")
+                .help("common.delete")
             }
         }
         .padding(8)
@@ -407,11 +407,11 @@ struct GiflowExpandedView: View {
                 .font(.system(size: 32))
                 .foregroundColor(.secondary.opacity(0.6))
 
-            Text("暂无录制记录")
+            Text("features.no_recordings_yet")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(.secondary)
 
-            Text("按下 ⌥5 选择屏幕区域，或 ⌥6 全屏录制 GIF / MP4")
+            Text("features.press_5_to_select_a_screen_region_or")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary.opacity(0.8))
                 .multilineTextAlignment(.center)
@@ -420,7 +420,7 @@ struct GiflowExpandedView: View {
                 Button(action: { store.triggerSelectionCapture() }) {
                     HStack(spacing: 4) {
                         Image(systemName: "crop")
-                        Text("开始选区录制 (⌥5)")
+                        Text("features.record_region_5")
                     }
                     .font(.system(size: 11, weight: .medium))
                     .padding(.horizontal, 10)
@@ -444,16 +444,16 @@ struct GiflowExpandedView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // 录制参数卡片
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("导出与画质")
+                    Text("features.export_and_quality")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
 
                     // 目标帧率
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("目标帧率")
+                            Text("features.target_frame_rate")
                                 .font(.system(size: 12, weight: .medium))
-                            Text("帧率越高画面越流畅，文件体积相应增加")
+                            Text("features.higher_frame_rates_produce_smoother_video_and_larger")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -461,10 +461,10 @@ struct GiflowExpandedView: View {
                         Spacer()
 
                         Picker("", selection: $store.settings.targetFPS) {
-                            Text("10 FPS (轻量)").tag(10)
-                            Text("15 FPS (推荐)").tag(15)
-                            Text("20 FPS (丝滑)").tag(20)
-                            Text("24 FPS (高帧)").tag(24)
+                            Text("features.duration_10_fps_lightweight").tag(10)
+                            Text("features.duration_15_fps_recommended").tag(15)
+                            Text("features.duration_20_fps_smooth").tag(20)
+                            Text("features.duration_24_fps_high_frame_rate").tag(24)
                         }
                         .pickerStyle(.menu)
                         .frame(width: 130)
@@ -475,9 +475,9 @@ struct GiflowExpandedView: View {
                     // 分辨率缩放
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("画面清晰度")
+                            Text("features.resolution")
                                 .font(.system(size: 12, weight: .medium))
-                            Text("标准像素体积较小，超清模式保留 Retina 细节")
+                            Text("features.standard_resolution_creates_smaller_files_retina_preserves_more")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -485,8 +485,8 @@ struct GiflowExpandedView: View {
                         Spacer()
 
                         Picker("", selection: $store.settings.maxScaleFactor) {
-                            Text("1.0x 标准").tag(1.0)
-                            Text("2.0x Retina 超清").tag(2.0)
+                            Text("features.duration_1_0x_standard").tag(1.0)
+                            Text("features.duration_2_0x_retina").tag(2.0)
                         }
                         .pickerStyle(.menu)
                         .frame(width: 130)
@@ -500,16 +500,16 @@ struct GiflowExpandedView: View {
 
                 // 交互特效卡片
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("画面特效与 HUD")
+                    Text("features.effects_and_hud")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
 
                     // 鼠标点击红点涟漪开关
                     Toggle(isOn: $store.settings.showClickRipple) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("鼠标点击红点与涟漪动画")
+                            Text("features.mouse_click_dots_and_ripple_animations")
                                 .font(.system(size: 12, weight: .medium))
-                            Text("录制中自动高亮鼠标左键（红点扩散）与右键（蓝点扩散）")
+                            Text("features.highlight_left_clicks_in_red_and_right_clicks")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -521,9 +521,9 @@ struct GiflowExpandedView: View {
                     // 键盘 HUD 开关
                     Toggle(isOn: $store.settings.showKeycast) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("底部键盘按键回显 (Keycast)")
+                            Text("features.keyboard_overlay_keycast")
                                 .font(.system(size: 12, weight: .medium))
-                            Text("在画面底部中央展示当前按键组合（每 2 秒平滑轮替）")
+                            Text("features.show_current_key_combinations_at_the_bottom_center")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -538,12 +538,12 @@ struct GiflowExpandedView: View {
 
                 // 快捷键速查卡片
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("全局快捷键速查")
+                    Text("features.global_shortcuts")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.secondary)
 
                     HStack {
-                        Text("选区录制")
+                        Text("features.record_region")
                             .font(.system(size: 11))
                         Spacer()
                         Text("⌥ + 5")
@@ -555,7 +555,7 @@ struct GiflowExpandedView: View {
                     }
 
                     HStack {
-                        Text("全屏录制")
+                        Text("features.record_full_screen")
                             .font(.system(size: 11))
                         Spacer()
                         Text("⌥ + 6")
@@ -567,7 +567,7 @@ struct GiflowExpandedView: View {
                     }
 
                     HStack {
-                        Text("展开录制列表")
+                        Text("features.open_recordings")
                             .font(.system(size: 11))
                         Spacer()
                         Text("⌥ + 7")

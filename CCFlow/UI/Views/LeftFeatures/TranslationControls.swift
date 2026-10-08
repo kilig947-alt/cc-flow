@@ -34,8 +34,8 @@ struct TranslationCopyButton: View {
         }
         .buttonStyle(.plain)
         .disabled(text.isEmpty)
-        .help(Text(appLocalized: copied ? "复制成功" : (title.map { AppLocalization.format("复制为 %@", String(describing: $0)) } ?? "复制完整文本")))
-        .accessibilityLabel(Text(appLocalized: copied ? "复制成功" : (title ?? "复制")))
+        .help(Text(appLocalized: copied ? AppLocalization.runtimeString("translation.copied") : (title.map { AppLocalization.format("translation.copy_as", String(describing: $0)) } ?? AppLocalization.runtimeString("translation.copy_full_text"))))
+        .accessibilityLabel(Text(appLocalized: copied ? AppLocalization.runtimeString("translation.copied") : (title ?? AppLocalization.runtimeString("common.copy"))))
         .task(id: feedbackGeneration) {
             guard copied else { return }
             do { try await Task.sleep(for: .seconds(1.5)); copied = false } catch { }
@@ -58,7 +58,7 @@ struct TranslationSpeechButton: View {
             HStack(spacing: 4) {
                 Image(systemName: active ? "waveform" : "speaker.wave.2")
                     .symbolEffect(.variableColor.iterative, isActive: active && speech.isPlaying)
-                if active { Text(appLocalized: speech.isPlaying ? "播放中 · 停止" : "准备中 · 停止").font(.caption) }
+                if active { Text(appLocalized: speech.isPlaying ? AppLocalization.runtimeString("translation.playing_stop") : AppLocalization.runtimeString("translation.preparing_stop")).font(.caption) }
             }
             .foregroundStyle(active ? Color.accentColor : Color.secondary)
             .padding(.horizontal, 5).padding(.vertical, 3)
@@ -66,8 +66,8 @@ struct TranslationSpeechButton: View {
         }
         .buttonStyle(.borderless)
         .disabled(text.isEmpty || !speech.enabled)
-        .help(Text(appLocalized: active ? "停止朗读" : "使用系统语音朗读"))
-        .accessibilityLabel(Text(appLocalized: active ? "停止朗读" : "朗读"))
+        .help(Text(appLocalized: active ? AppLocalization.runtimeString("translation.stop_reading") : AppLocalization.runtimeString("translation.read_aloud_with_system_voice")))
+        .accessibilityLabel(Text(appLocalized: active ? AppLocalization.runtimeString("translation.stop_reading") : AppLocalization.runtimeString("translation.read_aloud")))
         .onChange(of: text) { _, _ in if active { speech.stop() } }
         .onDisappear { if active { speech.stop() } }
     }
@@ -82,8 +82,8 @@ struct TranslationCopySettingsView: View {
         let _ = localizationLocale
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Label("复制结果", systemImage: "doc.on.doc").font(.title3.bold())
-                Text("开启后，英文译文下方会显示对应的复制按钮。普通复制始终保留原文格式。").foregroundStyle(.secondary)
+                Label("translation.copy_results", systemImage: "doc.on.doc").font(.title3.bold())
+                Text("translation.show_copy_buttons_below_english_translations_standard_copy").foregroundStyle(.secondary)
                 VStack(spacing: 0) {
                     ForEach(TranslationCopyFormat.allCases) { format in
                         HStack(spacing: 20) {
@@ -106,7 +106,7 @@ struct TranslationCopySettingsView: View {
                         if format != TranslationCopyFormat.allCases.last { Divider().padding(.horizontal, 16) }
                     }
                 }.background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-                Text("设置自动保存。复制成功后按钮会短暂变为绿色勾选。").font(.caption).foregroundStyle(.secondary)
+                Text("translation.settings_save_automatically_a_green_checkmark_briefly_confirms").font(.caption).foregroundStyle(.secondary)
             }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -121,29 +121,29 @@ struct TranslationVoiceSettingsView: View {
         let _ = localizationLocale
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Label("系统语音", systemImage: "speaker.wave.2.fill").font(.title3.bold())
-                Text("默认使用 macOS 系统语音，无需 API Key。自动模式会按文本语言选择声音。").foregroundStyle(.secondary)
-                Toggle("启用朗读", isOn: $speech.enabled).toggleStyle(.switch)
+                Label("translation.system_voice", systemImage: "speaker.wave.2.fill").font(.title3.bold())
+                Text("translation.uses_macos_system_voices_by_default_no_api").foregroundStyle(.secondary)
+                Toggle("translation.enable_read_aloud", isOn: $speech.enabled).toggleStyle(.switch)
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker("声音", selection: $speech.voiceID) {
-                        Text("自动 · 跟随文本语言").tag("")
+                    Picker("settings.sound", selection: $speech.voiceID) {
+                        Text("translation.automatic_match_text_language").tag("")
                         ForEach(speech.voices, id: \.identifier) { voice in
                             Text("\(voice.name) · \(voice.language)").tag(voice.identifier)
                         }
                     }
                     if !speech.voiceID.isEmpty, !speech.voices.contains(where: { $0.identifier == speech.voiceID }) {
-                        Text("此前的声音当前不可用，朗读时自动选择匹配语言的声音。").font(.caption).foregroundStyle(.orange)
+                        Text("translation.the_previously_selected_voice_is_unavailable_a_matching").font(.caption).foregroundStyle(.orange)
                     }
                     HStack {
-                        Text("语速")
-                        Text("慢").font(.caption).foregroundStyle(.secondary)
+                        Text("translation.speech_rate")
+                        Text("translation.slow").font(.caption).foregroundStyle(.secondary)
                         Slider(value: $speech.rate, in: 0.3...0.65, step: 0.01)
-                        Text("快").font(.caption).foregroundStyle(.secondary)
-                        Button("重置") { speech.rate = 0.5 }
+                        Text("translation.fast").font(.caption).foregroundStyle(.secondary)
+                        Button("settings.reset") { speech.rate = 0.5 }
                     }
                 }.padding(14).background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
-                TranslationSpeechButton(text: "你好，这是系统语音试听。Hello, welcome to Tflow.", id: "voice-preview")
-                Text("点击扬声器开始朗读，再次点击停止；播放结束后自动恢复。可在 macOS 系统设置中下载更多声音。").font(.caption).foregroundStyle(.secondary)
+                TranslationSpeechButton(text: AppLocalization.runtimeString("translation.hello_this_is_a_system_voice_preview_hello"), id: "voice-preview")
+                Text("translation.click_the_speaker_to_read_aloud_and_click").font(.caption).foregroundStyle(.secondary)
             }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
         }
     }

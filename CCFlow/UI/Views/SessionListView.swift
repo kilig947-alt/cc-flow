@@ -37,7 +37,7 @@ struct SessionListView: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Text("No sessions")
+            Text("session.no_sessions")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
 
@@ -435,17 +435,17 @@ private struct SubagentAttachmentRow: View {
 
         switch session.phase {
         case .processing:
-            return AppLocalization.string("工作中...")
+            return AppLocalization.string("session.working")
         case .compacting:
-            return AppLocalization.string("正在压缩上下文...")
+            return AppLocalization.string("session.compacting_context")
         case .waitingForApproval:
             return session.needsQuestionResponse
-                ? AppLocalization.string("需要你的输入")
-                : AppLocalization.string("等待批准")
+                ? AppLocalization.string("session.needs_your_input")
+                : AppLocalization.string("session.waiting_for_approval")
         case .waitingForInput:
-            return AppLocalization.string("等待你的下一条消息")
+            return AppLocalization.string("session.waiting_for_your_next_message")
         case .ended:
-            return AppLocalization.string("会话已结束")
+            return AppLocalization.string("session.session_ended")
         case .idle:
             return nil
         }
@@ -1115,7 +1115,7 @@ struct InstanceRow: View {
             lines.append(
                 QueuePreviewLine(
                     id: "user",
-                    prefix: AppLocalization.string("你："),
+                    prefix: AppLocalization.string("session.you"),
                     prefixColor: .white.opacity(0.52),
                     text: userLine,
                     textColor: .white.opacity(0.62)
@@ -1139,7 +1139,7 @@ struct InstanceRow: View {
             lines.append(
                 QueuePreviewLine(
                     id: "fallback",
-                    prefix: AppLocalization.string("状态："),
+                    prefix: AppLocalization.string("session.status"),
                     prefixColor: .white.opacity(0.48),
                     text: fallback,
                     textColor: .white.opacity(0.56)
@@ -1194,38 +1194,38 @@ struct InstanceRow: View {
 
     private var latestAssistantLine: String? {
         if session.needsQuestionResponse {
-            return sanitized(session.intervention?.summaryText) ?? AppLocalization.string("需要你的输入")
+            return sanitized(session.intervention?.summaryText) ?? AppLocalization.string("session.needs_your_input")
         }
 
         if isWaitingForApproval {
             if isInteractiveTool {
-                return AppLocalization.string("等待你补充输入")
+                return AppLocalization.string("session.waiting_for_your_input")
             }
             if let toolName = session.pendingToolName {
                 return AppLocalization.format(
-                    "等待批准 %@",
+                    "session.waiting_for_approval_2",
                     MCPToolFormatter.formatToolName(toolName)
                 )
             }
-            return AppLocalization.string("等待批准")
+            return AppLocalization.string("session.waiting_for_approval")
         }
 
         if session.phase == .processing {
             if session.isNativeRuntimeSession {
-                return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("Native runtime 正在处理…")
+                return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("session.native_runtime_is_working")
             }
-            return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("工作中...")
+            return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("session.working")
         }
 
         if session.phase == .compacting {
-            return AppLocalization.string("正在压缩上下文...")
+            return AppLocalization.string("session.compacting_context")
         }
 
         if session.phase == .waitingForInput, session.intervention == nil {
             if session.isNativeRuntimeSession {
-                return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("Native session 已就绪")
+                return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("session.native_session_ready")
             }
-            return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("等待你的下一条消息")
+            return localizedOrOriginal(sanitized(session.lastMessage)) ?? AppLocalization.string("session.waiting_for_your_next_message")
         }
 
         if let lastMessage = localizedOrOriginal(sanitized(session.lastMessage)) {
@@ -1256,7 +1256,7 @@ struct InstanceRow: View {
                     Button {
                         onOpenClient()
                     } label: {
-                        Text(verbatim: AppLocalization.format("打开 %@", interactionLabel))
+                        Text(verbatim: AppLocalization.format("chat.open", interactionLabel))
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.black)
                             .padding(.horizontal, 8)
@@ -1317,7 +1317,7 @@ struct InstanceRow: View {
         } label: {
             Group {
                 if copyFeedbackToken != nil {
-                    Text("复制会话ID成功")
+                    Text("session.session_id_copied")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(TerminalColors.green)
                         .padding(.horizontal, 6)
@@ -1387,7 +1387,7 @@ struct InstanceRow: View {
             )
         }
         .buttonStyle(.plain)
-        .help("查看审计记录")
+        .help("session.view_audit_records")
     }
 
     private func metaBadge(
@@ -1418,7 +1418,7 @@ struct InstanceRow: View {
                 Circle()
                     .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
             )
-            .help(AppLocalization.string("远程连接"))
+            .help(AppLocalization.string("session.remote_connection"))
     }
 
     @ViewBuilder
@@ -1444,25 +1444,25 @@ struct InstanceRow: View {
         switch session.phase {
         case .processing:
             return session.isNativeRuntimeSession
-                ? AppLocalization.string("Native runtime 正在处理…")
-                : AppLocalization.string("工作中...")
+                ? AppLocalization.string("session.native_runtime_is_working")
+                : AppLocalization.string("session.working")
         case .compacting:
-            return AppLocalization.string("正在压缩上下文...")
+            return AppLocalization.string("session.compacting_context")
         case .waitingForApproval:
             return session.needsQuestionResponse
-                ? AppLocalization.string("需要你的输入")
-                : AppLocalization.string("等待批准")
+                ? AppLocalization.string("session.needs_your_input")
+                : AppLocalization.string("session.waiting_for_approval")
         case .waitingForInput:
             if session.needsQuestionResponse {
-                return AppLocalization.string("需要你的输入")
+                return AppLocalization.string("session.needs_your_input")
             }
             return session.isNativeRuntimeSession
-                ? AppLocalization.string("Native session 已就绪")
-                : AppLocalization.string("等待你的下一条消息")
+                ? AppLocalization.string("session.native_session_ready")
+                : AppLocalization.string("session.waiting_for_your_next_message")
         case .ended:
             return session.isNativeRuntimeSession
-                ? AppLocalization.string("Native session 已结束")
-                : AppLocalization.string("会话已结束")
+                ? AppLocalization.string("session.native_session_ended")
+                : AppLocalization.string("session.session_ended")
         case .idle:
             return sanitized(session.lastMessage) ?? (session.shouldHideProjectContextInUI ? nil : session.projectName)
         }
@@ -1547,7 +1547,7 @@ struct InlineApprovalButtons: View {
             Button {
                 onReject()
             } label: {
-                Text(AppLocalization.string("Deny"))
+                Text(AppLocalization.string("session.deny"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.6))
                     .padding(.horizontal, 8)
@@ -1589,7 +1589,7 @@ struct InlineApprovalButtons: View {
             Button {
                 onApprove()
             } label: {
-                Text(AppLocalization.string("Allow"))
+                Text(AppLocalization.string("session.allow"))
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 8)
@@ -1659,7 +1659,7 @@ struct CompactTerminalButton: View {
             HStack(spacing: 2) {
                 Image(systemName: "terminal")
                     .font(.system(size: 8, weight: .medium))
-                Text("Go to Terminal")
+                Text("session.go_to_terminal")
                     .font(.system(size: 10, weight: .medium))
             }
             .foregroundColor(isEnabled ? .white.opacity(0.9) : .white.opacity(0.3))
@@ -1687,7 +1687,7 @@ struct TerminalButton: View {
             HStack(spacing: 3) {
                 Image(systemName: "terminal")
                     .font(.system(size: 9, weight: .medium))
-                Text("Terminal")
+                Text("common.terminal")
                     .font(.system(size: 11, weight: .medium))
             }
             .foregroundColor(isEnabled ? .black : .white.opacity(0.4))
@@ -1712,29 +1712,29 @@ private func localizedOrOriginal(_ text: String?) -> String? {
     guard let text else { return nil }
     switch text {
     case "Agent has completed the task":
-        return "Agent 已完成任务"
+        return AppLocalization.runtimeString("session.agent_completed_the_task")
     case "Task completed":
-        return "任务已完成"
+        return AppLocalization.runtimeString("session.task_completed")
     case "Task finished":
-        return "任务已完成"
+        return AppLocalization.runtimeString("session.task_completed")
     case "Task completed successfully":
-        return "任务已成功完成"
+        return AppLocalization.runtimeString("session.task_completed_successfully")
     case "Subagent completed":
-        return "子代理已完成"
+        return AppLocalization.runtimeString("session.sub_agent_completed")
     case "Subagent finished":
-        return "子代理已完成"
+        return AppLocalization.runtimeString("session.sub_agent_completed")
     case "Task started":
-        return "任务已开始"
+        return AppLocalization.runtimeString("session.task_started")
     case "Task was interrupted":
-        return "任务已中断"
+        return AppLocalization.runtimeString("session.task_interrupted")
     case "Task was cancelled":
-        return "任务已取消"
+        return AppLocalization.runtimeString("session.task_canceled")
     case "Task was stopped":
-        return "任务已停止"
+        return AppLocalization.runtimeString("session.task_stopped")
     case "Agent has finished":
-        return "Agent 已完成"
+        return AppLocalization.runtimeString("session.agent_completed")
     case "Agent completed":
-        return "Agent 已完成"
+        return AppLocalization.runtimeString("session.agent_completed")
     default:
         return text
     }

@@ -490,11 +490,11 @@ private struct HookInstallWelcomeView: View {
     }
 
     private var title: String {
-        "为以下客户端安装 Hooks"
+        AppLocalization.runtimeString("settings.install_hooks_for_these_clients")
     }
 
     private var subtitle: String {
-        "CC FLOW 通过 Hooks 监听会话事件、显示通知与审批。可以一键安装默认配置，或选择仅启用部分事件。"
+        AppLocalization.runtimeString("settings.cc_flow_listens_to_session_events_notifications_and")
     }
 
     private var contentSize: CGSize {
@@ -538,7 +538,7 @@ private struct HookInstallWelcomeView: View {
             }
 
             if profiles.isEmpty {
-                Text(appLocalized: "未检测到可自动安装的客户端，可在设置中手动添加。")
+                Text(appLocalized: "settings.no_installable_clients_detected_you_can_add_them")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.55))
                     .padding(14)
@@ -596,7 +596,7 @@ private struct HookInstallWelcomeView: View {
                 Button {
                     onComplete(.skip)
                 } label: {
-                    Text(appLocalized: "暂不安装")
+                    Text(appLocalized: "settings.skip_for_now")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.7))
                         .frame(maxWidth: .infinity)
@@ -616,11 +616,11 @@ private struct HookInstallWelcomeView: View {
     }
 
     private var primaryButtonTitle: String {
-        "使用默认配置安装（推荐）"
+        AppLocalization.runtimeString("settings.install_with_recommended_settings")
     }
 
     private var secondaryButtonTitle: String {
-        "自定义事件…"
+        AppLocalization.runtimeString("settings.customize_events")
     }
 }
 
@@ -659,16 +659,16 @@ private struct PresentationModeWelcomeView: View {
 
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text(appLocalized: "首次使用，选择展示方式")
+                    Text(appLocalized: "settings.choose_your_default_presentation")
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(.white)
 
-                    Text(appLocalized: "你可以把 CC FLOW 放在屏幕顶部，也可以让宠物默认贴近当前激活窗口右下角显示。之后都能在设置里随时切换。")
+                    Text(appLocalized: "settings.you_can_keep_cc_flow_at_the_top")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.white.opacity(0.70))
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Text(appLocalized: "进入独立悬浮宠物模式后，右键宠物形象可重新打开设置面板。")
+                    Text(appLocalized: "settings.after_entering_floating_pet_mode_right_click_the")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.60))
                         .fixedSize(horizontal: false, vertical: true)
@@ -681,7 +681,7 @@ private struct PresentationModeWelcomeView: View {
                 )
 
                 HStack {
-                    Text(appLocalized: "稍后可在 设置 -> 显示 中重新切换")
+                    Text(appLocalized: "settings.you_can_change_this_later_in_settings_display")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.56))
 
@@ -690,7 +690,7 @@ private struct PresentationModeWelcomeView: View {
                     Button(action: {
                         onComplete(selectedMode)
                     }) {
-                        Text(appLocalized: "开始使用")
+                        Text(appLocalized: "settings.get_started")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.black.opacity(0.86))
                             .padding(.horizontal, 18)

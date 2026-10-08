@@ -324,7 +324,7 @@ struct ChatView: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.4)))
                 .scaleEffect(0.8)
-            Text("Loading messages...")
+            Text("chat.loading_messages")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -338,7 +338,7 @@ struct ChatView: View {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 24))
                 .foregroundColor(.white.opacity(0.2))
-            Text("No messages yet")
+            Text("chat.no_messages_yet")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -377,7 +377,7 @@ struct ChatView: View {
     }
 
     private var messagePlaceholder: String {
-        AppLocalization.format("Message %@...", session.providerDisplayName)
+        AppLocalization.format("chat.message", session.providerDisplayName)
     }
 
     private var inputBar: some View {
@@ -450,7 +450,7 @@ struct ChatView: View {
                 Button {
                     openClientApplication()
                 } label: {
-                    Text(verbatim: AppLocalization.format("打开 %@", session.interactionDisplayName))
+                    Text(verbatim: AppLocalization.format("chat.open", session.interactionDisplayName))
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .semibold))
@@ -463,7 +463,7 @@ struct ChatView: View {
                     Button {
                         focusTerminal()
                     } label: {
-                        Text(appLocalized: "打开终端")
+                        Text(appLocalized: "chat.open_terminal")
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .semibold))
@@ -474,7 +474,7 @@ struct ChatView: View {
                 }
             }
 
-            Text(AppLocalization.format("%@ 已在客户端中发起追问，请打开并继续回答。", session.interactionDisplayName))
+            Text(AppLocalization.format("chat.has_asked_a_follow_up_in_the_client", session.interactionDisplayName))
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.68))
                 .fixedSize(horizontal: false, vertical: true)
@@ -524,7 +524,7 @@ struct ChatView: View {
                         initialAnswers: intervention.submittedAnswers,
                         onSubmit: { _ in },
                         onInteractionStateChanged: { viewModel.setInlineTextInputActive($0) },
-                        secondaryActionTitle: AppLocalization.format("打开 %@", session.interactionDisplayName),
+                        secondaryActionTitle: AppLocalization.format("chat.open", session.interactionDisplayName),
                         onSecondaryAction: { openClientApplication() },
                         isEditable: false
                     )
@@ -544,7 +544,7 @@ struct ChatView: View {
                         }
                     }
                     label: {
-                        Text(verbatim: AppLocalization.format("打开 %@", session.interactionDisplayName))
+                        Text(verbatim: AppLocalization.format("chat.open", session.interactionDisplayName))
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .semibold))
@@ -555,9 +555,9 @@ struct ChatView: View {
                 }
             } else if intervention.supportsInlineResponse {
                 let secondaryActionTitle: String? = if session.clientInfo.prefersAnsweredQuestionFollowupAction {
-                    AppLocalization.format("打开 %@", session.interactionDisplayName)
+                    AppLocalization.format("chat.open", session.interactionDisplayName)
                 } else if session.isInTmux {
-                    AppLocalization.string("打开终端")
+                    AppLocalization.string("chat.open_terminal")
                 } else {
                     nil
                 }
@@ -573,7 +573,7 @@ struct ChatView: View {
                 SessionQuestionForm(
                     intervention: intervention,
                     submitLabel: AppLocalization.format(
-                        "提交回 %@",
+                        "session.submit_to",
                         session.messageBadgeDisplayName
                     ),
                     initialDraft: sessionMonitor.questionDraft(
@@ -616,7 +616,7 @@ struct ChatView: View {
                         openClientApplication()
                     }
                     label: {
-                        Text(verbatim: AppLocalization.format("打开 %@ 回答", session.interactionDisplayName))
+                        Text(verbatim: AppLocalization.format("chat.open_to_answer", session.interactionDisplayName))
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 12, weight: .semibold))
@@ -630,7 +630,7 @@ struct ChatView: View {
                             focusTerminal()
                         }
                         label: {
-                            Text(appLocalized: "打开终端")
+                            Text(appLocalized: "chat.open_terminal")
                         }
                         .buttonStyle(.plain)
                         .font(.system(size: 12, weight: .semibold))
@@ -660,8 +660,8 @@ struct ChatView: View {
 
     private var terminalRoutedPromptNotice: some View {
         Text(verbatim: AppLocalization.format(
-            "已保留在%@中处理。CC FLOW 只提醒，不接管此处响应。",
-            session.isInTmux ? AppLocalization.string("终端") : session.interactionDisplayName
+            "session.handled_in_cc_flow_only_notifies_you_and",
+            session.isInTmux ? AppLocalization.string("session.terminal") : session.interactionDisplayName
         ))
         .font(.system(size: 11, weight: .medium))
         .foregroundColor(.white.opacity(0.62))
@@ -986,7 +986,7 @@ struct AssistantMessageView: View {
 // MARK: - Processing Indicator
 
 struct ProcessingIndicatorView: View {
-    private let baseTexts = ["Processing", "Working"]
+    private let baseTexts = [AppLocalization.runtimeString("chat.processing"), AppLocalization.runtimeString("chat.working")]
     private let color: Color
     private let baseText: String
 
@@ -1121,8 +1121,8 @@ struct ToolCallView: View {
                     .fixedSize()
 
                 if tool.name == "Task" && !tool.subagentTools.isEmpty {
-                    let taskDesc = boundedInlineDetail(tool.input["description"] ?? AppLocalization.string("Running agent..."))
-                    Text(verbatim: AppLocalization.format("%@ (%lld tools)", taskDesc, tool.subagentTools.count))
+                    let taskDesc = boundedInlineDetail(tool.input["description"] ?? AppLocalization.string("chat.running_agent"))
+                    Text(verbatim: AppLocalization.format("chat.tools", taskDesc, tool.subagentTools.count))
                         .font(.system(size: 11))
                         .foregroundColor(textColor.opacity(0.7))
                         .lineLimit(1)
@@ -1268,7 +1268,7 @@ struct SubagentToolsList: View {
         VStack(alignment: .leading, spacing: 2) {
             // Show count of older hidden tools at top
             if hiddenCount > 0 {
-                Text(verbatim: AppLocalization.format("+%lld more tool uses", hiddenCount))
+                Text(verbatim: AppLocalization.format("chat.more_tool_uses", hiddenCount))
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.4))
             }
@@ -1298,7 +1298,7 @@ struct SubagentToolRow: View {
     /// Get status text using the same logic as regular tools
     private var statusText: String {
         if tool.status == .interrupted {
-            return AppLocalization.string("Interrupted")
+            return AppLocalization.string("chat.interrupted")
         } else if tool.status == .running {
             return ToolStatusDisplay.running(for: tool.name, input: tool.input).text
         } else {
@@ -1385,7 +1385,7 @@ struct SubagentToolsSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(verbatim: AppLocalization.format("Subagent used %lld tools:", tools.count))
+            Text(verbatim: AppLocalization.format("chat.subagent_used_tools", tools.count))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
 
@@ -1464,7 +1464,7 @@ struct ThinkingView: View {
 struct InterruptedMessageView: View {
     var body: some View {
         HStack {
-            Text("Interrupted")
+            Text("chat.interrupted")
                 .font(.system(size: 13))
                 .foregroundColor(.red)
             Spacer()
@@ -1489,7 +1489,7 @@ struct ChatInteractivePromptBar: View {
                 Text(MCPToolFormatter.formatToolName("AskUserQuestion"))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundColor(TerminalColors.amber)
-                Text("The client needs your input")
+                Text("chat.the_client_needs_your_input")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.5))
                     .lineLimit(1)
@@ -1508,7 +1508,7 @@ struct ChatInteractivePromptBar: View {
                 HStack(spacing: 4) {
                     Image(systemName: "terminal")
                         .font(.system(size: 11, weight: .medium))
-                    Text("Terminal")
+                    Text("common.terminal")
                         .font(.system(size: 13, weight: .medium))
                 }
                 .foregroundColor(isInTmux ? .black : .white.opacity(0.4))
@@ -1576,7 +1576,7 @@ struct ChatApprovalBar: View {
             Spacer()
 
             if suppressControls {
-                Text(appLocalized: "已保留在终端中处理")
+                Text(appLocalized: "chat.handled_in_terminal")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.62))
             } else {
@@ -1584,7 +1584,7 @@ struct ChatApprovalBar: View {
                 Button {
                     onDeny()
                 } label: {
-                    Text(AppLocalization.string("Deny"))
+                    Text(AppLocalization.string("session.deny"))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.white.opacity(0.7))
                         .padding(.horizontal, 16)
@@ -1626,7 +1626,7 @@ struct ChatApprovalBar: View {
                 Button {
                     onApprove()
                 } label: {
-                    Text(AppLocalization.string("Allow"))
+                    Text(AppLocalization.string("session.allow"))
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.black)
                         .padding(.horizontal, 16)
@@ -1676,8 +1676,8 @@ struct NewMessagesIndicator: View {
                     .font(.system(size: 10, weight: .bold))
 
                 Text(verbatim: count == 1
-                    ? AppLocalization.string("1 new message")
-                    : AppLocalization.format("%lld new messages", count)
+                    ? AppLocalization.string("chat.duration_1_new_message")
+                    : AppLocalization.format("chat.new_messages", count)
                 )
                     .font(.system(size: 12, weight: .medium))
             }

@@ -7,7 +7,7 @@ struct TranslationOCRSettingsView: View {
         HStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("一次使用一个识别服务").font(.caption).foregroundStyle(.secondary)
+                    Text("translation.use_one_recognition_service_at_a_time").font(.caption).foregroundStyle(.secondary)
                     ForEach(TranslationOCRProvider.allCases) { provider in
                         Button { editing = provider } label: {
                             HStack {
@@ -18,7 +18,7 @@ struct TranslationOCRSettingsView: View {
                                 }
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(appLocalized: provider.title).font(.system(size: 12, weight: .medium))
-                                    Text(appLocalized: provider == .system ? "系统内置 · 默认" : "自备密钥").font(.caption2).foregroundStyle(.secondary)
+                                    Text(appLocalized: provider == .system ? AppLocalization.runtimeString("translation.built_in_default") : AppLocalization.runtimeString("translation.bring_your_own_key")).font(.caption2).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if settings.selected == provider { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
@@ -45,33 +45,33 @@ private struct TranslationOCREditor: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(appLocalized: configuration.provider.title).font(.title2.bold())
-                Text(appLocalized: configuration.provider == .system ? "使用 macOS Vision 在本机识别，无需密钥，也不会上传图片。识别出的文字按文本翻译服务的启用与展开状态继续翻译。" : "选为当前服务后，截图和剪贴板图片将发送到此服务进行识别。只调用当前服务，失败时不会自动切换。费用以服务方为准。")
+                Text(appLocalized: configuration.provider == .system ? AppLocalization.runtimeString("translation.recognize_text_locally_with_macos_vision_no_key") : AppLocalization.runtimeString("translation.screenshots_and_clipboard_images_are_sent_to_the"))
                     .font(.callout).foregroundStyle(.secondary)
                 if configuration.provider == .tencentImage {
-                    Text("此服务一次返回原文与译文，不再自动调用文本翻译服务。目标语言为自动时使用中文；需要英文时请先在翻译页选择英语。")
+                    Text("translation.this_service_returns_both_source_text_and_translation")
                         .font(.callout).foregroundStyle(.secondary)
                 }
-                Link("申请与使用说明 ↗", destination: configuration.provider.documentationURL)
+                Link(AppLocalization.runtimeString("translation.setup_and_usage_guide"), destination: configuration.provider.documentationURL)
                 if configuration.provider != .system {
                     if configuration.provider.needsID { field(configuration.provider.credentialLabel, text: $configuration.appID) }
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(appLocalized: configuration.provider == .google ? "API Key" : "Secret Key / 应用密钥")
+                        Text(appLocalized: configuration.provider == .google ? "API Key" : AppLocalization.runtimeString("translation.secret_key_app_secret"))
                         HStack {
                             Group {
-                                if revealing { TextField("保存在 macOS 钥匙串", text: $secret) }
-                                else { SecureField("保存在 macOS 钥匙串", text: $secret) }
+                                if revealing { TextField("translation.stored_in_macos_keychain", text: $secret) }
+                                else { SecureField("translation.stored_in_macos_keychain", text: $secret) }
                             }.textFieldStyle(.roundedBorder)
                             Button { revealing.toggle() } label: { Image(systemName: revealing ? "eye.slash" : "eye") }.buttonStyle(.borderless)
                         }
                     }
-                    if configuration.provider.needsRegion { field("服务区域", text: $configuration.region) }
+                    if configuration.provider.needsRegion { field(AppLocalization.runtimeString("translation.service_region"), text: $configuration.region) }
                 }
                 if let message { Text(appLocalized: message).font(.callout).foregroundStyle(.secondary) }
                 HStack {
                     if configuration.provider != .system {
-                        Button("保存配置") { save(use: false) }
+                        Button("translation.save_configuration") { save(use: false) }
                     }
-                    Button(settings.selected == configuration.provider ? "保存并继续使用" : "使用此服务") { save(use: true) }
+                    Button(settings.selected == configuration.provider ? AppLocalization.runtimeString("translation.save_and_continue") : AppLocalization.runtimeString("translation.use_this_service")) { save(use: true) }
                         .buttonStyle(.borderedProminent)
                 }
             }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -81,12 +81,12 @@ private struct TranslationOCREditor: View {
         do {
             if configuration.provider != .system {
                 if use && (secret.isEmpty || (configuration.provider.needsID && configuration.appID.isEmpty)) {
-                    message = "请先填写完整凭据"; return
+                    message = AppLocalization.runtimeString("translation.enter_all_required_credentials_first"); return
                 }
                 try settings.save(configuration, secret: secret)
             }
             if use { settings.select(configuration.provider) }
-            message = use ? "✓ 已设为当前识别服务" : "✓ 已保存"
+            message = use ? AppLocalization.runtimeString("translation.set_as_current_recognition_service") : AppLocalization.runtimeString("translation.saved")
         } catch { message = error.localizedDescription }
     }
     private func field(_ title: String, text: Binding<String>) -> some View {

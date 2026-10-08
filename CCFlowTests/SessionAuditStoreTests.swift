@@ -68,7 +68,7 @@ final class SessionAuditStoreTests: XCTestCase {
             preferredMessage: "super-secret"
         )
 
-        XCTAssertEqual(message, "请输入密码：[已隐藏敏感回答]")
+        XCTAssertEqual(message, "请输入密码：" + AppLocalization.runtimeString("session.sensitive_answer_hidden"))
         XCTAssertFalse(message.contains("super-secret"))
     }
 }

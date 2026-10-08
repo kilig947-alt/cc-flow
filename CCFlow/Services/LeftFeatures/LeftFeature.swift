@@ -262,22 +262,22 @@ extension LeftFeature {
         }
         switch kind {
         case .usage:
-            return AppLocalization.string("用量")
+            return AppLocalization.string("custom_area.usage")
         case .systemMonitor:
-            return AppLocalization.string("系统监控")
+            return AppLocalization.string("features.system_monitor")
         case .calendar:
-            return AppLocalization.string("日历")
+            return AppLocalization.string("calendar.title")
         case .github:
             return "GitHub"
-        case .translation: return AppLocalization.string("Tflow 翻译")
+        case .translation: return AppLocalization.string("translation.tflow_translation")
         case .giflow:
             return "Giflow"
         case .music:
-            return AppLocalization.string("音乐")
+            return AppLocalization.string("custom_area.music")
         case .customArea(let areaID):
-            return CustomAreaStore.shared.areas.first { $0.id == areaID }?.name ?? AppLocalization.string("自定义 HTML")
+            return CustomAreaStore.shared.areas.first { $0.id == areaID }?.name ?? AppLocalization.string("features.custom_html")
         case .webURL:
-            return AppLocalization.string("网站")
+            return AppLocalization.string("features.website")
         case .newsnow:
             return "AI HOT"
         case .mineradio:

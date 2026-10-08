@@ -896,7 +896,7 @@ struct NotchView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: min(16, iconOnlySize), weight: .semibold))
                     .foregroundStyle(closedIndicatorTone.emphasisColor)
-                    .accessibilityLabel("需要处理")
+                    .accessibilityLabel("island.needs_attention")
             } else if viewModel.presentationMode == .detached {
                 // 宠物已分离到桌面：图标态仅保留占位以维持胶囊布局
                 Color.clear
@@ -953,7 +953,7 @@ struct NotchView: View {
                     .foregroundColor(.white)
                     .monospacedDigit()
                     .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityLabel(AppLocalization.format("活跃会话 %@", String(describing: activeCount)))
+                    .accessibilityLabel(AppLocalization.format("island.active_sessions", String(describing: activeCount)))
             }
         }
         .padding(.trailing, 4)
@@ -1095,7 +1095,7 @@ struct NotchView: View {
                     .padding(.horizontal, 6)
                     .frame(width: compactCenterContentWidth, alignment: .center)
                     .allowsHitTesting(false)
-                    .accessibilityLabel("最新 hooks 消息")
+                    .accessibilityLabel("island.latest_hook_message")
             } else {
                 // Preserve the compact notch footprint when there is no hook text to show.
                 Color.clear
@@ -1495,7 +1495,7 @@ struct NotchView: View {
             sessions
                 .filter { undeliveredIds.contains($0.stableId) }
                 .sorted { $0.lastActivity < $1.lastActivity }
-                .forEach { enqueueSessionBroadcast(for: $0, fallback: "需要处理") }
+                .forEach { enqueueSessionBroadcast(for: $0, fallback: AppLocalization.runtimeString("island.needs_attention")) }
             pendingSessionDeliveryState.acknowledge(undeliveredIds)
             cancelPendingSessionRetry()
             return
@@ -1590,7 +1590,7 @@ struct NotchView: View {
             scheduleManualAttentionRetry()
             return
         case .broadcast:
-            enqueueSessionBroadcast(for: targetSession, fallback: "需要你的操作")
+            enqueueSessionBroadcast(for: targetSession, fallback: AppLocalization.runtimeString("island.action_required"))
             manualAttentionTracker.acknowledge(targetSession)
             scheduleRetryForRemainingManualAttention(in: instances)
             return
@@ -2333,7 +2333,7 @@ private struct NotchDetachmentHintView: View {
                     isArrowNudging = false
                 }
 
-            Text(appLocalized: "拖动宠物，让宠物离岛工作")
+            Text(appLocalized: "island.drag_the_mascot_to_let_the_pet_work")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundColor(.white.opacity(0.96))
                 .padding(.horizontal, 12)
@@ -2351,7 +2351,7 @@ private struct NotchDetachmentHintView: View {
         .frame(width: 242, height: 118, alignment: .topTrailing)
         .shadow(color: Color.black.opacity(0.22), radius: 14, y: 8)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(AppLocalization.string("拖动宠物，让宠物离岛工作")))
+        .accessibilityLabel(Text(AppLocalization.string("island.drag_the_mascot_to_let_the_pet_work")))
     }
 }
 
@@ -2409,7 +2409,7 @@ private struct NotchSettingsButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("设置")
+        .help("island.settings")
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2443,8 +2443,8 @@ private struct NotchPanelPinButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: isPinned ? "取消固定" : "固定面板"))
-        .accessibilityLabel(Text(appLocalized: isPinned ? "取消固定" : "固定面板"))
+        .help(Text(appLocalized: isPinned ? AppLocalization.runtimeString("island.unpin") : AppLocalization.runtimeString("island.pin_panel")))
+        .accessibilityLabel(Text(appLocalized: isPinned ? AppLocalization.runtimeString("island.unpin") : AppLocalization.runtimeString("island.pin_panel")))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2486,8 +2486,8 @@ private struct NotchDesktopWidgetButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("部署到桌面")
-        .accessibilityLabel("部署当前功能到桌面")
+        .help("island.add_to_desktop")
+        .accessibilityLabel("island.add_current_feature_to_desktop")
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2529,8 +2529,8 @@ private struct InstanceListToggleButton: View {
                 }
         }
         .buttonStyle(.plain)
-        .help("任务列表")
-        .accessibilityLabel("任务列表")
+        .help("island.tasks")
+        .accessibilityLabel("island.tasks")
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2567,8 +2567,8 @@ private struct NotchSoundToggleButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: isOn ? "关闭声音" : "开启声音"))
-        .accessibilityLabel(Text(appLocalized: isOn ? "关闭声音" : "开启声音"))
+        .help(Text(appLocalized: isOn ? AppLocalization.runtimeString("island.mute") : AppLocalization.runtimeString("island.unmute")))
+        .accessibilityLabel(Text(appLocalized: isOn ? AppLocalization.runtimeString("island.mute") : AppLocalization.runtimeString("island.unmute")))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2610,8 +2610,8 @@ private struct NotchNotificationPresentationModeButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: mode == .active ? "切换到静默模式" : "切换到活跃模式"))
-        .accessibilityLabel(Text(appLocalized: mode == .active ? "切换到静默模式" : "切换到活跃模式"))
+        .help(Text(appLocalized: mode == .active ? AppLocalization.runtimeString("island.switch_to_quiet_mode") : AppLocalization.runtimeString("island.switch_to_active_mode")))
+        .accessibilityLabel(Text(appLocalized: mode == .active ? AppLocalization.runtimeString("island.switch_to_quiet_mode") : AppLocalization.runtimeString("island.switch_to_active_mode")))
         .onHover { hovering in
             withAnimation(.easeOut(duration: 0.12)) {
                 isHovering = hovering
@@ -2660,7 +2660,7 @@ private struct CompactBroadcastView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(broadcast.summary)
-        .accessibilityHint("悬浮以打开详情")
+        .accessibilityHint("island.hover_to_open_details")
     }
 
     private var icon: some View {

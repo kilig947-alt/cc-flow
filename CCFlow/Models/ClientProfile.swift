@@ -97,19 +97,19 @@ enum HookInstallEventCategory: String, CaseIterable, Sendable, Identifiable {
 
     var title: String {
         switch self {
-        case .approvals: return "审批"
-        case .notifications: return "通知"
-        case .lifecycle: return "生命周期"
-        case .activity: return "活动追踪"
+        case .approvals: return AppLocalization.runtimeString("common.approvals")
+        case .notifications: return AppLocalization.runtimeString("settings.notifications")
+        case .lifecycle: return AppLocalization.runtimeString("common.lifecycle")
+        case .activity: return AppLocalization.runtimeString("common.activity")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .approvals: return "工具调用审批与权限请求，可能需要用户回应"
-        case .notifications: return "用户提示与通知事件"
-        case .lifecycle: return "会话开始/结束与子任务事件"
-        case .activity: return "工具完成、压缩等后台事件"
+        case .approvals: return AppLocalization.runtimeString("common.tool_use_approvals_and_permission_prompts_that_may")
+        case .notifications: return AppLocalization.runtimeString("common.user_prompts_and_notification_events")
+        case .lifecycle: return AppLocalization.runtimeString("common.session_start_end_and_subagent_events")
+        case .activity: return AppLocalization.runtimeString("common.background_events_like_tool_completion_and_compaction")
         }
     }
 
@@ -318,17 +318,17 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
     nonisolated var reinstallDescriptionFormat: String {
         switch installationKind {
         case .jsonHooks:
-            return "这会重新写入 %@ 的 CC FLOW hooks 配置，并保留其他非 CC FLOW hooks。"
+            return "common.rewrite_cc_flow_hooks_in_while_preserving_other"
         case .antigravityHooks:
-            return "这会重新写入 %@ 的 CC FLOW Hook 组，并保留其他 Hook 组。"
+            return "common.rewrite_the_cc_flow_hook_group_in_while"
         case .pluginFile:
-            return "这会重新生成 %@ 的 CC FLOW 插件文件，并覆盖旧的 CC FLOW 托管版本。"
+            return "common.regenerate_cc_flow_plugin_files_in_replacing_the"
         case .pluginDirectory:
-            return "这会重新生成 %@ 的 CC FLOW 插件目录，并覆盖旧的 CC FLOW 托管版本。"
+            return "common.regenerate_the_cc_flow_plugin_directory_in_replacing"
         case .hookDirectory:
-            return "这会重新生成 %@ 的 CC FLOW hook 目录。"
+            return "common.regenerate_the_cc_flow_hook_directory_in"
         case .tomlHooks:
-            return "这会重新写入 %@ 的 CC FLOW hooks TOML 配置，并保留其他非 CC FLOW 设置。"
+            return "common.rewrite_cc_flow_hooks_toml_in_while_preserving"
         }
     }
 
@@ -449,7 +449,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "claude-hooks",
             title: "Claude Code",
-            subtitle: "管理 ~/.claude/settings.json，接收 Claude Code 生命周期与审批事件",
+            subtitle: "common.manage_claude_settings_json_for_claude_code_lifecycle",
             alwaysVisibleInSettings: true,
             logoAssetName: "ClaudeCodeLogo",
             prefersBundledLogoOverAppIcon: true,
@@ -482,7 +482,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "codex-hooks",
             title: "Codex",
-            subtitle: "管理 ~/.codex/hooks.json，接收 Codex 生命周期与审批事件",
+            subtitle: "common.manage_codex_hooks_json_for_codex_lifecycle_and",
             alwaysVisibleInSettings: true,
             logoAssetName: "OpenAILogo",
             prefersBundledLogoOverAppIcon: true,
@@ -513,7 +513,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "opencode-plugin",
             title: "OpenCode",
-            subtitle: "管理 ~/.config/opencode/plugins/cc-flow.ts，接收 OpenCode 会话、工具、审批与提问事件",
+            subtitle: "common.manage_config_opencode_plugins_cc_flow_ts_for",
             installationKind: .pluginFile,
             alwaysVisibleInSettings: true,
             iconSymbolName: "chevron.left.forwardslash.chevron.right",
@@ -533,7 +533,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "antigravity-hooks",
             title: "Antigravity",
-            subtitle: "管理 ~/.gemini/config/hooks.json，接收 Antigravity 工具、调用与停止事件",
+            subtitle: "common.manage_gemini_config_hooks_json_for_antigravity_tool",
             installationKind: .antigravityHooks,
             alwaysVisibleInSettings: false,
             localAppBundleIdentifiers: ["com.google.antigravity"],
@@ -567,7 +567,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "trae-hooks",
             title: "Trae",
-            subtitle: "管理 ~/.trae/hooks.json，按 Trae 官方 Hook 协议接入 Trae",
+            subtitle: "common.manage_trae_hooks_json_using_the_official_trae",
             alwaysVisibleInSettings: false,
             localAppBundleIdentifiers: [
                 "com.trae.app"
@@ -596,7 +596,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "trae-cn-hooks",
             title: "Trae CN",
-            subtitle: "管理 ~/.trae-cn/hooks.json，按 Trae 官方 Hook 协议接入 Trae CN",
+            subtitle: "common.manage_trae_cn_hooks_json_using_the_official",
             alwaysVisibleInSettings: false,
             localAppBundleIdentifiers: [
                 "cn.trae.app"
@@ -625,7 +625,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "trae-solo-hooks",
             title: "TRAE Work",
-            subtitle: "检测 TRAE Work 会话；客户端当前未提供可管理的官方 Hooks 配置",
+            subtitle: "common.detect_trae_work_sessions_the_client_does_not",
             alwaysVisibleInSettings: false,
             localAppBundleIdentifiers: [
                 "com.trae.solo.app"
@@ -654,7 +654,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "trae-solo-cn-hooks",
             title: "TRAE Work CN",
-            subtitle: "检测 TRAE Work CN 会话；客户端当前未提供可管理的官方 Hooks 配置",
+            subtitle: "common.detect_trae_work_cn_sessions_the_client_does",
             alwaysVisibleInSettings: false,
             localAppBundleIdentifiers: [
                 "cn.trae.solo.app"

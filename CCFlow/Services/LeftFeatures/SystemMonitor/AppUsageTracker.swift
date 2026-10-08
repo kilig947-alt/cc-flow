@@ -56,7 +56,7 @@ final class AppUsageTracker: ObservableObject {
     private func activate(_ app: NSRunningApplication?, at date: Date) {
         commit(until: date)
         activeBundleID = app?.bundleIdentifier ?? "pid:\(app?.processIdentifier ?? 0)"
-        activeName = app?.localizedName ?? "未知应用"
+        activeName = app?.localizedName ?? AppLocalization.runtimeString("usage.unknown_app")
         activeSince = isPaused ? nil : date
     }
 

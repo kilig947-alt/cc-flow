@@ -73,5 +73,5 @@ enum SessionTextSanitizer {
 }
 
 enum SessionDetailDisplayStrings {
-    static let truncationNoticeKey = "Showing a shortened preview to keep CC FLOW responsive. Open the client to view the full content."
+    static let truncationNoticeKey = "session.showing_a_shortened_preview_to_keep_cc_flow"
 }

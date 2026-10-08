@@ -19,18 +19,18 @@ final class ProductivityPermissionCenter: ObservableObject {
         let event = EKEventStore.authorizationStatus(for: .event)
         let reminder = EKEventStore.authorizationStatus(for: .reminder)
         items = [
-            item("calendar", "日历", event),
-            item("reminders", "提醒事项", reminder),
+            item("calendar", AppLocalization.runtimeString("calendar.title"), event),
+            item("reminders", AppLocalization.runtimeString("calendar.reminders"), reminder),
         ]
     }
 
     private func item(_ id: String, _ name: String, _ status: EKAuthorizationStatus) -> ProductivityPermissionItem {
         switch status {
-        case .fullAccess, .authorized: return ProductivityPermissionItem(id: id, name: name, status: "已授权", isReady: true)
-        case .denied, .restricted: return ProductivityPermissionItem(id: id, name: name, status: "已拒绝", isReady: false)
-        case .writeOnly: return ProductivityPermissionItem(id: id, name: name, status: "仅写入（需要完整访问）", isReady: false)
-        case .notDetermined: return ProductivityPermissionItem(id: id, name: name, status: "尚未请求", isReady: false)
-        @unknown default: return ProductivityPermissionItem(id: id, name: name, status: "未知", isReady: false)
+        case .fullAccess, .authorized: return ProductivityPermissionItem(id: id, name: name, status: AppLocalization.runtimeString("common.authorized"), isReady: true)
+        case .denied, .restricted: return ProductivityPermissionItem(id: id, name: name, status: AppLocalization.runtimeString("common.denied"), isReady: false)
+        case .writeOnly: return ProductivityPermissionItem(id: id, name: name, status: AppLocalization.runtimeString("common.write_only_full_access_required"), isReady: false)
+        case .notDetermined: return ProductivityPermissionItem(id: id, name: name, status: AppLocalization.runtimeString("common.not_requested"), isReady: false)
+        @unknown default: return ProductivityPermissionItem(id: id, name: name, status: AppLocalization.runtimeString("translation.unknown"), isReady: false)
         }
     }
 }

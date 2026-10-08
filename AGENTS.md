@@ -20,6 +20,7 @@ This file is a routing layer for coding agents working in this repo. Keep it sho
 ## Start Here
 
 - Product overview: `README.md`
+- UI localization: `docs/localization.md`, `CCFlow/Utilities/AppLocalization.swift`, and `CCFlow/Resources/{en,zh-Hans}.lproj/Localizable.strings`. Use stable semantic keys (for example `settings.language`); keep persisted values and user content separate. Run `python3 scripts/check-localizations.py` after changing UI copy.
 - App entry: `CCFlow/App/CCFlowApp.swift`, `CCFlow/App/AppDelegate.swift`
 - Provider and client profiles: `CCFlow/Models/SessionProvider.swift`, `CCFlow/Models/ClientProfile.swift`, `CCFlow/Models/TraeVariant.swift`
 - Flow Island left region (compact feature / expanded feature container / session detail): `CCFlow/UI/Views/FlowIslandLeftRegion.swift` (expanded slot renders `LeftFeatureContainerView`), `CCFlow/UI/Views/NotchView.swift` headerRow (compact slot)

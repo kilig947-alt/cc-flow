@@ -28,7 +28,7 @@ struct ReminderAgendaItem: Identifiable, Equatable {
         priority: Int,
         notes: String? = nil,
         url: URL? = nil,
-        calendarName: String = "提醒事项"
+        calendarName: String = AppLocalization.runtimeString("calendar.reminders")
     ) {
         self.id = id
         self.title = title
@@ -87,7 +87,7 @@ final class CalendarService: ObservableObject {
         guard let end = calendar.date(byAdding: .day, value: 42, to: start) else { return }
         events = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
             .map {
-                CalendarAgendaItem(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? "无标题",
+                CalendarAgendaItem(id: $0.eventIdentifier ?? UUID().uuidString, title: $0.title ?? AppLocalization.runtimeString("calendar.untitled"),
                                    start: $0.startDate, end: $0.endDate, isAllDay: $0.isAllDay,
                                    calendarName: $0.calendar.title)
             }
@@ -171,7 +171,7 @@ final class CalendarService: ObservableObject {
         ProductivityProactiveEventCenter.shared.publish(
             targetFeatureID: LeftFeature.calendarID,
             kind: .calendarReminderDue,
-            summary: actionable.count == 1 ? AppLocalization.runtimeFormat("提醒事项：%@", String(describing: actionable[0].title)) : AppLocalization.runtimeFormat("有 %@ 项提醒事项已到期或今天到期", String(describing: actionable.count)),
+            summary: actionable.count == 1 ? AppLocalization.runtimeFormat("calendar.reminder", String(describing: actionable[0].title)) : AppLocalization.runtimeFormat("calendar.reminders_are_overdue_or_due_today", String(describing: actionable.count)),
             count: actionable.count
         )
     }

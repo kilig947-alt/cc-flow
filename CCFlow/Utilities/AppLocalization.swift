@@ -8,7 +8,7 @@ enum AppLocalization {
     }
 
     nonisolated static func string(_ key: String, locale: Locale) -> String {
-        let language = locale.identifier.hasPrefix("zh") ? "zh-Hans" : "en"
+        let language = AppLanguage.resourceLanguageCode(for: locale.identifier)
         let bundle = Bundle.main.path(forResource: language, ofType: "lproj")
             .flatMap(Bundle.init(path:)) ?? .main
         return bundle.localizedString(forKey: key, value: key, table: nil)

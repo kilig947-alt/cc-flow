@@ -181,7 +181,7 @@ struct ToolCallItem: Equatable, Sendable {
             return ToolStatusDisplay(text: "Waiting for approval...", isRunning: true)
         }
         if status == .interrupted {
-            return ToolStatusDisplay(text: "Interrupted", isRunning: false)
+            return ToolStatusDisplay(text: AppLocalization.runtimeString("chat.interrupted"), isRunning: false)
         }
         return ToolStatusDisplay.completed(for: name, result: structuredResult)
     }

@@ -25,7 +25,7 @@ struct MascotSettingsView: View {
 
 
     private var themePackSection: some View {
-        MascotSectionCard(title: "宠物主题包") {
+        MascotSectionCard(title: AppLocalization.runtimeString("settings.mascot_theme_packs")) {
             VStack(spacing: 0) {
                 // 路径头
                 HStack(spacing: 12) {
@@ -52,17 +52,17 @@ struct MascotSettingsView: View {
                             await scanner.rescanNow()
                             isSyncing = false
                             if result.synced == 0 && result.skipped == 0 && result.failed.isEmpty {
-                                syncResult = "已刷新"
+                                syncResult = AppLocalization.runtimeString("settings.refreshed")
                             } else {
-                                var msg = AppLocalization.format("已同步 %@ 个，跳过 %@ 个已存在", String(describing: result.synced), String(describing: result.skipped))
+                                var msg = AppLocalization.format("settings.synced_skipped_existing_items", String(describing: result.synced), String(describing: result.skipped))
                                 if !result.failed.isEmpty {
-                                    msg += AppLocalization.format("，失败：%@", result.failed.joined(separator: ", "))
+                                    msg += AppLocalization.format("settings.failed", result.failed.joined(separator: ", "))
                                 }
                                 syncResult = msg
                             }
                         }
                     } label: {
-                        Text("刷新")
+                        Text("settings.refresh")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .buttonStyle(.plain)
@@ -73,7 +73,7 @@ struct MascotSettingsView: View {
                         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
                         NSWorkspace.shared.open(url)
                     } label: {
-                        Text("打开文件夹")
+                        Text("settings.open_folder_2")
                             .font(.system(size: 12, weight: .medium))
                     }
                     .buttonStyle(.plain)
@@ -82,7 +82,7 @@ struct MascotSettingsView: View {
                         Button {
                             Task { await scanner.restoreDeletedBuiltinThemes() }
                         } label: {
-                            Text("恢复内置宠物")
+                            Text("settings.restore_built_in_mascots")
                                 .font(.system(size: 12, weight: .medium))
                         }
                         .buttonStyle(.plain)
@@ -101,7 +101,7 @@ struct MascotSettingsView: View {
 
                 if scanner.themes.isEmpty {
                     MascotCardDivider()
-                    Text(appLocalized: "未找到任何主题包。请确认 $HOME/.codex/pets/ 下有已安装的宠物，或点击重新扫描。")
+                    Text(appLocalized: "settings.no_theme_packs_found_check_for_installed_mascots")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(14)
@@ -137,12 +137,12 @@ struct MascotSettingsView: View {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Text(appLocalized: "之前选择的宠物已不可用，已切换为默认")
+                Text(appLocalized: "settings.the_previously_selected_mascot_is_no_longer_available")
                     .font(.subheadline.bold())
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
-                Button("恢复默认") {
+                Button("settings.restore_default") {
                     settings.setGlobalMascotThemeID(nil)
                 }
             }
@@ -154,7 +154,7 @@ struct MascotSettingsView: View {
     /// 浮动宠物大小和展示开关。
     private var floatingPetSizeSection: some View {
         MascotSectionCard(
-            title: "宠物大小",
+            title: AppLocalization.runtimeString("settings.mascot_size"),
             accessory: {
                 Toggle(
                     isOn: Binding(
@@ -162,7 +162,7 @@ struct MascotSettingsView: View {
                         set: { settings.surfaceMode = $0 ? .floatingPet : .notch }
                     )
                 ) {
-                    Text(appLocalized: "展示宠物")
+                    Text(appLocalized: "settings.show_mascot")
                         .font(.system(size: 11, weight: .medium))
                 }
                 .toggleStyle(.switch)
@@ -171,7 +171,7 @@ struct MascotSettingsView: View {
         ) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    Text(appLocalized: "大小")
+                    Text(appLocalized: "settings.size")
                         .font(.system(size: 12))
 
                     Slider(value: floatingPetScaleBinding, in: 0.5...2, step: 0.05)
@@ -183,7 +183,7 @@ struct MascotSettingsView: View {
                         .frame(minWidth: 44, alignment: .trailing)
                 }
 
-                Text(appLocalized: "拖动调整浮动宠物的显示大小。也可以在桌面上将鼠标移到宠物上，通过滚轮继续缩放。")
+                Text(appLocalized: "settings.drag_to_resize_the_floating_mascot_you_can")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -194,10 +194,10 @@ struct MascotSettingsView: View {
 
     /// 宠物动画速率设置 —— 0 = 完全不动，1 = 正常速度，2 = 2 倍速
     private var animationSpeedSection: some View {
-        MascotSectionCard(title: "动画速率") {
+        MascotSectionCard(title: AppLocalization.runtimeString("settings.animation_speed")) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 12) {
-                    Text(appLocalized: "速率")
+                    Text(appLocalized: "settings.speed")
                         .font(.system(size: 12))
 
                     Slider(value: Binding(
@@ -214,14 +214,14 @@ struct MascotSettingsView: View {
                     Button {
                         settings.mascotAnimationSpeed = 1.0
                     } label: {
-                        Text(appLocalized: "默认")
+                        Text(appLocalized: "settings.default")
                             .font(.system(size: 11, weight: .medium))
                     }
                     .buttonStyle(.plain)
                     .disabled(abs(settings.mascotAnimationSpeed - 1.0) < 0.001)
                 }
 
-                Text(appLocalized: "拖动调整宠物动画播放速率。设为 0 时宠物完全静止，1 为正常速度，2 为 2 倍速。")
+                Text(appLocalized: "settings.drag_to_adjust_animation_speed_set_to_0")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -254,20 +254,20 @@ struct MascotSettingsView: View {
 
     private func speedLabel(_ speed: Double) -> String {
         if speed <= 0 {
-            return "静止"
+            return AppLocalization.runtimeString("settings.paused")
         }
         return String(format: "%.1f×", speed)
     }
 
     /// Design 生成宠物入口：复制提示词后打开对应的桌面应用
     private var designPromptSection: some View {
-        MascotSectionCard(title: "用 Design 生成宠物") {
+        MascotSectionCard(title: AppLocalization.runtimeString("settings.generate_mascot_with_design")) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "info.circle.fill")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Text(appLocalized: "选择 Design 应用后会先复制提示词；粘贴到设计对话中，AI 将自动生成宠物素材到 ~/.cc-flow/pets/")
+                    Text(appLocalized: "settings.choose_a_design_app_to_copy_the_prompt")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -297,7 +297,7 @@ struct MascotSettingsView: View {
 
                 // 提示词标题行：标题在左，复制按钮在右
                 HStack(spacing: 8) {
-                    Text(appLocalized: "生成宠物提示词")
+                    Text(appLocalized: "settings.mascot_generation_prompt")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
 
@@ -313,7 +313,7 @@ struct MascotSettingsView: View {
                         HStack(spacing: 4) {
                             Image(systemName: designPromptCopied ? "checkmark" : "doc.on.doc")
                                 .font(.system(size: 10))
-                            Text(appLocalized: designPromptCopied ? "已复制" : "复制提示词")
+                            Text(appLocalized: designPromptCopied ? AppLocalization.runtimeString("settings.copied") : AppLocalization.runtimeString("settings.copy_prompt"))
                                 .font(.system(size: 10, weight: .medium))
                         }
                         .foregroundStyle(designPromptCopied ? Color.green : Color.secondary)
@@ -366,7 +366,7 @@ struct MascotSettingsView: View {
             MascotDesignAppLauncher.activate(destination) { succeeded in
                 designLaunchFailure = succeeded
                     ? nil
-                    : AppLocalization.format("提示词已复制，但未能打开 %@。请确认应用已安装。", String(describing: destination.applicationDisplayName))
+                    : AppLocalization.format("settings.prompt_copied_but_could_not_open_make_sure", String(describing: destination.applicationDisplayName))
             }
         } label: {
             HStack(spacing: 5) {
@@ -388,7 +388,7 @@ struct MascotSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityHint(Text(appLocalized: "复制生成宠物提示词并打开应用"))
+        .accessibilityHint(Text(appLocalized: "settings.copy_mascot_prompt_and_open_app"))
         .onHover { hovering in
             if hovering { NSCursor.pointingHand.push() }
             else { NSCursor.pointingHand.pop() }
@@ -462,11 +462,11 @@ struct MascotSettingsView: View {
 
     /// 下载更多宠物提示区：展示第三方主题包下载站点，用户下载解压到 ~/.cc-flow/pets/ 即可安装
     private var downloadHintSection: some View {
-        MascotSectionCard(title: "下载更多宠物") {
+        MascotSectionCard(title: AppLocalization.runtimeString("settings.download_more_pets")) {
             VStack(alignment: .leading, spacing: 12) {
                 // 安装说明：路径部分可点击打开文件夹
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(appLocalized: "下载后解压到")
+                    Text(appLocalized: "settings.download_and_extract_to")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                     Text(" ")
@@ -482,13 +482,13 @@ struct MascotSettingsView: View {
                             .foregroundStyle(.primary)
                     }
                     .buttonStyle(.plain)
-                    Text(appLocalized: " 文件夹即可完成安装。")
+                    Text(appLocalized: "settings.to_finish_installation")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
 
                 // 第三方下载站点标题
-                Text(appLocalized: "第三方下载站点")
+                Text(appLocalized: "settings.third_party_download_sites")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
 
@@ -523,8 +523,8 @@ struct MascotSettingsView: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "授权"
-        panel.message = "选择 $HOME/.codex/pets/ 目录"
+        panel.prompt = AppLocalization.runtimeString("settings.authorize")
+        panel.message = AppLocalization.runtimeString("settings.select_the_home_codex_pets_directory")
         panel.directoryURL = UserHomeDirectoryResolver.codexPetsDirectory
         if panel.runModal() == .OK, let url = panel.url {
             Task { await scanner.requestCodexPetsAccess(url: url) }
@@ -695,16 +695,16 @@ private struct MascotThemeRow: View {
                             NSCursor.pointingHand.pop()
                         }
                     }
-                    .alert("确认删除", isPresented: $showDeleteConfirmation) {
-                        Button("取消", role: .cancel) {}
-                        Button("删除", role: .destructive) {
+                    .alert("settings.confirm_deletion", isPresented: $showDeleteConfirmation) {
+                        Button("common.cancel", role: .cancel) {}
+                        Button("common.delete", role: .destructive) {
                             Task { await scanner.deleteTheme(theme) }
                         }
                     } message: {
                         if theme.source == .builtin {
-                            Text(AppLocalization.format("确定要隐藏内置宠物「%@」吗？可在上方点击“恢复内置宠物”还原。", String(describing: theme.displayName)))
+                            Text(AppLocalization.format("settings.hide_built_in_mascot_you_can_restore_it", String(describing: theme.displayName)))
                         } else {
-                            Text(AppLocalization.format("确定要删除宠物主题包「%@」吗？此操作不可撤销。", String(describing: theme.displayName)))
+                            Text(AppLocalization.format("settings.delete_mascot_theme_this_cannot_be_undone", String(describing: theme.displayName)))
                         }
                     }
 
@@ -716,7 +716,7 @@ private struct MascotThemeRow: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 10, weight: .bold))
-                                Text("已选")
+                                Text("settings.selected")
                                     .font(.system(size: 12, weight: .medium))
                             }
                             .foregroundStyle(.white)
@@ -727,7 +727,7 @@ private struct MascotThemeRow: View {
                                     .fill(Color.accentColor)
                             )
                         } else {
-                            Text("选择")
+                            Text("settings.select")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 16)
@@ -764,7 +764,7 @@ private struct MascotThemeRow: View {
                 .fill(Color.white.opacity(0.06))
                 .frame(height: 1)
 
-            Text("状态预览")
+            Text("settings.state_preview")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
 
@@ -841,9 +841,9 @@ private enum MascotDesignDestination {
 
     var buttonTitle: String {
         switch self {
-        case .codex: return "去 Codex Design 生成"
-        case .claude: return "去 Claude Code Design 生成"
-        case .traeWork: return "去 TRAE Work Design 生成"
+        case .codex: return AppLocalization.runtimeString("settings.create_in_codex_design")
+        case .claude: return AppLocalization.runtimeString("settings.create_in_claude_code_design")
+        case .traeWork: return AppLocalization.runtimeString("settings.create_in_trae_work_design")
         }
     }
 

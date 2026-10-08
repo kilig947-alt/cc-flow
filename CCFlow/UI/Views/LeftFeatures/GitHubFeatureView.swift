@@ -27,7 +27,7 @@ struct GitHubFeatureView: View {
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right").font(.headline)
+                Label("settings.github", systemImage: "chevron.left.forwardslash.chevron.right").font(.headline)
                 Spacer()
                 if service.isLoading { ProgressView().controlSize(.small) }
                 Button { service.refresh() } label: { Image(systemName: "arrow.clockwise") }
@@ -42,15 +42,15 @@ struct GitHubFeatureView: View {
                         Text("@\(profile.login)").foregroundStyle(.secondary)
                     }
                 }
-                Text(appLocalized: service.status).font(.caption).foregroundStyle(service.status == "已连接" ? Color.secondary : Color.orange)
+                Text(appLocalized: service.status).font(.caption).foregroundStyle(service.status == "github.connected" ? Color.secondary : Color.orange)
                 HStack(spacing: 10) {
-                    stat("仓库", profile.repositories, .cyan)
-                    stat("关注者", profile.followers, .purple)
-                    stat("正在关注", profile.following, .yellow)
+                    stat(AppLocalization.runtimeString("github.repositories"), profile.repositories, .cyan)
+                    stat(AppLocalization.runtimeString("github.followers"), profile.followers, .purple)
+                    stat(AppLocalization.runtimeString("github.following"), profile.following, .yellow)
                 }
                 if !service.contributions.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(AppLocalization.format("贡献记录 · %@ 次", String(describing: service.contributions.reduce(0) { $0 + $1.count }))).font(.caption).foregroundStyle(.secondary)
+                        Text(AppLocalization.format("github.contributions_total", String(describing: service.contributions.reduce(0) { $0 + $1.count }))).font(.caption).foregroundStyle(.secondary)
                         GeometryReader { proxy in
                             let days = visibleContributionDays(for: proxy.size.width)
                             let weeks = max(1, Int(ceil(Double(days.count) / 7.0)))
@@ -64,7 +64,7 @@ struct GitHubFeatureView: View {
                             LazyHGrid(rows: Array(repeating: GridItem(.fixed(cell), spacing: rowSpacing), count: 7), spacing: columnSpacing) {
                                 ForEach(days) { day in
                                     RoundedRectangle(cornerRadius: max(1, cell * 0.2)).fill(contributionColor(day.count)).frame(width: cell, height: cell)
-                                        .accessibilityLabel(AppLocalization.format("%@，%@ 次贡献", String(describing: day.date), String(describing: day.count)))
+                                        .accessibilityLabel(AppLocalization.format("github.contributions", String(describing: day.date), String(describing: day.count)))
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }.frame(height: 95)
@@ -77,11 +77,11 @@ struct GitHubFeatureView: View {
                         HStack { Image(systemName: "folder"); Text(repository.name).lineLimit(1); Spacer(); Label("\(repository.stars)", systemImage: "star"); Image(systemName: "arrow.up.right") }
                             .font(.system(size: 10)).padding(.horizontal, 8).contentShape(Rectangle())
                     }.buttonStyle(.plain).disabled(repository.url == nil)
-                        .accessibilityHint(Text(appLocalized: repository.url == nil ? "仓库地址不可用" : "在默认浏览器打开仓库"))
+                        .accessibilityHint(Text(appLocalized: repository.url == nil ? AppLocalization.runtimeString("github.repository_url_unavailable") : AppLocalization.runtimeString("github.open_repository_in_default_browser")))
                 }
                 Spacer()
             } else {
-                ContentUnavailableView("GitHub 未连接", systemImage: "person.crop.circle.badge.exclamationmark",
+                ContentUnavailableView("github.github_not_connected", systemImage: "person.crop.circle.badge.exclamationmark",
                                        description: Text(appLocalized: service.status))
             }
         }.padding(16)

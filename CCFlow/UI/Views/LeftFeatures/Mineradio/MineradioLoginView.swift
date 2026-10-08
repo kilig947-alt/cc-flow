@@ -25,7 +25,7 @@ struct MineradioLoginView: View {
                 Image(systemName: platform.systemImageName)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.secondary)
-                Text(AppLocalization.format("登录%@", AppLocalization.string(platform.displayName)))
+                Text(AppLocalization.format("mineradio.sign_in_to", AppLocalization.string(platform.displayName)))
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
                 Button {
@@ -36,7 +36,7 @@ struct MineradioLoginView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("关闭")
+                .help("common.close")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -59,7 +59,7 @@ struct MineradioLoginView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 if coordinator.loginStates[platform]?.isLoggedIn == true {
-                    Label("已登录", systemImage: "checkmark.circle.fill")
+                    Label("mineradio.signed_in", systemImage: "checkmark.circle.fill")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.green)
                 }
@@ -201,18 +201,18 @@ extension MusicPlatform {
 
     /// 登录视图标题
     var loginTitle: String {
-        AppLocalization.format("登录%@", String(describing: displayName))
+        AppLocalization.format("mineradio.sign_in_to", String(describing: displayName))
     }
 
     /// 登录视图底部提示文案
     var loginHint: String {
         switch self {
         case .netease:
-            return "扫码或账密登录后 cookie 将自动共享给 Mineradio"
+            return AppLocalization.runtimeString("mineradio.scan_the_code_or_sign_in_with_your")
         case .qq:
-            return "扫码登录后 cookie 将自动共享给 Mineradio"
+            return AppLocalization.runtimeString("mineradio.scan_the_code_to_sign_in_cookies_are")
         case .kugou:
-            return "登录后 cookie 将自动共享给 Mineradio"
+            return AppLocalization.runtimeString("mineradio.sign_in_cookies_are_automatically_shared_with_mineradio")
         }
     }
 }

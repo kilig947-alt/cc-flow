@@ -31,9 +31,9 @@ enum UpdateConfigurationStatus: Equatable {
     var message: String {
         switch self {
         case .configured:
-            "更新源已准备就绪"
+            AppLocalization.runtimeString("update.update_feed_ready")
         case .unconfigured:
-            "缺少 Sparkle 更新源或公钥配置"
+            AppLocalization.runtimeString("update.missing_sparkle_update_feed_or_public_key_configuration")
         }
     }
 }
@@ -82,13 +82,13 @@ final class UpdateManager: NSObject, ObservableObject {
 
     var releaseNotesActionTitle: String {
         if let version = availableVersion {
-            return AppLocalization.runtimeFormat("查看 v%@ 更新日志", String(describing: version))
+            return AppLocalization.runtimeFormat("update.view_release_notes_for_v", String(describing: version))
         }
-        return "查看版本历史"
+        return AppLocalization.runtimeString("update.version_history")
     }
 
     var releaseNotesActionSubtitle: String {
-        "使用独立弹窗查看 Markdown 更新日志"
+        AppLocalization.runtimeString("update.view_markdown_release_notes_in_a_separate_window")
     }
 
     private var automaticUpdateChecksEnabled: Bool {
@@ -336,7 +336,7 @@ final class UpdateManager: NSObject, ObservableObject {
     }
 
     private static var installedVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "当前版本"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? AppLocalization.runtimeString("update.current_version")
     }
 
     private static func preferredReleaseNotesURL(for item: SUAppcastItem) -> URL? {
@@ -451,11 +451,11 @@ final class UpdateManager: NSObject, ObservableObject {
             case .onLatestVersion, .onNewerThanLatestVersion, .unknown:
                 return .upToDate
             case .systemIsTooOld:
-                return .error(message: "当前系统版本过低，无法安装可用更新")
+                return .error(message: AppLocalization.runtimeString("update.your_system_version_is_too_old_to_install"))
             case .systemIsTooNew:
-                return .error(message: "当前系统版本过新，暂时没有兼容的更新")
+                return .error(message: AppLocalization.runtimeString("update.your_system_version_is_too_new_no_compatible"))
             case .hardwareDoesNotSupportARM64:
-                return .error(message: "当前设备架构不支持可用更新")
+                return .error(message: AppLocalization.runtimeString("update.the_available_update_does_not_support_this_device"))
             @unknown default:
                 return .upToDate
             }
@@ -467,7 +467,7 @@ final class UpdateManager: NSObject, ObservableObject {
 
         let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         if message.isEmpty {
-            return .error(message: "更新失败，请稍后再试")
+            return .error(message: AppLocalization.runtimeString("update.update_failed_please_try_again_later"))
         }
 
         return .error(message: message)
@@ -505,11 +505,11 @@ final class UpdateManager: NSObject, ObservableObject {
             if let statusCode = httpStatusCode(from: underlyingError) {
                 switch statusCode {
                 case 401, 403:
-                    return "更新源拒绝访问，请确认 appcast 发布资源仍可公开访问"
+                    return AppLocalization.runtimeString("update.update_feed_access_denied_check_that_the_appcast")
                 case 404:
-                    return "更新源不可用：未找到已发布的 appcast.xml"
+                    return AppLocalization.runtimeString("update.update_feed_unavailable_published_appcast_xml_not_found")
                 case 500 ... 599:
-                    return "更新服务器暂时不可用，请稍后再试"
+                    return AppLocalization.runtimeString("update.update_server_unavailable_please_try_again_later")
                 default:
                     break
                 }
@@ -518,11 +518,11 @@ final class UpdateManager: NSObject, ObservableObject {
             if underlyingError.domain == NSURLErrorDomain {
                 switch underlyingError.code {
                 case NSURLErrorNotConnectedToInternet:
-                    return "网络不可用，请检查连接后重试"
+                    return AppLocalization.runtimeString("update.network_unavailable_check_your_connection_and_try_again")
                 case NSURLErrorTimedOut:
-                    return "连接更新源超时，请稍后重试"
+                    return AppLocalization.runtimeString("update.update_connection_timed_out_please_try_again")
                 case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost, NSURLErrorDNSLookupFailed:
-                    return "无法连接更新源，请稍后再试"
+                    return AppLocalization.runtimeString("update.cannot_connect_to_the_update_feed_please_try")
                 default:
                     break
                 }

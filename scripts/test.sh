@@ -16,6 +16,10 @@ run_step() {
 
 cd "$PROJECT_DIR"
 
+run_step "Localization Catalogs" python3 scripts/check-localizations.py
+run_step "Localization Guard Tests" \
+    python3 -m unittest discover -s scripts -p test_check_localizations.py
+
 swift_test_command=(swift test --package-path Prototype)
 clt_frameworks="/Library/Developer/CommandLineTools/Library/Developer/Frameworks"
 clt_libraries="/Library/Developer/CommandLineTools/Library/Developer/usr/lib"

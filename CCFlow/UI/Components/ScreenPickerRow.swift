@@ -33,7 +33,7 @@ struct ScreenPickerRow: View {
                         .foregroundColor(textColor)
                         .frame(width: 16)
 
-                    Text(appLocalized: "Screen")
+                    Text(appLocalized: "screen.screen")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(textColor)
 
@@ -63,8 +63,8 @@ struct ScreenPickerRow: View {
                 VStack(spacing: 2) {
                     // Automatic option
                     ScreenOptionRow(
-                        label: AppLocalization.string("Automatic"),
-                        sublabel: AppLocalization.string("Built-in or Main"),
+                        label: AppLocalization.string("screen.automatic"),
+                        sublabel: AppLocalization.string("screen.built_in_or_main"),
                         isSelected: screenSelector.selectionMode == .automatic
                     ) {
                         screenSelector.selectAutomatic()
@@ -95,12 +95,12 @@ struct ScreenPickerRow: View {
     private var currentSelectionLabel: String {
         switch screenSelector.selectionMode {
         case .automatic:
-            return AppLocalization.string("Auto")
+            return AppLocalization.string("screen.auto")
         case .specificScreen:
             if let screen = screenSelector.selectedScreen {
                 return screen.localizedName
             }
-            return AppLocalization.string("Auto")
+            return AppLocalization.string("screen.auto")
         }
     }
 
@@ -111,10 +111,10 @@ struct ScreenPickerRow: View {
     private func screenSublabel(for screen: NSScreen) -> String? {
         var parts: [String] = []
         if screen.isBuiltinDisplay {
-            parts.append(AppLocalization.string("Built-in"))
+            parts.append(AppLocalization.string("screen.built_in"))
         }
         if screen == NSScreen.main {
-            parts.append(AppLocalization.string("Main"))
+            parts.append(AppLocalization.string("screen.main"))
         }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }

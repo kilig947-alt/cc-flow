@@ -25,11 +25,11 @@ enum FollowUpMessageDeliveryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessibilityPermissionRequired:
-            return "需要开启辅助功能权限，才能自动粘贴并发送。"
+            return AppLocalization.runtimeString("session.enable_accessibility_permission_to_paste_and_send_automatically")
         case .exactTerminalNotFound:
-            return "无法定位原会话所在的终端标签，未发送以避免发到错误终端。"
+            return AppLocalization.runtimeString("session.could_not_locate_the_original_session_s_terminal")
         case .keyboardEventUnavailable:
-            return "无法生成键盘事件，回复尚未发送。"
+            return AppLocalization.runtimeString("session.could_not_generate_keyboard_events_the_reply_has")
         }
     }
 }

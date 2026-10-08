@@ -467,21 +467,21 @@ struct HookInstaller {
         guard FileManager.default.isExecutableFile(atPath: launcherURL.path) else {
             return BridgeHealthStatus(
                 isHealthy: false,
-                message: AppLocalization.string("Bridge launcher 未安装或不可执行")
+                message: AppLocalization.string("hooks.bridge_launcher_is_missing_or_not_executable")
             )
         }
 
         guard preferredBridgeBinaryURL() != nil else {
             return BridgeHealthStatus(
                 isHealthy: false,
-                message: AppLocalization.string("CCFlowBridge 二进制缺失")
+                message: AppLocalization.string("hooks.ccflowbridge_binary_is_missing")
             )
         }
 
         guard launcherContainsCurrentRuntimeEnvironment(launcherURL) else {
             return BridgeHealthStatus(
                 isHealthy: false,
-                message: AppLocalization.string("Bridge launcher 需要重新安装以更新运行时环境")
+                message: AppLocalization.string("hooks.reinstall_bridge_launcher_to_update_the_runtime_environment")
             )
         }
 
@@ -489,20 +489,20 @@ struct HookInstaller {
         guard FileManager.default.fileExists(atPath: socketPath) else {
             return BridgeHealthStatus(
                 isHealthy: false,
-                message: AppLocalization.string("Bridge 监听尚未启动，请保持 CC FLOW 正在运行后重试")
+                message: AppLocalization.string("hooks.bridge_listener_has_not_started_keep_cc_flow")
             )
         }
 
         guard runBridgeLauncherHealthCheck(launcherURL) else {
             return BridgeHealthStatus(
                 isHealthy: false,
-                message: AppLocalization.string("Bridge launcher 自检失败，请重启 CC FLOW 后重新安装 Hooks")
+                message: AppLocalization.string("hooks.bridge_launcher_health_check_failed_restart_cc_flow")
             )
         }
 
         return BridgeHealthStatus(
             isHealthy: true,
-            message: AppLocalization.string("Bridge 链路正常，Hooks 事件可转发到当前 App")
+            message: AppLocalization.string("hooks.bridge_link_is_healthy_hook_events_can_be")
         )
     }
 

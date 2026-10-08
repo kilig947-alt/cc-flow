@@ -837,11 +837,11 @@ private struct DetachedFloatingPetSettingsHintView: View {
     var body: some View {
         DetachedIslandBubbleChrome(placement: placement) {
             VStack(alignment: .leading, spacing: 8) {
-                Text(appLocalized: "最后一步：右键宠物形象")
+                Text(appLocalized: "island.last_step_right_click_the_mascot")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
 
-                Text(appLocalized: "需要重新打开设置面板时，直接右键宠物形象就可以。")
+                Text(appLocalized: "island.when_you_need_the_settings_panel_again_just")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.72))
                     .fixedSize(horizontal: false, vertical: true)
@@ -852,9 +852,9 @@ private struct DetachedFloatingPetSettingsHintView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             Text(
-                AppLocalization.string("最后一步：右键宠物形象")
+                AppLocalization.string("island.last_step_right_click_the_mascot")
                 + " "
-                + AppLocalization.string("需要重新打开设置面板时，直接右键宠物形象就可以。")
+                + AppLocalization.string("island.when_you_need_the_settings_panel_again_just")
             )
         )
     }

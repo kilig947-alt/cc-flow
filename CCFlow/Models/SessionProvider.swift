@@ -596,7 +596,7 @@ struct SessionIntervention: Equatable, Identifiable, Sendable {
 
     nonisolated var externalContinuationStatusMessage: String? {
         guard awaitsExternalContinuation else { return nil }
-        let actorName = metadata["continuationActorName"] ?? "客户端"
+        let actorName = metadata["continuationActorName"] ?? AppLocalization.runtimeString("session.clients")
         return "\(actorName) 有问题需要介入处理，可通过上方按钮快速打开并继续操作"
     }
 

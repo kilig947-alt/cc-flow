@@ -96,6 +96,14 @@ enum MascotPetKind: String, Codable, Sendable {
     case person
     case animal
     case unknown
+
+    var titleKey: String {
+        switch self {
+        case .person: return "mascot.kind.person"
+        case .animal: return "mascot.kind.animal"
+        case .unknown: return "mascot.kind.unknown"
+        }
+    }
 }
 
 /// 主题包动画行映射（trae-flow 扩展字段）

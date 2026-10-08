@@ -19,7 +19,7 @@ nonisolated enum CodexAppServerUsageClient {
 
     static func fetch(timeout: TimeInterval = 8) -> CodexAccountUsageFetch {
         guard let executable = codexExecutableURL() else {
-            return .failure("未找到 Codex CLI")
+            return .failure(AppLocalization.runtimeString("usage.codex_cli_was_not_found"))
         }
 
         let process = Process()
@@ -53,18 +53,18 @@ nonisolated enum CodexAppServerUsageClient {
             guard state.completed.wait(timeout: .now() + timeout) == .success else {
                 output.fileHandleForReading.readabilityHandler = nil
                 if process.isRunning { process.terminate() }
-                return .failure("Codex 账户接口响应超时")
+                return .failure(AppLocalization.runtimeString("usage.the_codex_account_service_timed_out"))
             }
         } catch {
             output.fileHandleForReading.readabilityHandler = nil
-            return .failure("无法启动 Codex CLI")
+            return .failure(AppLocalization.runtimeString("usage.unable_to_start_codex_cli"))
         }
 
         output.fileHandleForReading.readabilityHandler = nil
         input.fileHandleForWriting.closeFile()
         if process.isRunning { process.terminate() }
         guard let result = state.result() else {
-            return .failure("无法解析 Codex 账户限额")
+            return .failure(AppLocalization.runtimeString("usage.unable_to_parse_codex_account_limits"))
         }
         return .success(result)
     }
@@ -165,7 +165,7 @@ nonisolated enum CodexAppServerUsageClient {
             lock.lock()
             defer { lock.unlock() }
             guard let snapshot = rateLimitResult?["rateLimits"] as? [String: Any] else { return nil }
-            let windows = [("primary", "主要限额"), ("secondary", "次要限额")].compactMap { key, label -> UsageWindow? in
+            let windows = [("primary", "usage.primary_limit"), ("secondary", "usage.secondary_limit")].compactMap { key, label -> UsageWindow? in
                 guard let payload = snapshot[key] as? [String: Any],
                       let used = number(payload["usedPercent"]) else { return nil }
                 return UsageWindow(

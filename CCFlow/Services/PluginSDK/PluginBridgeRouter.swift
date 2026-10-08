@@ -247,10 +247,10 @@ enum PluginBridgeRouter {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "允许 \(plugin.name ?? plugin.id) 使用 \(capability)？"
-        alert.informativeText = "这是敏感操作。你可以仅允许当前调用，或在本次 App 运行期间持续允许；重启 App 后将重新询问。"
-        alert.addButton(withTitle: "允许一次")
-        alert.addButton(withTitle: "App 打开期间允许")
-        alert.addButton(withTitle: "拒绝")
+        alert.informativeText = AppLocalization.runtimeString("plugins.this_is_a_sensitive_action_allow_once_or")
+        alert.addButton(withTitle: AppLocalization.runtimeString("plugins.allow_once"))
+        alert.addButton(withTitle: AppLocalization.runtimeString("plugins.allow_while_app_is_open"))
+        alert.addButton(withTitle: AppLocalization.runtimeString("plugins.deny"))
         switch await presentAlert(alert) {
         case .alertFirstButtonReturn:
             return .allowOnce
@@ -264,10 +264,10 @@ enum PluginBridgeRouter {
     private static func confirmGrant(capability: String, plugin: PluginManifest) async -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "插件请求权限"
+        alert.messageText = AppLocalization.runtimeString("plugins.plugin_permission_request")
         alert.informativeText = "\(plugin.name ?? plugin.id) 请求在当前插件版本中使用 \(capability)。插件版本或权限清单变化后将重新授权。"
-        alert.addButton(withTitle: "授权")
-        alert.addButton(withTitle: "拒绝")
+        alert.addButton(withTitle: AppLocalization.runtimeString("settings.authorize"))
+        alert.addButton(withTitle: AppLocalization.runtimeString("plugins.deny"))
         return await presentAlert(alert) == .alertFirstButtonReturn
     }
 }

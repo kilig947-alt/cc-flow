@@ -70,7 +70,7 @@ struct FlowIslandRightRegion: View {
         .foregroundColor(.white)
         .padding(.horizontal, 6)
         .frame(minWidth: 28)
-        .accessibilityLabel(AppLocalization.format("CC FLOW 待处理 %@", String(describing: summary.totalPendingCount)))
+        .accessibilityLabel(AppLocalization.format("common.cc_flow_pending", String(describing: summary.totalPendingCount)))
     }
 
     private var expandedContent: some View {
@@ -102,7 +102,7 @@ struct FlowIslandRightRegion: View {
         .buttonStyle(.plain)
         .disabled(session == nil)
         .opacity(session == nil ? 0.45 : 1)
-        .help(Text(appLocalized: session == nil ? AppLocalization.format("暂无 %@ 会话", String(describing: provider.displayName)) : AppLocalization.format("跳回 %@", String(describing: provider.displayName))))
+        .help(Text(appLocalized: session == nil ? AppLocalization.format("common.no_sessions", String(describing: provider.displayName)) : AppLocalization.format("common.return_to", String(describing: provider.displayName))))
     }
 
     private var traeProviderRow: some View {
@@ -119,7 +119,7 @@ struct FlowIslandRightRegion: View {
             )
         }
         .buttonStyle(.plain)
-        .help(Text(appLocalized: isTraeExpanded ? "收起 TRAE 变体" : "展开 TRAE 变体"))
+        .help(Text(appLocalized: isTraeExpanded ? AppLocalization.runtimeString("common.collapse_trae_variants") : AppLocalization.runtimeString("common.expand_trae_variants")))
     }
 
     private func rowLabel(name: String, icon: String, count: Int, chevron: String) -> some View {
@@ -172,6 +172,6 @@ struct FlowIslandRightRegion: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(AppLocalization.format("跳回 %@", String(describing: variant.displayName)))
+        .help(AppLocalization.format("common.return_to", String(describing: variant.displayName)))
     }
 }

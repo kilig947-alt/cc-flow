@@ -82,6 +82,22 @@ struct CompletionPromptRegexRule: Codable, Equatable, Identifiable, Sendable {
         ) ?? false
     }
 
+    /// Preset names remain unchanged on disk; user edits are always shown verbatim.
+    nonisolated var localizedName: String {
+        guard Self.defaultTemplates.contains(where: { $0.id == id && $0.name == name }) else { return name }
+        let key: String
+        switch id {
+        case "builtin-question-followed-by-recommendation": key = "completion.suggestion_confirmation"
+        case "builtin-final-line-explicit-confirmation": key = "completion.explicit_confirmation"
+        case "builtin-review-confirmation": key = "completion.review_and_confirm"
+        case "builtin-inline-or-options": key = "completion.choose_x_or_y"
+        case "builtin-freeform-input": key = "settings.free_text"
+        case "builtin-trailing-question-confirmation": key = "completion.final_question_confirmation"
+        default: return name
+        }
+        return AppLocalization.runtimeString(key)
+    }
+
     nonisolated static let defaultTemplates: [CompletionPromptRegexRule] = [
         CompletionPromptRegexRule(
             id: "builtin-question-followed-by-recommendation",
@@ -239,7 +255,7 @@ enum CompletionPromptRegexParser {
                 id: questionID,
                 header: rule.name,
                 prompt: prompt,
-                detail: "从本轮助手回复中识别",
+                detail: AppLocalization.runtimeString("completion.detected_in_the_current_assistant_response"),
                 options: options,
                 allowsMultiple: rule.allowsMultiple,
                 allowsOther: rule.isFreeformOnly || optionPairs.count != 1,
@@ -285,7 +301,7 @@ enum CompletionPromptRegexParser {
 
     nonisolated static func validationError(for pattern: String) -> String? {
         let trimmed = pattern.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "正则不能为空" }
+        guard !trimmed.isEmpty else { return AppLocalization.runtimeString("completion.regex_cannot_be_empty") }
         do {
             _ = try NSRegularExpression(pattern: trimmed)
             return nil

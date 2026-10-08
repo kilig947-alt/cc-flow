@@ -8,9 +8,9 @@ enum SessionAuditMode: String, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .unrestricted: return "完全放任"
-        case .partial: return "部分允许"
-        case .skipped: return "完全跳过"
+        case .unrestricted: return AppLocalization.runtimeString("session.allow_everything")
+        case .partial: return AppLocalization.runtimeString("session.partially_allowed")
+        case .skipped: return AppLocalization.runtimeString("session.skip_all")
         }
     }
 

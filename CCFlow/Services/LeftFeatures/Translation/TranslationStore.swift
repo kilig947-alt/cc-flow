@@ -16,7 +16,19 @@ typealias TranslationOperation = (String, TranslationLanguage, TranslationLangua
 @MainActor
 final class TranslationStore: ObservableObject {
     static let shared = TranslationStore()
-    @Published var text = "" { didSet { if text != oldValue { invalidateResults() } } }
+    @Published var text = "" {
+        didSet {
+            if text != oldValue {
+                detectedSourceLanguage = TranslationClient.recognizedLanguage(text)
+                invalidateResults()
+            }
+        }
+    }
+    @Published private(set) var detectedSourceLanguage: TranslationLanguage?
+    var effectiveSourceLanguage: TranslationLanguage? { source == .auto ? detectedSourceLanguage : source }
+    var effectiveTargetLanguage: TranslationLanguage {
+        target == .auto ? (effectiveSourceLanguage == .zh ? .en : .zh) : target
+    }
     @Published var source: TranslationLanguage = .auto { didSet { if source != oldValue { invalidateResults() } } }
     /// Auto target uses English for Chinese input and Chinese otherwise.
     @Published var target: TranslationLanguage = .auto { didSet { if target != oldValue { invalidateResults() } } }
@@ -82,15 +94,13 @@ final class TranslationStore: ObservableObject {
         invalidateResults()
         notice = nil
         let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !input.isEmpty else { notice = AppLocalization.runtimeString("输入文字，或使用选词 / 截图翻译"); return }
-        guard input.count <= 20_000 else { notice = AppLocalization.runtimeString("原文过长，请分段翻译（每段最多 20,000 字符）"); return }
+        guard !input.isEmpty else { notice = "translation.enter_text_or_translate_a_selection_screenshot"; return }
+        guard input.count <= 20_000 else { notice = "translation.source_text_is_too_long_split_it_into"; return }
         let services = configurations.filter(\.enabled)
-        guard !services.isEmpty else { notice = AppLocalization.runtimeString("请在服务设置中启用至少一个翻译服务"); return }
+        guard !services.isEmpty else { notice = "translation.enable_at_least_one_translation_service_in_settings"; return }
         let source = self.source
-        let target = self.target == .auto
-            ? ((source == .auto ? TranslationClient.detectedLanguage(input) : source) == .zh ? TranslationLanguage.en : .zh)
-            : self.target
-        guard source != target else { notice = "源语言与目标语言相同，请调整语言"; return }
+        let target = effectiveTargetLanguage
+        guard source != target else { notice = "translation.source_and_target_languages_are_the_same_choose"; return }
         context = (input, source, target)
         let missingSecrets = Set(services.filter {
             $0.provider.requiresSecret && readSecret($0.provider).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -191,10 +201,10 @@ final class TranslationStore: ObservableObject {
             case .image(let data): recognize(data, focusOnly: true)
             case .empty:
                 presentInIsland(focusOnly: true)
-                notice = AppLocalization.runtimeString("未获取到选词，剪贴板也没有文字或图片")
+                notice = "translation.no_selected_text_and_the_clipboard_has_no"
             case .permissionRequired:
                 presentInIsland(focusOnly: true)
-                notice = AppLocalization.runtimeString("无法读取选词：请开启辅助功能权限后返回原应用重试；也可手动复制后点击右上角剪贴板按钮。")
+                notice = "translation.cannot_read_selected_text_enable_accessibility_permission_and"
                 requestAccessibility()
             case .cancelled: break
             }
@@ -206,7 +216,7 @@ final class TranslationStore: ObservableObject {
         guard CGPreflightScreenCaptureAccess() else {
             CGRequestScreenCaptureAccess()
             presentInIsland()
-            notice = AppLocalization.runtimeString("请在系统设置 → 隐私与安全性 → 屏幕录制中授权，然后重试截图翻译")
+            notice = "translation.allow_screen_recording_in_system_settings_privacy_security"
             return
         }
         NotificationCenter.default.post(name: .ccFlowCollapseIsland, object: nil)
@@ -227,7 +237,7 @@ final class TranslationStore: ObservableObject {
             } catch {
                 guard !Task.isCancelled, inputGeneration == token else { return }
                 presentInIsland()
-                notice = AppLocalization.runtimeFormat("截图失败：%@", String(describing: error.localizedDescription))
+                notice = AppLocalization.runtimeFormat("translation.screenshot_failed", String(describing: error.localizedDescription))
             }
         }
     }
@@ -252,7 +262,7 @@ final class TranslationStore: ObservableObject {
         let ocrSettings = TranslationOCRSettings.shared
         let configuration = ocrSettings.configuration(ocrSettings.selected)
         let requestedTarget = target
-        notice = AppLocalization.runtimeFormat("正在使用 %@…", AppLocalization.runtimeString(configuration.provider.title))
+        notice = AppLocalization.runtimeFormat("translation.using", configuration.provider.title)
         presentInIsland(focusOnly: focusOnly)
         inputTask = Task {
             do {
@@ -260,16 +270,16 @@ final class TranslationStore: ObservableObject {
                     secret: configuration.provider == .system ? "" : TranslationKeychain.read(account: configuration.provider.account), target: requestedTarget)
                 guard !Task.isCancelled, inputGeneration == token else { return }
                 recognizing = false
-                if output.text.isEmpty { notice = AppLocalization.runtimeString("图片中未识别到文字，请重新框选清晰区域") }
+                if output.text.isEmpty { notice = "translation.no_text_recognized_select_a_clearer_region" }
                 else if let translation = output.translation, !translation.isEmpty {
                     text = output.text
                     imageTranslation = translation
-                    notice = AppLocalization.runtimeString("腾讯图片翻译已完成；点击翻译可对比已启用的文本服务。")
+                    notice = "translation.tencent_image_translation_completed_click_translate_to_compare"
                 } else { receive(output.text, focusOnly: true) }
             } catch {
                 guard !Task.isCancelled, inputGeneration == token else { return }
                 recognizing = false
-                notice = AppLocalization.runtimeFormat("文字识别失败：%@", String(describing: error.localizedDescription))
+                notice = AppLocalization.runtimeFormat("translation.text_recognition_failed", String(describing: error.localizedDescription))
             }
         }
     }

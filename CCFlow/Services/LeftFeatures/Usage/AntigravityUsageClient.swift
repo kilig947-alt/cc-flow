@@ -22,7 +22,7 @@ nonisolated enum AntigravityUsageClient {
 
     static func fetch(timeout: TimeInterval = 3) -> AntigravityAccountUsageFetch {
         guard let server = discoverServer() else {
-            return .failure("请先启动 Antigravity 并登录")
+            return .failure(AppLocalization.runtimeString("usage.launch_antigravity_and_sign_in_first"))
         }
 
         let ports = ([server.portHint].compactMap { $0 } + listeningPorts(pid: server.pid))
@@ -30,7 +30,7 @@ nonisolated enum AntigravityUsageClient {
                 if !result.contains(port) { result.append(port) }
             }
         guard !ports.isEmpty else {
-            return .failure("未找到 Antigravity 本地用量服务")
+            return .failure(AppLocalization.runtimeString("usage.antigravity_local_usage_service_not_found"))
         }
 
         for port in ports {
@@ -43,7 +43,7 @@ nonisolated enum AntigravityUsageClient {
                 return .success(result)
             }
         }
-        return .failure("无法读取 Antigravity 账户限额")
+        return .failure(AppLocalization.runtimeString("usage.cannot_read_antigravity_account_quotas"))
     }
 
     static func parseStatus(data: Data, capturedAt: Date) -> AntigravityAccountUsageResult? {

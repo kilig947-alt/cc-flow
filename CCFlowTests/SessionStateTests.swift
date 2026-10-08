@@ -381,11 +381,11 @@ final class SessionStateTests: XCTestCase {
         XCTAssertTrue(session.supportsUnrestrictedSessionApproval)
         XCTAssertEqual(
             SessionScopedApprovalAction.allowSimilarOperation.buttonTitleKey,
-            "Allow Same Operation"
+            AppLocalization.runtimeString("session.allow_same_operation")
         )
         XCTAssertEqual(
             SessionScopedApprovalAction.allowSimilarOperation.compactButtonTitleKey,
-            "Same Operation"
+            AppLocalization.runtimeString("session.same")
         )
     }
 

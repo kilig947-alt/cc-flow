@@ -111,10 +111,10 @@ struct LeftFeatureContainerView: View {
             Image(systemName: "rectangle.stack.badge.plus")
                 .font(.system(size: 28))
                 .foregroundColor(.secondary)
-            Text("未启用任何功能")
+            Text("features.no_features_enabled")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.secondary)
-            Text("在「设置 > 左侧功能」中启用功能")
+            Text("features.enable_features_in_settings_left_features")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary.opacity(0.8))
         }
@@ -126,7 +126,7 @@ struct LeftFeatureContainerView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 24))
                 .foregroundColor(.orange)
-            Text("自定义 HTML 目录不可用")
+            Text("common.custom_html_directory_unavailable")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
         }
@@ -139,7 +139,7 @@ struct LeftFeatureContainerView: View {
             Image(systemName: "link.badge.plus")
                 .font(.system(size: 24))
                 .foregroundColor(.orange)
-            Text("网站 URL 无效")
+            Text("common.invalid_website_url")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
         }

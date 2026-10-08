@@ -24,12 +24,12 @@ struct TranslationFeatureView: View {
     private var translationContent: some View {
         VStack(spacing: 10) {
             HStack {
-                Label("Tflow 翻译", systemImage: "character.bubble")
+                Label("translation.tflow_translation", systemImage: "character.bubble")
                     .font(.headline)
                 Spacer()
-                Button { store.clipboardTranslation() } label: { Image(systemName: "doc.on.clipboard") }.help("翻译剪贴板文字或图片")
-                Button { store.screenshotTranslation() } label: { Image(systemName: "viewfinder") }.help("截图翻译 · ⌥S")
-                Button { store.showingServices = true } label: { Image(systemName: "slider.horizontal.3") }.help("配置翻译服务")
+                Button { store.clipboardTranslation() } label: { Image(systemName: "doc.on.clipboard") }.help("translation.translate_clipboard_text_or_image")
+                Button { store.screenshotTranslation() } label: { Image(systemName: "viewfinder") }.help("translation.screenshot_translation_s")
+                Button { store.showingServices = true } label: { Image(systemName: "slider.horizontal.3") }.help("translation.configure_translation_services")
             }.buttonStyle(.borderless)
             VStack(alignment: .leading, spacing: 4) {
                 TextEditor(text: $store.text)
@@ -38,30 +38,37 @@ struct TranslationFeatureView: View {
                     .focused($inputFocused)
                     .disabled(store.recognizing || store.readingInput)
                     .frame(minHeight: 70, idealHeight: 96, maxHeight: 140)
-                    .accessibilityLabel("待翻译原文")
+                    .accessibilityLabel("translation.source_text")
                 HStack {
                     TranslationSpeechButton(text: store.text, id: "translation-source")
                     TranslationCopyButton(text: store.text)
                     Spacer()
-                    Text("⌘↩ 翻译").font(.caption).foregroundStyle(.secondary)
-                    Button("翻译") { store.translate() }.keyboardShortcut(.return, modifiers: .command)
+                    Text("translation.translate").font(.caption).foregroundStyle(.secondary)
+                    Button("translation.translate_2") { store.translate() }.keyboardShortcut(.return, modifiers: .command)
                         .disabled(store.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.recognizing || store.readingInput)
                 }.buttonStyle(.borderless)
             }.padding(10).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
             HStack {
-                Picker("源语言", selection: $store.source) {
+                Picker("translation.source_language", selection: $store.source) {
                     ForEach(TranslationLanguage.allCases) { Text(appLocalized: $0.title).tag($0) }
                 }.labelsHidden()
                 Spacer()
+                if !store.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let sourceTitle = AppLocalization.string(store.effectiveSourceLanguage?.title ?? AppLocalization.runtimeString("translation.language.unrecognized"))
+                    Text(verbatim: sourceTitle + " → " + AppLocalization.string(store.effectiveTargetLanguage.title))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 Button {
                     let source = store.source == .auto ? TranslationClient.detectedLanguage(store.text) : store.source
                     let target = store.target == .auto ? (source == .zh ? TranslationLanguage.en : .zh) : store.target
                     store.source = target
                     store.target = source
-                } label: { Image(systemName: "arrow.left.arrow.right") }.buttonStyle(.borderless).help("交换语言")
+                } label: { Image(systemName: "arrow.left.arrow.right") }.buttonStyle(.borderless).help("translation.swap_languages")
                 Spacer()
-                Picker("目标语言", selection: $store.target) {
-                    ForEach(TranslationLanguage.allCases) { Text(appLocalized: $0 == .auto ? "自动选择（中 / 英）" : $0.title).tag($0) }
+                Picker("translation.target_language", selection: $store.target) {
+                    ForEach(TranslationLanguage.allCases) { Text(appLocalized: $0 == .auto ? AppLocalization.runtimeString("translation.automatic_chinese_english") : $0.title).tag($0) }
                 }.labelsHidden()
             }.disabled(store.recognizing || store.readingInput).padding(6).background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
             ScrollView {
@@ -70,24 +77,24 @@ struct TranslationFeatureView: View {
                         Label(LocalizedStringKey(notice), systemImage: "info.circle").font(.callout).padding(10)
                     }
                     if store.readingInput || store.recognizing {
-                        TranslationLoadingView(message: store.readingInput ? "正在读取文字或图片…" : "识别中…")
+                        TranslationLoadingView(message: store.readingInput ? AppLocalization.runtimeString("translation.reading_text_or_image") : AppLocalization.runtimeString("translation.recognizing"))
                             .padding(12)
                             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
                     } else if store.results.isEmpty && store.imageTranslation == nil {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("⌥D 选词 / 剪贴板 · ⌥S 截图 · ⌥A 输入")
-                            Text("未选择文字时读取剪贴板文字或图片；默认本地识别，可在设置切换 OCR。只向已启用且展开的翻译服务发送原文。")
+                            Text("translation.d_selection_clipboard_s_screenshot_a_input")
+                            Text("translation.reads_clipboard_text_or_images_when_no_text")
                                 .foregroundStyle(.secondary)
                             HStack {
-                                Button("配置服务") { store.showingServices = true }
-                                Button("开启选词权限") { store.requestAccessibility() }
+                                Button("translation.configure_services") { store.showingServices = true }
+                                Button("translation.enable_selection_permission") { store.requestAccessibility() }
                             }
                         }.font(.callout).padding(12)
                     }
                     if let translation = store.imageTranslation {
                         VStack(alignment: .leading, spacing: 8) {
-                            Label("腾讯图片翻译", systemImage: "photo.badge.checkmark").font(.headline)
-                            Text(SessionTextSanitizer.boundedDisplayText(translation, maxCharacters: 20000, truncationNotice: AppLocalization.string("\n…可复制完整译文")) ?? "").textSelection(.enabled)
+                            Label("translation.tencent_image_translation", systemImage: "photo.badge.checkmark").font(.headline)
+                            Text(SessionTextSanitizer.boundedDisplayText(translation, maxCharacters: 20000, truncationNotice: AppLocalization.string("translation.n_copy_to_get_the_full_translation")) ?? "").textSelection(.enabled)
                             HStack {
                                 TranslationSpeechButton(text: translation, id: "ocr-image-translation")
                                 TranslationCopyButton(text: translation)
@@ -139,29 +146,29 @@ private struct TranslationResultCard: View {
                         Text(appLocalized: result.provider.title).font(.system(size: 13, weight: .medium))
                         Spacer()
                         if !result.expanded && result.text.isEmpty {
-                            Text("展开后翻译").font(.caption).foregroundStyle(.secondary)
+                            Text("translation.expand_to_translate").font(.caption).foregroundStyle(.secondary)
                         }
                         Image(systemName: result.expanded ? "chevron.down" : "chevron.left").foregroundStyle(.secondary)
                     }.contentShape(Rectangle())
                 }.buttonStyle(.plain)
                 Menu {
                     Button { store.setDefaultExpanded(result.provider, expanded: true) } label: {
-                        Label("默认展开 · 自动翻译", systemImage: defaultExpanded ? "checkmark.circle.fill" : "circle")
+                        Label("translation.expanded_by_default_translate_automatically", systemImage: defaultExpanded ? "checkmark.circle.fill" : "circle")
                     }
                     Button { store.setDefaultExpanded(result.provider, expanded: false) } label: {
-                        Label("默认折叠 · 展开时翻译", systemImage: defaultExpanded ? "circle" : "checkmark.circle.fill")
+                        Label("translation.collapsed_by_default_translate_on_expand", systemImage: defaultExpanded ? "circle" : "checkmark.circle.fill")
                     }
                 } label: { Image(systemName: "slider.horizontal.3") }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help(AppLocalization.format("设置 %@ 的默认展开方式", AppLocalization.string(result.provider.title)))
+                .help(AppLocalization.format("translation.set_default_expansion_for", AppLocalization.string(result.provider.title)))
             }
             if result.expanded {
                 if result.loading {
-                    TranslationLoadingView(message: "翻译中…")
+                    TranslationLoadingView(message: AppLocalization.runtimeString("translation.translating"))
                 } else if let error = result.error {
                     Text(appLocalized: error).font(.callout).foregroundStyle(.orange).textSelection(.enabled)
                 } else {
-                    Text(SessionTextSanitizer.boundedDisplayText(result.text, maxCharacters: 20000, truncationNotice: AppLocalization.string("\n…可复制完整译文")) ?? "").font(.system(size: 15)).textSelection(.enabled)
+                    Text(SessionTextSanitizer.boundedDisplayText(result.text, maxCharacters: 20000, truncationNotice: AppLocalization.string("translation.n_copy_to_get_the_full_translation")) ?? "").font(.system(size: 15)).textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 6) {
@@ -208,7 +215,7 @@ struct TranslationCompactView: View {
         let _ = localizationLocale
         HStack(spacing: 6) {
             Image(systemName: "character.bubble")
-            Text(appLocalized: store.readingInput ? "正在读取文字或图片…" : (store.recognizing ? "识别中…" : (store.results.contains(where: \.loading) ? "翻译中…" : "Tflow 翻译")))
+            Text(appLocalized: store.readingInput ? AppLocalization.runtimeString("translation.reading_text_or_image") : (store.recognizing ? AppLocalization.runtimeString("translation.recognizing") : (store.results.contains(where: \.loading) ? AppLocalization.runtimeString("translation.translating") : AppLocalization.runtimeString("translation.tflow_translation"))))
                 .font(.system(size: 11)).lineLimit(1)
         }
     }
@@ -229,14 +236,14 @@ struct TranslationServicesView: View {
         let _ = localizationLocale
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Button(action: onBack) { Label("返回", systemImage: "chevron.left") }
-                    .buttonStyle(.borderless).help("返回翻译")
-                Text("翻译设置").font(.headline)
+                Button(action: onBack) { Label("translation.back", systemImage: "chevron.left") }
+                    .buttonStyle(.borderless).help("translation.back_to_translation")
+                Text("translation.translation_settings").font(.headline)
                 Spacer()
-                Picker("设置分类", selection: $tab) {
-                    Text("翻译服务").tag(0)
-                    Text("复制结果").tag(1)
-                    Text("系统语音").tag(2)
+                Picker("translation.settings_categories", selection: $tab) {
+                    Text("settings.translation_services").tag(0)
+                    Text("translation.copy_results").tag(1)
+                    Text("translation.system_voice").tag(2)
                     Text("OCR").tag(3)
                 }.labelsHidden().pickerStyle(.segmented).frame(maxWidth: 400)
             }.padding(14)
@@ -250,14 +257,14 @@ struct TranslationServicesView: View {
             } else {
                 HStack(spacing: 0) {
                     VStack(spacing: 8) {
-                        TextField("搜索服务", text: $query).textFieldStyle(.roundedBorder)
-                        Toggle("只看已启用", isOn: $enabledOnly).font(.caption).toggleStyle(.checkbox)
+                        TextField("translation.search_services", text: $query).textFieldStyle(.roundedBorder)
+                        Toggle("translation.enabled_only", isOn: $enabledOnly).font(.caption).toggleStyle(.checkbox)
                         ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 6) {
-                                ForEach(["已启用", "通用翻译", "AI 模型", "本地服务"], id: \.self) { group in
+                                ForEach([AppLocalization.runtimeString("translation.enabled_2"), AppLocalization.runtimeString("translation.general_translation"), AppLocalization.runtimeString("translation.ai_models"), AppLocalization.runtimeString("translation.local_services")], id: \.self) { group in
                                     let items = store.configurations.filter {
-                                        (group == "已启用" ? $0.enabled : (!$0.enabled && $0.provider.group == group)) && (!enabledOnly || $0.enabled) &&
+                                        (group == AppLocalization.runtimeString("translation.enabled_2") ? $0.enabled : (!$0.enabled && $0.provider.group == group)) && (!enabledOnly || $0.enabled) &&
                                         (query.isEmpty || $0.provider.title.localizedCaseInsensitiveContains(query) || $0.provider.rawValue.localizedCaseInsensitiveContains(query))
                                     }
                                     if !items.isEmpty {
@@ -306,7 +313,7 @@ struct TranslationServicesView: View {
                 if !enabled { enabledOnly = false }
                 scrollTarget = configuration.provider
             } label: {
-                Text(appLocalized: configuration.enabled ? "停用" : "启用")
+                Text(appLocalized: configuration.enabled ? AppLocalization.runtimeString("translation.disable") : AppLocalization.runtimeString("translation.enabled"))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
@@ -316,7 +323,7 @@ struct TranslationServicesView: View {
             }
             .buttonStyle(.plain)
             .fixedSize()
-            .accessibilityLabel(Text(AppLocalization.string(configuration.enabled ? "停用" : "启用") + " " + AppLocalization.string(configuration.provider.title)))
+            .accessibilityLabel(Text(AppLocalization.string(configuration.enabled ? AppLocalization.runtimeString("translation.disable") : AppLocalization.runtimeString("translation.enabled")) + " " + AppLocalization.string(configuration.provider.title)))
 
         }
         .padding(8)
@@ -339,61 +346,61 @@ private struct TranslationServiceEditor: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text(appLocalized: configuration.provider.title).font(.title2.bold())
                 Text(appLocalized: configuration.provider.detail).font(.callout).foregroundStyle(.secondary)
-                Link("申请与使用说明 ↗", destination: configuration.provider.documentationURL)
-                Text("左侧「启用 / 停用」即时生效；下方配置修改后点击保存。").font(.caption).foregroundStyle(.secondary)
+                Link(AppLocalization.runtimeString("translation.setup_and_usage_guide"), destination: configuration.provider.documentationURL)
+                Text("translation.enable_or_disable_services_on_the_left_immediately").font(.caption).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("结果展示方式").font(.system(size: 13, weight: .medium))
-                    Picker("结果展示方式", selection: Binding(
+                    Text("translation.result_display").font(.system(size: 13, weight: .medium))
+                    Picker("translation.result_display", selection: Binding(
                         get: { store.configurations.first { $0.provider == configuration.provider }?.expandsByDefault ?? true },
                         set: { store.setDefaultExpanded(configuration.provider, expanded: $0) }
                     )) {
-                        Text("默认展开 · 自动翻译").tag(true)
-                        Text("默认折叠 · 展开时翻译").tag(false)
+                        Text("translation.expanded_by_default_translate_automatically").tag(true)
+                        Text("translation.collapsed_by_default_translate_on_expand").tag(false)
                     }.labelsHidden().pickerStyle(.segmented)
-                    Text("仅对已启用的服务生效；默认折叠时，展开结果才发起请求。")
+                    Text("translation.applies_to_enabled_services_only_collapsed_results_send")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if configuration.provider.needsAppID {
-                    field([TranslationProvider.baidu, .youdao].contains(configuration.provider) ? "应用 ID" : "Access Key ID", text: $configuration.appID)
+                    field([TranslationProvider.baidu, .youdao].contains(configuration.provider) ? AppLocalization.runtimeString("translation.app_id") : "Access Key ID", text: $configuration.appID)
                 }
                 if configuration.provider != .myMemory && configuration.provider != .dictionary {
                     VStack(alignment: .leading) {
-                        Text("API Key / 应用密钥")
+                        Text("translation.api_key_app_secret")
                         HStack {
                             Group {
-                                if revealingSecret { TextField("保存在 macOS 钥匙串", text: $secret) }
-                                else { SecureField("保存在 macOS 钥匙串", text: $secret) }
+                                if revealingSecret { TextField("translation.stored_in_macos_keychain", text: $secret) }
+                                else { SecureField("translation.stored_in_macos_keychain", text: $secret) }
                             }.textFieldStyle(.roundedBorder)
                             Button { revealingSecret.toggle() } label: { Image(systemName: revealingSecret ? "eye.slash" : "eye") }
-                                .buttonStyle(.borderless).help(Text(appLocalized: revealingSecret ? "隐藏密钥" : "显示密钥"))
+                                .buttonStyle(.borderless).help(Text(appLocalized: revealingSecret ? AppLocalization.runtimeString("translation.hide_key") : AppLocalization.runtimeString("translation.show_key")))
                         }
                     }
                 }
-                if configuration.provider.needsRegion { field("服务区域", text: $configuration.region) }
+                if configuration.provider.needsRegion { field(AppLocalization.runtimeString("translation.service_region"), text: $configuration.region) }
                 if configuration.provider.usesChatAPI {
                     field("API Base URL", text: $configuration.baseURL)
                     field("API Path", text: $configuration.apiPath)
-                    field(configuration.provider == .azureOpenAI ? "模型部署名称" : "模型名称（填写平台中已开通的模型）", text: $configuration.model)
+                    field(configuration.provider == .azureOpenAI ? AppLocalization.runtimeString("translation.model_deployment_name") : AppLocalization.runtimeString("translation.model_name_must_be_enabled_in_your_account"), text: $configuration.model)
                     if configuration.provider == .zhipu || configuration.provider == .siliconFlow {
-                        Button("恢复预设免费模型") {
+                        Button("translation.restore_preset_free_model") {
                             let preset = TranslationServiceConfiguration.preset(configuration.provider)
                             configuration.model = preset.model
                             configuration.baseURL = preset.baseURL
                             configuration.apiPath = preset.apiPath
                         }.font(.caption)
-                        Text("免费模型仍需自己的 API Key，不能使用 Bob 专属的免密钥通道。修改模型前请确认价格。").font(.caption).foregroundStyle(.secondary)
+                        Text("translation.free_models_still_require_your_own_api_key").font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("翻译提示词 · 支持 {source} 和 {target}").font(.caption)
+                    Text("translation.translation_prompt_supports_source_and_target").font(.caption)
                     TextEditor(text: $configuration.prompt).font(.system(size: 12)).frame(height: 90)
                         .overlay(RoundedRectangle(cornerRadius: 4).stroke(.quaternary))
                 }
                 if let message { Text(appLocalized: message).font(.callout).foregroundStyle(.secondary) }
-                Button("保存") {
+                Button("common.save") {
                     do {
                         configuration.enabled = store.configurations.first { $0.provider == configuration.provider }?.enabled ?? false
                         configuration.expandedByDefault = store.configurations.first { $0.provider == configuration.provider }?.expandedByDefault
                         try store.save(configuration, secret: secret)
-                        message = "✓ 已保存"
+                        message = AppLocalization.runtimeString("translation.saved")
                     }
                     catch { message = error.localizedDescription }
                 }.buttonStyle(.borderedProminent)

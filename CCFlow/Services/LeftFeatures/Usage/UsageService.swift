@@ -152,7 +152,7 @@ final class UsageService: ObservableObject {
                 merged.capturedAt = old.capturedAt
                 merged.accountState = .stale
                 if merged.errorMessage == nil {
-                    merged.errorMessage = "本次刷新未取得账户限额，显示上次成功数据"
+                    merged.errorMessage = AppLocalization.runtimeString("usage.this_refresh_could_not_retrieve_account_limits_showing")
                 }
             }
             return merged

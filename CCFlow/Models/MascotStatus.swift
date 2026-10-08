@@ -15,16 +15,16 @@ enum MascotStatus: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .idle: return "空闲中"
-        case .runRight: return "运行中"
-        case .runLeft: return "向左跑"
-        case .waving: return "挥手"
-        case .jumping: return "跳跃"
-        case .failed: return "失败"
-        case .waiting: return "等待中"
-        case .running: return "运行中"
-        case .review: return "审视中"
-        case .dragging: return "拖拽中"
+        case .idle: return AppLocalization.runtimeString("mascot.idle")
+        case .runRight: return AppLocalization.runtimeString("mascot.working")
+        case .runLeft: return AppLocalization.runtimeString("mascot.run_left")
+        case .waving: return AppLocalization.runtimeString("mascot.wave")
+        case .jumping: return AppLocalization.runtimeString("mascot.jump")
+        case .failed: return AppLocalization.runtimeString("mascot.failed")
+        case .waiting: return AppLocalization.runtimeString("mascot.waiting")
+        case .running: return AppLocalization.runtimeString("mascot.working")
+        case .review: return AppLocalization.runtimeString("mascot.reviewing")
+        case .dragging: return AppLocalization.runtimeString("mascot.dragging")
         }
     }
 }

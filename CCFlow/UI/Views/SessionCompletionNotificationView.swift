@@ -18,22 +18,22 @@ struct SessionCompletionNotification: Equatable, Identifiable {
         var statusLabelKey: String {
             switch self {
             case .completed:
-                return "完成"
+                return AppLocalization.runtimeString("completion.completed")
             case .ended:
-                return "结束"
+                return AppLocalization.runtimeString("completion.ended")
             case .compacted:
-                return "已压缩"
+                return AppLocalization.runtimeString("completion.compressed")
             }
         }
 
         var fallbackAssistantMessageKey: String {
             switch self {
             case .completed:
-                return "会话已完成，点击查看完整结果。"
+                return AppLocalization.runtimeString("completion.session_completed_click_to_view_the_full_result")
             case .ended:
-                return "会话已结束"
+                return AppLocalization.runtimeString("session.session_ended")
             case .compacted:
-                return "上下文已压缩"
+                return AppLocalization.runtimeString("completion.context_compressed")
             }
         }
 
@@ -88,7 +88,7 @@ enum SessionCompletionPreviewBuilder {
                 let label = MCPToolFormatter.formatToolName(tool.name)
                 return preview.map { "\(label) \($0)" } ?? label
             case .interrupted:
-                return "已中断"
+                return AppLocalization.runtimeString("completion.interrupted")
             case .user:
                 continue
             }
@@ -350,7 +350,7 @@ struct SessionCompletionNotificationView: View {
     private var contentCard: some View {
         let content = VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(appLocalized: "你：")
+                Text(appLocalized: "session.you")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white.opacity(0.48))
 

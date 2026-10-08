@@ -59,7 +59,7 @@ final class HookWalkthroughDemoRunner {
                 toolUseId: toolUseId,
                 result: ToolCompletionResult(
                     status: .success,
-                    result: AppLocalization.string("CC FLOW 已处理这次演示审批。"),
+                    result: AppLocalization.string("hooks.cc_flow_handled_this_demo_approval"),
                     structuredResult: nil
                 )
             ))
@@ -71,18 +71,18 @@ final class HookWalkthroughDemoRunner {
                         id: "\(sessionId)-assistant-complete",
                         role: .assistant,
                         timestamp: now,
-                        content: [.text(AppLocalization.string("Hooks 审批演示完成：你刚刚体验了通知、审批提交、处理完成、以及完成提醒。顶部 Island 和独立悬浮宠物会共用这一套流程。"))]
+                        content: [.text(AppLocalization.string("hooks.hooks_approval_demo_complete_you_just_experienced_notification"))]
                     )
                 ],
                 completedTools: [toolUseId],
                 toolResults: [:],
                 structuredResults: [:],
                 conversationInfo: ConversationInfo(
-                    summary: AppLocalization.string("Hooks 审批演示案例"),
-                    lastMessage: AppLocalization.string("Hooks 审批演示完成：你刚刚体验了通知、审批提交、处理完成、以及完成提醒。顶部 Island 和独立悬浮宠物会共用这一套流程。"),
+                    summary: AppLocalization.string("hooks.hooks_approval_demo_case"),
+                    lastMessage: AppLocalization.string("hooks.hooks_approval_demo_complete_you_just_experienced_notification"),
                     lastMessageRole: "assistant",
                     lastToolName: nil,
-                    firstUserMessage: AppLocalization.string("体验一轮 CC FLOW Hooks 审批通知流程"),
+                    firstUserMessage: AppLocalization.string("hooks.try_a_full_cc_flow_hooks_approval_notification"),
                     lastUserMessageDate: now
                 )
             ))
@@ -126,7 +126,7 @@ final class HookWalkthroughDemoRunner {
             toolInput: nil,
             toolUseId: nil,
             notificationType: "hook_walkthrough",
-            message: AppLocalization.string("正在触发一轮 Hooks 审批演示：通知、审批提交、完成提醒。")
+            message: AppLocalization.string("hooks.starting_a_hooks_approval_walkthrough_notification_approval_submission")
         )
     }
 
@@ -141,18 +141,18 @@ final class HookWalkthroughDemoRunner {
                 [
                     "id": "demo_next_step",
                     "header": "1.",
-                    "question": AppLocalization.string("是否批准 CC FLOW 继续完成这轮演示？"),
-                    "description": AppLocalization.string("选择“批准并继续”，再点击提交，CC FLOW 会模拟处理完成并弹出通知。"),
+                    "question": AppLocalization.string("hooks.approve_cc_flow_to_finish_this_walkthrough"),
+                    "description": AppLocalization.string("hooks.choose_approve_and_continue_then_click_submit_cc"),
                     "options": [
                         [
                             "id": "approve",
-                            "label": AppLocalization.string("批准并继续"),
-                            "description": AppLocalization.string("模拟你批准 agent 继续执行。")
+                            "label": AppLocalization.string("hooks.approve_and_continue"),
+                            "description": AppLocalization.string("hooks.simulates_approving_the_agent_to_continue")
                         ],
                         [
                             "id": "review",
-                            "label": AppLocalization.string("检查后继续"),
-                            "description": AppLocalization.string("模拟先查看风险，再批准继续。")
+                            "label": AppLocalization.string("hooks.review_then_continue"),
+                            "description": AppLocalization.string("hooks.simulates_reviewing_risk_before_approving_continuation")
                         ]
                     ]
                 ]
@@ -172,29 +172,29 @@ final class HookWalkthroughDemoRunner {
             toolInput: toolInput,
             toolUseId: toolUseId,
             notificationType: "hook_walkthrough_question",
-            message: AppLocalization.string("CC FLOW Demo 正在等待一次演示审批。"),
+            message: AppLocalization.string("hooks.cc_flow_demo_is_waiting_for_a_demo"),
             bridgeIntervention: SessionIntervention(
                 id: toolUseId,
                 kind: .question,
-                title: AppLocalization.string("CC FLOW Demo 的审批"),
-                message: AppLocalization.string("请选择“批准并继续”，然后点击提交。提交后会模拟 agent 继续执行并完成。"),
+                title: AppLocalization.string("hooks.cc_flow_demo_approval"),
+                message: AppLocalization.string("hooks.choose_approve_and_continue_then_click_submit_after"),
                 options: [],
                 questions: [
                     SessionInterventionQuestion(
                         id: "demo_next_step",
                         header: "1.",
-                        prompt: AppLocalization.string("是否批准 CC FLOW 继续完成这轮演示？"),
-                        detail: AppLocalization.string("选择“批准并继续”，再点击提交，CC FLOW 会模拟处理完成并弹出通知。"),
+                        prompt: AppLocalization.string("hooks.approve_cc_flow_to_finish_this_walkthrough"),
+                        detail: AppLocalization.string("hooks.choose_approve_and_continue_then_click_submit_cc"),
                         options: [
                             SessionInterventionOption(
                                 id: "approve",
-                                title: AppLocalization.string("批准并继续"),
-                                detail: AppLocalization.string("模拟你批准 agent 继续执行。")
+                                title: AppLocalization.string("hooks.approve_and_continue"),
+                                detail: AppLocalization.string("hooks.simulates_approving_the_agent_to_continue")
                             ),
                             SessionInterventionOption(
                                 id: "review",
-                                title: AppLocalization.string("检查后继续"),
-                                detail: AppLocalization.string("模拟先查看风险，再批准继续。")
+                                title: AppLocalization.string("hooks.review_then_continue"),
+                                detail: AppLocalization.string("hooks.simulates_reviewing_risk_before_approving_continuation")
                             )
                         ],
                         allowsMultiple: false,
@@ -346,11 +346,11 @@ private struct HookWalkthroughDemoBackdropView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 8) {
-                Text(appLocalized: "CC FLOW 演示模式")
+                Text(appLocalized: "hooks.cc_flow_demo_mode")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white.opacity(0.86))
 
-                Text(appLocalized: "请在 Island 弹出的审批卡片中选择并提交。")
+                Text(appLocalized: "hooks.choose_an_option_in_the_island_approval_card")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.58))
             }

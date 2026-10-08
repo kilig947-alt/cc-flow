@@ -72,7 +72,7 @@ final class GlobalShortcutManager: ObservableObject {
                !LeftFeatureStore.shared.enabledFeatures.contains(where: { $0.id == LeftFeature.translationID }) { continue }
             guard let shortcut = AppSettings.shortcut(for: action) else { continue }
             guard registeredShortcuts.insert(shortcut).inserted else {
-                registrationErrors["action:\(action.rawValue)"] = "与另一个已配置快捷键冲突"
+                registrationErrors["action:\(action.rawValue)"] = "common.conflicts_with_another_configured_shortcut"
                 continue
             }
 
@@ -82,7 +82,7 @@ final class GlobalShortcutManager: ObservableObject {
         for feature in LeftFeatureStore.shared.enabledFeatures {
             guard let shortcut = feature.globalShortcut else { continue }
             guard registeredShortcuts.insert(shortcut).inserted else {
-                registrationErrors["feature:\(feature.id)"] = "与另一个已配置快捷键冲突"
+                registrationErrors["feature:\(feature.id)"] = "common.conflicts_with_another_configured_shortcut"
                 continue
             }
             register(shortcut, for: .leftFeature(feature.id))
@@ -108,7 +108,7 @@ final class GlobalShortcutManager: ObservableObject {
             case .action(let action): key = "action:\(action.rawValue)"
             case .leftFeature(let id): key = "feature:\(id)"
             }
-            registrationErrors[key] = AppLocalization.runtimeFormat("系统注册失败（%@），请检查是否被其他应用占用", String(describing: status))
+            registrationErrors[key] = AppLocalization.runtimeFormat("common.system_registration_failed_check_for_conflicts_with_other", String(describing: status))
             return
         }
         hotKeyRefs[target] = hotKeyRef

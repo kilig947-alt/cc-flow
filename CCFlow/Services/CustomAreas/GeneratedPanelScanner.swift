@@ -51,15 +51,15 @@ final class GeneratedPanelScanner: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .notDirectory:
-                return AppLocalization.runtimeString("所选路径不是目录")
+                return AppLocalization.runtimeString("custom_area.the_selected_path_is_not_a_directory")
             case .missingEntryPoint(let path):
-                return AppLocalization.runtimeFormat("缺少入口文件：%@", String(describing: path))
+                return AppLocalization.runtimeFormat("custom_area.missing_entry_file", String(describing: path))
             case .invalidEntryPoint(let path):
-                return AppLocalization.runtimeFormat("入口文件必须位于面板目录内：%@", String(describing: path))
+                return AppLocalization.runtimeFormat("custom_area.entry_file_must_be_inside_the_panel_directory", String(describing: path))
             case .malformedManifest(let detail):
-                return AppLocalization.runtimeFormat("cc-flow-panel.json 无法解析：%@", String(describing: detail))
+                return AppLocalization.runtimeFormat("custom_area.could_not_parse_cc_flow_panel_json", String(describing: detail))
             case .invalidPluginManifest(let detail):
-                return AppLocalization.runtimeFormat("插件清单无效：%@", String(describing: detail))
+                return AppLocalization.runtimeFormat("custom_area.invalid_plugin_manifest", String(describing: detail))
             }
         }
     }
@@ -126,7 +126,7 @@ final class GeneratedPanelScanner: ObservableObject {
         guard descriptor >= 0 else {
             lastResult = ScanResult(
                 importedNames: [],
-                issues: [ScanIssue(directoryName: rootURL.lastPathComponent, message: AppLocalization.runtimeString("无法监听生成目录"))]
+                issues: [ScanIssue(directoryName: rootURL.lastPathComponent, message: AppLocalization.runtimeString("custom_area.cannot_monitor_the_generated_directory"))]
             )
             return
         }
@@ -181,7 +181,7 @@ final class GeneratedPanelScanner: ObservableObject {
         }) || importedPaths.contains(Self.canonicalPath(for: standardizedURL)) {
             let result = ScanResult(
                 importedNames: [],
-                issues: [ScanIssue(directoryName: standardizedURL.lastPathComponent, message: AppLocalization.runtimeString("该目录已经在功能列表中"))]
+                issues: [ScanIssue(directoryName: standardizedURL.lastPathComponent, message: AppLocalization.runtimeString("custom_area.this_directory_is_already_in_the_feature_list"))]
             )
             lastResult = result
             return result
@@ -192,7 +192,7 @@ final class GeneratedPanelScanner: ObservableObject {
             guard bookmarkSaver(standardizedURL) else {
                 let result = ScanResult(
                     importedNames: [],
-                    issues: [ScanIssue(directoryName: standardizedURL.lastPathComponent, message: AppLocalization.runtimeString("无法保存目录访问权限"))]
+                    issues: [ScanIssue(directoryName: standardizedURL.lastPathComponent, message: AppLocalization.runtimeString("custom_area.cannot_save_directory_access_permission"))]
                 )
                 lastResult = result
                 return result
@@ -235,16 +235,16 @@ final class GeneratedPanelScanner: ObservableObject {
 
         if manifest?.manifestVersion == 2 {
             guard let id = manifest?.id, id.range(of: #"^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)+$"#, options: .regularExpression) != nil else {
-                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("manifestVersion 2 需要稳定的反向域名 id"))
+                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("custom_area.manifestversion_2_requires_a_stable_reverse_domain_id"))
             }
             guard let version = manifest?.version, !version.isEmpty else {
-                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("缺少 version"))
+                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("custom_area.missing_version"))
             }
             guard let sdkVersion = manifest?.sdkVersion, sdkVersion.hasPrefix("^1.") || sdkVersion.hasPrefix("1.") else {
-                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("sdkVersion 必须兼容 1.x"))
+                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("custom_area.sdkversion_must_be_compatible_with_1_x"))
             }
             guard let capabilities = manifest?.capabilities else {
-                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("缺少 capabilities；无权限插件请显式使用空数组"))
+                throw ValidationError.invalidPluginManifest(AppLocalization.runtimeString("custom_area.missing_capabilities_use_an_empty_array_for_plugins"))
             }
             let knownCapabilities = Set(PluginSDKCatalog.schema.methods.compactMap(\.capability))
             let unknown = Set(capabilities).subtracting(knownCapabilities)

@@ -23,7 +23,7 @@ enum TranslationCloudSigning {
     }
     static func jsonRequest(_ url: String, body: [String: Any]) throws -> URLRequest {
         guard let url = URL(string: url), url.scheme == "https", url.host != nil else {
-            throw TranslationFailure.message(AppLocalization.runtimeString("云服务地址无效"))
+            throw TranslationFailure.message(AppLocalization.runtimeString("translation.invalid_cloud_service_url"))
         }
         var request = URLRequest(url: url, timeoutInterval: 45)
         request.httpMethod = "POST"
@@ -34,7 +34,7 @@ enum TranslationCloudSigning {
     static func signV4(_ request: inout URLRequest, accessKey: String, secret: String,
                        region: String, service: String, volc: Bool = false, now: Date = Date()) throws {
         guard !accessKey.isEmpty, !secret.isEmpty, !region.isEmpty, let url = request.url, let host = url.host else {
-            throw TranslationFailure.message(AppLocalization.runtimeString("请填写 Access Key ID、Secret Key 和服务区域"))
+            throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_access_key_id_secret_key_and_service"))
         }
         let stamp = date(now, format: "yyyyMMdd'T'HHmmss'Z'")
         let day = String(stamp.prefix(8)), header = volc ? "x-date" : "x-amz-date"
@@ -60,7 +60,7 @@ enum TranslationCloudSigning {
     }
     static func tencent(body: [String: Any], service: String, action: String, version: String,
                         accessKey: String, secret: String, region: String, now: Date = Date()) throws -> URLRequest {
-        guard !accessKey.isEmpty, !secret.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("请填写腾讯 SecretId 和 SecretKey")) }
+        guard !accessKey.isEmpty, !secret.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_tencent_secretid_and_secretkey")) }
         var request = try jsonRequest("https://\(service).tencentcloudapi.com/", body: body)
         let host = request.url!.host!, stamp = String(Int(now.timeIntervalSince1970)), day = date(now, format: "yyyy-MM-dd")
         let canonical = "POST\n/\n\ncontent-type:application/json\nhost:\(host)\n\ncontent-type;host\n\(hash(request.httpBody!))"
@@ -77,9 +77,9 @@ enum TranslationCloudSigning {
     }
     static func aliyun(text: String, source: String, target: String, accessKey: String, secret: String,
                        region: String, now: Date = Date(), nonce: String = UUID().uuidString) throws -> URLRequest {
-        guard !accessKey.isEmpty, !secret.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("请填写阿里云 AccessKey ID 和 Secret")) }
+        guard !accessKey.isEmpty, !secret.isEmpty else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.enter_alibaba_cloud_accesskey_id_and_secret")) }
         let region = region.isEmpty ? "cn-hangzhou" : region
-        guard region.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { throw TranslationFailure.message("服务区域格式无效") }
+        guard region.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { throw TranslationFailure.message(AppLocalization.runtimeString("translation.invalid_service_region_format")) }
         var fields = ["Action": "TranslateGeneral", "Version": "2018-10-12", "Format": "JSON", "AccessKeyId": accessKey,
                       "SignatureMethod": "HMAC-SHA1", "SignatureVersion": "1.0", "SignatureNonce": nonce,
                       "Timestamp": date(now, format: "yyyy-MM-dd'T'HH:mm:ss'Z'"), "FormatType": "text", "Scene": "general",

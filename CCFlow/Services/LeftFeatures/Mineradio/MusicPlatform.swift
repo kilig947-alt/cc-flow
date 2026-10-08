@@ -39,11 +39,11 @@ enum MusicPlatform: String, Codable, CaseIterable, Sendable, Identifiable {
     var displayName: String {
         switch self {
         case .netease:
-            return "网易云"
+            return AppLocalization.runtimeString("music.netease")
         case .qq:
-            return "QQ音乐"
+            return AppLocalization.runtimeString("music.qq_music_2")
         case .kugou:
-            return "酷狗"
+            return AppLocalization.runtimeString("music.kugou")
         }
     }
 

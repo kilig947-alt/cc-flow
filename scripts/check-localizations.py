@@ -64,6 +64,40 @@ def strings(source):
             cursor += 1
 
 
+# Inspect localization entry points rather than treating all Chinese data as UI.
+# User-editable presets, protocol payloads and parser fixtures may contain Chinese.
+LOCALIZED_CALL = re.compile(
+    r'(?:AppLocalization\.(?:string|format|runtimeString|runtimeFormat)\(\s*'
+    r'|Text\(appLocalized:\s*'
+    r'|\b(?:Text|Button|Label|Toggle|Picker|Section|GroupBox|Menu|TextField|SecureField|ContentUnavailableView)\(\s*'
+    r'|\.(?:help|alert|confirmationDialog|navigationTitle|accessibilityLabel|accessibilityHint)\(\s*)$'
+)
+# These dotted strings are protocol names / SF Symbols / view identifiers, not UI keys.
+DATA_IDENTIFIERS = {
+    "session.start", "session.idle", "music.note", "music.note.tv", "music.mic",
+    "clipboard.read", "clipboard.write", "island.hint.show", "island.hint.clear",
+    "island.presentation", "calendar.badge.exclamationmark", "calendar.badge.clock",
+    "settings.root", "settings.window",
+}
+STABLE_KEY = re.compile(r'[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+')
+
+
+def source_errors(source, catalog, namespaces):
+    errors = []
+    for offset, text in strings(source):
+        before = source[max(0, offset - 180):offset]
+        localized = LOCALIZED_CALL.search(before)
+        stable_reference = STABLE_KEY.fullmatch(text) and (localized or text.split('.', 1)[0] in namespaces)
+        if stable_reference and text not in catalog and (localized or text not in DATA_IDENTIFIERS):
+            message = f'unknown localization key: {text}'
+        elif localized and HAN.search(text):
+            message = f'localized UI text must use a stable key: {text}'
+        else:
+            continue
+        errors.append((source.count('\n', 0, offset) + 1, message))
+    return errors
+
+
 def main():
     errors = []
     catalogs = {}
@@ -73,6 +107,9 @@ def main():
         for key, count in Counter(key for key, _ in entries).items():
             if count > 1:
                 errors.append(f'{language}: duplicate key: {key}')
+        for key, _ in entries:
+            if not re.fullmatch(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+", key):
+                errors.append(f"{language}: expected a stable localization key: {key}")
         catalogs[language] = dict(entries)
     english, chinese = catalogs['en'], catalogs['zh-Hans']
     for key in english.keys() ^ chinese.keys():
@@ -80,21 +117,17 @@ def main():
     for key, value in english.items():
         if HAN.search(value):
             errors.append(f'English value still contains Chinese: {key}')
-        if sorted(PLACEHOLDER.findall(key)) != sorted(PLACEHOLDER.findall(value)):
+        if sorted(PLACEHOLDER.findall(chinese.get(key, ""))) != sorted(PLACEHOLDER.findall(value)):
             errors.append(f'Format argument mismatch: {key}')
-    for path in sorted((ROOT / 'CCFlow/UI').rglob('*.swift')):
+    namespaces = {key.split(".", 1)[0] for key in english}
+    for path in sorted((ROOT / 'CCFlow').rglob('*.swift')):
         source = path.read_text()
-        for offset, key in strings(source):
-            if not HAN.search(key) or key in english:
-                continue
-            if key.startswith(('[ccFlowHint]', '[MineradioLogin]')):
-                continue
-            line = source.count('\n', 0, offset) + 1
-            errors.append(f'{path.relative_to(ROOT)}:{line}: missing translation: {key}')
+        errors.extend(f'{path.relative_to(ROOT)}:{line}: {message}'
+                      for line, message in source_errors(source, english, namespaces))
     if errors:
         print('\n'.join(errors))
         return 1
-    print(f'Localization check passed: {len(english)} matching keys; no missing Chinese UI literals or format mismatches.')
+    print(f'Localization check passed: {len(english)} matching keys; stable keys and format arguments validated.')
     return 0
 
 

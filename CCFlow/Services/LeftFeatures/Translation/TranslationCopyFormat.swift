@@ -5,11 +5,11 @@ enum TranslationCopyFormat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .camel: return "小驼峰命名"
-        case .pascal: return "大驼峰命名"
-        case .snake: return "下划线命名"
-        case .kebab: return "短横线命名"
-        case .constant: return "常量命名"
+        case .camel: return AppLocalization.runtimeString("translation.camelcase")
+        case .pascal: return AppLocalization.runtimeString("translation.pascalcase")
+        case .snake: return AppLocalization.runtimeString("translation.snake_case")
+        case .kebab: return AppLocalization.runtimeString("translation.kebab_case")
+        case .constant: return AppLocalization.runtimeString("translation.constant_case")
         }
     }
     var example: String { convert("How are you") }

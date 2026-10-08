@@ -35,6 +35,27 @@ nonisolated struct UsageWindow: Codable, Equatable, Identifiable, Sendable {
     var resetsAt: Date?
     var windowMinutes: Int?
 
+    /// Old snapshots contain display text; newer snapshots store stable label keys.
+    /// Resolve at presentation so changing language does not require a network refresh.
+    func localizedLabel(locale: Locale) -> String {
+        let legacyKeys: [String: String] = [
+            "5 小时": "usage.duration_5_hours",
+            "7 天": "usage.duration_7_days",
+            "主要限额": "usage.primary_limit",
+            "次要限额": "usage.secondary_limit",
+        ]
+        if id.hasPrefix("antigravity-"), let separator = label.range(of: " · ") {
+            let cadenceKey: String?
+            if id.hasSuffix("-five-hour") { cadenceKey = "usage.duration_5_hour_quota" }
+            else if id.hasSuffix("-weekly") { cadenceKey = "usage.weekly_quota" }
+            else { cadenceKey = nil }
+            if let cadenceKey {
+                return String(label[..<separator.lowerBound]) + " · " + AppLocalization.string(cadenceKey, locale: locale)
+            }
+        }
+        return AppLocalization.string(legacyKeys[label] ?? label, locale: locale)
+    }
+
     var remainingPercentage: Double {
         max(0, min(100, 100 - usedPercentage))
     }

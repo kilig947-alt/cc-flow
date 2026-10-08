@@ -115,10 +115,10 @@ struct EditableCustomAreaView: View {
         // 内置功能无 customDisplayName 时回退到默认名，避免 name 为空导致保存按钮 disabled
         let defaultName: String
         switch feature.kind {
-        case .usage: defaultName = "用量"
+        case .usage: defaultName = AppLocalization.runtimeString("custom_area.usage")
         case .systemMonitor, .calendar, .github:
             defaultName = feature.displayName
-        case .music: defaultName = "音乐"
+        case .music: defaultName = AppLocalization.runtimeString("custom_area.music")
         case .newsnow: defaultName = "AI HOT"
         case .mineradio: defaultName = "Mineradio"
         default: defaultName = ""
@@ -170,7 +170,7 @@ struct EditableCustomAreaView: View {
                 // 本地目录：图标 → 名称 → 网络开关
                 iconRow
                 nameRow
-                Toggle("允许请求外部接口", isOn: $allowsNetwork)
+                Toggle("custom_area.allow_external_requests", isOn: $allowsNetwork)
                     .font(.caption)
 
             case .webURL:
@@ -178,36 +178,36 @@ struct EditableCustomAreaView: View {
                 urlRow
                 nameRow
                 iconRow
-                Toggle("跨域登录留在 WebView", isOn: $keepsCrossDomainLoginInWebView)
+                Toggle("settings.keep_cross_site_sign_in_in_webview", isOn: $keepsCrossDomainLoginInWebView)
                     .font(.caption)
-                    .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
-                Toggle("加载 Mineradio Bridge", isOn: $loadsMineradioBridge)
+                    .help("custom_area.keep_authentication_redirects_and_popups_in_the_current")
+                Toggle("custom_area.load_mineradio_bridge", isOn: $loadsMineradioBridge)
                     .font(.caption)
-                    .help("向该网站注入 Mineradio Bridge 兼容层，用于音乐 API、Cookie 和二进制资源代理。")
+                    .help("custom_area.inject_the_mineradio_bridge_compatibility_layer_for_music")
 
             case .builtin(let feature):
                 // 内置功能：图标 → 名称
                 iconRow
                 nameRow
                 if feature.kind.isURLBacked {
-                    Toggle("跨域登录留在 WebView", isOn: $keepsCrossDomainLoginInWebView)
+                    Toggle("settings.keep_cross_site_sign_in_in_webview", isOn: $keepsCrossDomainLoginInWebView)
                         .font(.caption)
-                        .help("开启后，登录认证的跨域跳转和弹窗会继续使用当前 WebView 的 Cookie。")
+                        .help("custom_area.keep_authentication_redirects_and_popups_in_the_current")
                 }
             }
 
             // 展开尺寸 + 固定开关（所有模式共用）
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("展开即固定", isOn: $expandedPinned)
+                Toggle("custom_area.pin_when_expanded", isOn: $expandedPinned)
                     .font(.caption)
-                Toggle("自定义展开尺寸", isOn: $useCustomExpandedSize)
+                Toggle("custom_area.custom_expanded_size", isOn: $useCustomExpandedSize)
                     .font(.caption)
                     .onChange(of: useCustomExpandedSize) { _, isEnabled in
                         hasCustomExpandedWidth = isEnabled
                     }
                 if useCustomExpandedSize {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.format("展开宽度：%@ pt", String(describing: Int(expandedWidth))))
+                        Text(AppLocalization.format("custom_area.expanded_width_pt", String(describing: Int(expandedWidth))))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Slider(value: $expandedWidth, in: 470...1600, step: 10)
@@ -216,7 +216,7 @@ struct EditableCustomAreaView: View {
                             }
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.format("展开高度：%@ pt", String(describing: Int(expandedHeight))))
+                        Text(AppLocalization.format("custom_area.expanded_height_pt", String(describing: Int(expandedHeight))))
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Slider(value: $expandedHeight, in: 200...1000, step: 10)
@@ -226,8 +226,8 @@ struct EditableCustomAreaView: View {
 
             HStack {
                 Spacer()
-                Button("取消") { dismiss() }
-                Button("保存") { save() }
+                Button("common.cancel") { dismiss() }
+                Button("common.save") { save() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!isFormValid)
             }
@@ -261,10 +261,10 @@ struct EditableCustomAreaView: View {
                             // 选了图片后清空文字输入，避免歧义
                             iconText = ""
                         } else {
-                            iconImageError = "图片保存失败"
+                            iconImageError = AppLocalization.runtimeString("custom_area.failed_to_save_image")
                         }
                     } catch {
-                        iconImageError = AppLocalization.format("读取图片失败：%@", String(describing: error.localizedDescription))
+                        iconImageError = AppLocalization.format("custom_area.failed_to_read_image", String(describing: error.localizedDescription))
                     }
                 }
             case .failure:
@@ -285,7 +285,7 @@ struct EditableCustomAreaView: View {
                 if isFetchingMetadata {
                     ProgressView()
                         .controlSize(.mini)
-                    Text("获取图标和名称…")
+                    Text("custom_area.fetching_icon_and_name")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -297,7 +297,7 @@ struct EditableCustomAreaView: View {
                     scheduleMetadataFetch(for: newValue)
                 }
             if !url.isEmpty, !isURLValid {
-                Text("请输入合法的 http 或 https 链接")
+                Text("custom_area.enter_a_valid_http_or_https_url")
                     .font(.caption)
                     .foregroundColor(.red)
             }
@@ -307,10 +307,10 @@ struct EditableCustomAreaView: View {
     /// 名称输入行。
     private var nameRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("名称")
+            Text("custom_area.name")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            TextField("名称", text: $name)
+            TextField("custom_area.name", text: $name)
                 .textFieldStyle(.roundedBorder)
         }
     }
@@ -318,19 +318,19 @@ struct EditableCustomAreaView: View {
     /// 图标输入行（文字 + 图片选择 + 实时预览）。
     private var iconRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("图标")
+            Text("custom_area.icon")
                 .font(.caption)
                 .foregroundColor(.secondary)
             HStack(spacing: 10) {
                 FeatureIconView(iconID: resolvedIconID, fallbackSymbol: "globe", size: 18, color: .accentColor)
                     .frame(width: 22)
-                TextField("输入文字或选择图片", text: $iconText)
+                TextField("custom_area.enter_text_or_choose_an_image", text: $iconText)
                     .textFieldStyle(.roundedBorder)
-                Button("选择图片…") {
+                Button("custom_area.choose_image") {
                     showingIconImagePicker = true
                 }
                 if iconImage != nil {
-                    Button("删除图片") {
+                    Button("custom_area.delete_image") {
                         iconImage = nil
                         autoFilledIconImage = nil
                         iconImageError = nil
@@ -389,9 +389,9 @@ struct EditableCustomAreaView: View {
 
     private var titleText: String {
         switch mode {
-        case .customArea: return "编辑自定义功能"
-        case .webURL: return "编辑网站功能"
-        case .builtin: return "编辑内置功能"
+        case .customArea: return AppLocalization.runtimeString("custom_area.edit_custom_feature")
+        case .webURL: return AppLocalization.runtimeString("custom_area.edit_website_feature")
+        case .builtin: return AppLocalization.runtimeString("custom_area.edit_built_in_feature")
         }
     }
 
@@ -470,10 +470,10 @@ struct EditableCustomAreaView: View {
             // name 与默认名相同则置 nil（回退默认名），避免持久化冗余
             let defaultName: String
             switch feature.kind {
-            case .usage: defaultName = "用量"
+            case .usage: defaultName = AppLocalization.runtimeString("custom_area.usage")
             case .systemMonitor, .calendar, .github, .giflow:
                 defaultName = feature.displayName
-            case .music: defaultName = "音乐"
+            case .music: defaultName = AppLocalization.runtimeString("custom_area.music")
             case .newsnow: defaultName = "AI HOT"
             case .mineradio: defaultName = "Mineradio"
             default: defaultName = ""

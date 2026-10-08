@@ -24,7 +24,7 @@ struct ReleaseNotesWindowView: View {
                 .overlay(Color.white.opacity(0.08))
 
             Button(action: onClose) {
-                Text("好")
+                Text("update.ok")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.92))
                     .frame(maxWidth: .infinity)
@@ -115,7 +115,7 @@ struct ReleaseNotesWindowView: View {
     private var fallbackSection: UpdateReleaseNotesSection {
         UpdateReleaseNotesSection(
             id: "fallback",
-            title: AppLocalization.string("更新内容"),
+            title: AppLocalization.string("update.what_s_new"),
             markdown: notes.localizedMarkdown(locale: locale)
         )
     }

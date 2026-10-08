@@ -144,11 +144,11 @@ struct MineradioCompactView: View {
 
     private var accessibilityLabel: String {
         if let lyric = coordinator.currentLyric?.text, !lyric.isEmpty {
-            return AppLocalization.format("Mineradio 歌词：%@", String(describing: lyric))
+            return AppLocalization.format("mineradio.mineradio_lyrics", String(describing: lyric))
         }
         if let title = coordinator.playback?.title, isLikelySongTitle(title) {
-            return AppLocalization.format("Mineradio 歌曲：%@", String(describing: title))
+            return AppLocalization.format("mineradio.mineradio_song", String(describing: title))
         }
-        return "Mineradio 矿石电台"
+        return AppLocalization.runtimeString("mineradio.mineradio")
     }
 }

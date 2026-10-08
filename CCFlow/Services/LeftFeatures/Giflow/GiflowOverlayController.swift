@@ -555,7 +555,7 @@ private final class GiflowSelectionCanvasView: NSView {
         context.fill(bounds)
 
         // 绘制顶部中心提示气泡
-        let hintText = AppLocalization.string("拖拽选择录制区域 · ESC 取消")
+        let hintText = AppLocalization.string("features.drag_to_select_recording_region_esc_to_cancel")
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             .foregroundColor: NSColor.white
@@ -722,7 +722,7 @@ private final class GiflowSelectionCanvasView: NSView {
 
         // 4. 录制状态微型胶囊徽标 (● REC · 尺寸)
         if strokeRect.width > 120, strokeRect.height > 60 {
-            let statusText = currentKind == .fullScreen ? AppLocalization.string("● REC · 全屏录制中") : "● REC · \(Int(strokeRect.width)) × \(Int(strokeRect.height))"
+            let statusText = currentKind == .fullScreen ? AppLocalization.string("features.rec_recording_full_screen") : "● REC · \(Int(strokeRect.width)) × \(Int(strokeRect.height))"
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
                 .foregroundColor: NSColor.white
@@ -768,7 +768,7 @@ private struct GiflowSelectionActionPopupView: View {
                 Image(systemName: kind == .fullScreen ? "macwindow" : "crop")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
-                Text(kind == .fullScreen ? AppLocalization.string("全屏") : "\(Int(rect.width)) × \(Int(rect.height))")
+                Text(kind == .fullScreen ? AppLocalization.string("features.full_screen") : "\(Int(rect.width)) × \(Int(rect.height))")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
             }
@@ -782,14 +782,14 @@ private struct GiflowSelectionActionPopupView: View {
                 HStack(spacing: 5) {
                     Image(systemName: "record.circle.fill")
                         .font(.system(size: 12))
-                    Text("开始录制")
+                    Text("features.start_recording")
                         .font(.system(size: 12, weight: .bold))
 
                     // 空格快捷键提示徽标
                     HStack(spacing: 2) {
                         Image(systemName: "space")
                             .font(.system(size: 8, weight: .bold))
-                        Text("空格")
+                        Text("features.space")
                             .font(.system(size: 9, weight: .bold))
                     }
                     .foregroundColor(.white.opacity(0.95))
@@ -816,7 +816,7 @@ private struct GiflowSelectionActionPopupView: View {
 
             if kind == .area {
                 Button(action: onRedrag) {
-                    Text("重新选择")
+                    Text("features.select_again")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                         .padding(.horizontal, 9)
@@ -828,7 +828,7 @@ private struct GiflowSelectionActionPopupView: View {
             }
 
             Button(action: onCancel) {
-                Text("取消")
+                Text("common.cancel")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.75))
                     .padding(.horizontal, 9)
@@ -866,7 +866,7 @@ private struct GiflowRecordingControlPopupView: View {
                 Circle()
                     .fill(Color.red)
                     .frame(width: 8, height: 8)
-                Text("录制中")
+                Text("features.recording")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)
             }
@@ -876,7 +876,7 @@ private struct GiflowRecordingControlPopupView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "photo.stack.fill")
                         .font(.system(size: 11))
-                    Text("保存为 GIF")
+                    Text("features.save_as_gif")
                         .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
@@ -897,7 +897,7 @@ private struct GiflowRecordingControlPopupView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "video.fill")
                         .font(.system(size: 11))
-                    Text("保存为 MP4")
+                    Text("features.save_as_mp4_2")
                         .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundColor(.white)
@@ -918,7 +918,7 @@ private struct GiflowRecordingControlPopupView: View {
                 HStack(spacing: 3) {
                     Image(systemName: "trash")
                         .font(.system(size: 10))
-                    Text("放弃")
+                    Text("features.discard")
                         .font(.system(size: 11, weight: .medium))
                 }
                 .foregroundColor(.white.opacity(0.8))

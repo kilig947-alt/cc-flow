@@ -223,7 +223,7 @@ nonisolated enum UsageDataLoader {
         let capturedAt = number(object["captured_at"]).map(Date.init(timeIntervalSince1970:))
             ?? (try? statusURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
         let rateLimits = object["rate_limits"] as? [String: Any] ?? object
-        let definitions = [("five_hour", "5 小时", 300), ("seven_day", "7 天", 10_080)]
+        let definitions = [("five_hour", "usage.duration_5_hours", 300), ("seven_day", "usage.duration_7_days", 10_080)]
         let windows = definitions.compactMap { key, label, minutes -> UsageWindow? in
             guard let payload = rateLimits[key] as? [String: Any],
                   let used = number(payload["used_percentage"] ?? payload["utilization"]) else { return nil }
@@ -452,7 +452,7 @@ nonisolated enum UsageDataLoader {
     }
 
     private static func codexWindows(_ limits: [String: Any]) -> [UsageWindow] {
-        [("primary", "主要限额"), ("secondary", "次要限额")].compactMap { key, label in
+        [("primary", "usage.primary_limit"), ("secondary", "usage.secondary_limit")].compactMap { key, label in
             guard let payload = limits[key] as? [String: Any],
                   let used = number(payload["used_percent"] ?? payload["usedPercent"]) else { return nil }
             return UsageWindow(

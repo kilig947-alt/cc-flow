@@ -73,7 +73,7 @@ enum UpdateReleaseNotesParser {
         }
 
         var sections: [UpdateReleaseNotesSection] = []
-        var currentTitle = "更新内容"
+        var currentTitle = AppLocalization.runtimeString("update.what_s_new")
         var currentLines: [String] = []
         var sectionIndex = 0
 

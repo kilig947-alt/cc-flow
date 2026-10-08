@@ -148,10 +148,10 @@ class SessionMonitor: ObservableObject {
            let session = await SessionStore.shared.session(for: effectiveEvent.sessionId) {
             appendApprovalAudit(
                 session: session,
-                resultLabel: auditMode == .skipped ? "已跳过 · 自动允许" : "自动允许",
+                resultLabel: auditMode == .skipped ? "session.skipped_automatically_allowed" : "session.automatically_allow",
                 submittedMessage: auditMode == .skipped
-                    ? AppLocalization.runtimeFormat("收到 %@；跳过人工审计并自动允许", String(describing: effectiveEvent.event))
-                    : "允许（本会话已启用自动审批）"
+                    ? AppLocalization.runtimeFormat("session.received_skipped_manual_audit_and_automatically_allowed", String(describing: effectiveEvent.event))
+                    : AppLocalization.runtimeString("session.allowed_automatic_approval_enabled_for_this_session")
             )
             HookSocketServer.shared.respondToPermission(
                 toolUseId: toolUseId,
@@ -166,7 +166,7 @@ class SessionMonitor: ObservableObject {
                 userInfo: [
                     "sessionId": effectiveEvent.sessionId,
                     "toolName": effectiveEvent.tool ?? "unknown",
-                    "resultLabel": auditMode == .skipped ? "已跳过 · 自动允许" : "自动允许",
+                    "resultLabel": auditMode == .skipped ? "session.skipped_automatically_allowed" : "session.automatically_allow",
                     "iconName": auditMode == .skipped ? "forward.end.fill" : "checkmark.circle.fill",
                     "summary": auditMode == .skipped
                         ? "\(effectiveEvent.event) · \(effectiveEvent.tool ?? "工具") → 自动允许"
@@ -193,8 +193,8 @@ class SessionMonitor: ObservableObject {
            let session = await SessionStore.shared.session(for: effectiveEvent.sessionId) {
             appendApprovalAudit(
                 session: session,
-                resultLabel: "允许相同操作 · 自动",
-                submittedMessage: "允许（已匹配相同操作审批规则）"
+                resultLabel: "session.allow_matching_actions_automatic",
+                submittedMessage: AppLocalization.runtimeString("session.allowed_matched_approval_rule_for_the_same_action")
             )
             HookSocketServer.shared.respondToPermission(
                 toolUseId: toolUseId,
@@ -209,7 +209,7 @@ class SessionMonitor: ObservableObject {
                 userInfo: [
                     "sessionId": effectiveEvent.sessionId,
                     "toolName": effectiveEvent.tool ?? "unknown",
-                    "resultLabel": "允许相同操作 · 自动",
+                    "resultLabel": "session.allow_matching_actions_automatic",
                     "summary": MCPToolFormatter.formatAutoApprovalSummary(
                         toolName: effectiveEvent.tool ?? "unknown",
                         toolInput: effectiveEvent.toolInput
@@ -229,8 +229,8 @@ class SessionMonitor: ObservableObject {
             if session.activePermission?.toolUseId == toolUseId {
                 appendApprovalAudit(
                     session: session,
-                    resultLabel: "外部已允许",
-                    submittedMessage: "审批已从终端或客户端提交"
+                    resultLabel: "session.allowed_externally",
+                    submittedMessage: AppLocalization.runtimeString("session.approval_submitted_from_terminal_or_client")
                 )
                 HookSocketServer.shared.cancelPendingPermission(toolUseId: toolUseId)
                 // Tool was approved externally (e.g. terminal) and completed.
@@ -353,8 +353,8 @@ class SessionMonitor: ObservableObject {
             }
             appendApprovalAudit(
                 session: session,
-                resultLabel: "允许本会话所有操作",
-                submittedMessage: "允许本会话后续所有操作"
+                resultLabel: "session.allow_all_actions_in_this_session",
+                submittedMessage: AppLocalization.runtimeString("session.allow_all_subsequent_actions_in_this_session")
             )
 
             await TelemetryService.shared.recordAttentionResolved(
@@ -383,8 +383,8 @@ class SessionMonitor: ObservableObject {
                 case .autoApprove:
                     appendApprovalAudit(
                         session: session,
-                        resultLabel: "允许本会话所有操作",
-                        submittedMessage: "允许本会话后续所有操作"
+                        resultLabel: "session.allow_all_actions_in_this_session",
+                        submittedMessage: AppLocalization.runtimeString("session.allow_all_subsequent_actions_in_this_session")
                     )
                     await SessionStore.shared.process(
                         .permissionAutoApprovalChanged(sessionId: sessionId, isEnabled: true)
@@ -410,8 +410,8 @@ class SessionMonitor: ObservableObject {
                     }
                     appendApprovalAudit(
                         session: session,
-                        resultLabel: "允许相同操作 · 手动",
-                        submittedMessage: "允许当前操作，并自动允许本会话中的相同操作"
+                        resultLabel: "session.allow_matching_actions_manual",
+                        submittedMessage: AppLocalization.runtimeString("session.allow_this_action_and_automatically_allow_matching_actions")
                     )
                     await SimilarOperationApprovalStore.shared.allow(
                         rule,
@@ -434,8 +434,8 @@ class SessionMonitor: ObservableObject {
 
             appendApprovalAudit(
                 session: session,
-                resultLabel: "已允许",
-                submittedMessage: "允许"
+                resultLabel: "session.allowed",
+                submittedMessage: AppLocalization.runtimeString("session.allow_2")
             )
             HookSocketServer.shared.respondToPermission(
                 toolUseId: permission,
@@ -463,13 +463,13 @@ class SessionMonitor: ObservableObject {
             let trimmedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
             let auditSubmittedMessage: String
             if let trimmedReason, !trimmedReason.isEmpty {
-                auditSubmittedMessage = AppLocalization.runtimeFormat("拒绝：%@", String(describing: trimmedReason))
+                auditSubmittedMessage = AppLocalization.runtimeFormat("session.denied", String(describing: trimmedReason))
             } else {
-                auditSubmittedMessage = "拒绝"
+                auditSubmittedMessage = AppLocalization.runtimeString("plugins.deny")
             }
             appendApprovalAudit(
                 session: session,
-                resultLabel: "已拒绝",
+                resultLabel: "common.denied",
                 submittedMessage: auditSubmittedMessage
             )
             HookSocketServer.shared.respondToPermission(
@@ -690,9 +690,9 @@ class SessionMonitor: ObservableObject {
                     userInfo: [
                         "sessionId": sessionId,
                         "toolName": intervention.title,
-                        "resultLabel": "已跳过 · 自动",
+                        "resultLabel": "session.skipped_automatic",
                         "iconName": "forward.end.fill",
-                        "summary": AppLocalization.runtimeFormat("审计问题 · %@ → 自动跳过", String(describing: intervention.title))
+                        "summary": AppLocalization.runtimeFormat("session.audit_question_automatically_skipped", String(describing: intervention.title))
                     ]
                 )
             }
@@ -723,9 +723,9 @@ class SessionMonitor: ObservableObject {
                 requestTitle: intervention.title,
                 requestContent: message.isEmpty ? intervention.title : message,
                 submittedMessage: automatically
-                    ? "收到审计问题；本会话已开启完全跳过，动作：自动跳过"
-                    : "跳过本次审计",
-                resultLabel: automatically ? "已跳过 · 自动" : "已跳过"
+                    ? AppLocalization.runtimeString("session.audit_question_received_skip_all_is_enabled_for")
+                    : AppLocalization.runtimeString("session.skip_this_audit"),
+                resultLabel: automatically ? "session.skipped_automatic" : "session.skipped"
             )
         )
     }
@@ -758,9 +758,9 @@ class SessionMonitor: ObservableObject {
                 platformName: session.messageBadgeDisplayName,
                 requestTitle: permission?.toolName
                     ?? intervention?.title
-                    ?? "工具审批",
+                    ?? AppLocalization.runtimeString("session.tool_approval"),
                 requestContent: contentParts.isEmpty
-                    ? "未提供审批详情"
+                    ? AppLocalization.runtimeString("session.no_approval_details_provided")
                     : contentParts.joined(separator: "\n\n"),
                 submittedMessage: submittedMessage,
                 resultLabel: resultLabel
@@ -804,7 +804,7 @@ class SessionMonitor: ObservableObject {
                     ? intervention.title
                     : contentParts.joined(separator: "\n\n"),
                 submittedMessage: answerMessage,
-                resultLabel: "已回答"
+                resultLabel: "session.answered"
             )
         )
     }
@@ -829,7 +829,7 @@ class SessionMonitor: ObservableObject {
             guard let values = answers[question.id], !values.isEmpty else { continue }
             recordedQuestionIDs.insert(question.id)
             let answer = question.isSecret
-                ? "[已隐藏敏感回答]"
+                ? AppLocalization.runtimeString("session.sensitive_answer_hidden")
                 : values.joined(separator: "、")
             lines.append("\(question.prompt)：\(answer)")
         }
@@ -841,7 +841,7 @@ class SessionMonitor: ObservableObject {
                 lines.append(values.joined(separator: "、"))
             }
         }
-        return lines.isEmpty ? "已提交回答" : lines.joined(separator: "\n")
+        return lines.isEmpty ? AppLocalization.runtimeString("session.answer_submitted") : lines.joined(separator: "\n")
     }
 
     private nonisolated static func prettyPrintedJSONObject(

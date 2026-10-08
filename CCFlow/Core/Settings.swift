@@ -33,22 +33,18 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .system:
-            return "跟随系统"
+            return AppLocalization.runtimeString("settings.language.system")
         case .simplifiedChinese:
-            return "简体中文"
+            return AppLocalization.runtimeString("settings.language.simplified_chinese")
         case .english:
-            return "English"
+            return AppLocalization.runtimeString("settings.language.english")
         }
     }
 
     nonisolated func resolvedLanguageCode(preferredLanguages: [String] = Locale.preferredLanguages) -> String {
         switch self {
         case .system:
-            let preferredLanguage = preferredLanguages.first?.lowercased() ?? ""
-            if preferredLanguage.hasPrefix("zh") {
-                return "zh-Hans"
-            }
-            return "en"
+            return Self.resourceLanguageCode(for: preferredLanguages.first ?? "en")
         case .simplifiedChinese:
             return "zh-Hans"
         case .english:
@@ -58,6 +54,14 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 
     nonisolated func resolvedLocale(preferredLanguages: [String] = Locale.preferredLanguages) -> Locale {
         Locale(identifier: resolvedLanguageCode(preferredLanguages: preferredLanguages))
+    }
+
+    /// Shared by SwiftUI locale selection and explicit Bundle lookups.
+    /// Region variants use the supported language; unsupported languages fall back to English.
+    nonisolated static func resourceLanguageCode(for identifier: String) -> String {
+        let language = identifier.replacingOccurrences(of: "_", with: "-")
+            .lowercased().split(separator: "-").first
+        return language == "zh" ? "zh-Hans" : "en"
     }
 }
 
@@ -136,9 +140,9 @@ enum UsageValueMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .used:
-            return "已用量"
+            return AppLocalization.runtimeString("settings.used_quota")
         case .remaining:
-            return "剩余量"
+            return AppLocalization.runtimeString("settings.remaining_quota")
         }
     }
 }
@@ -158,13 +162,13 @@ enum AutoRoutePromptsIdleDelay: Int, CaseIterable, Identifiable {
     nonisolated var title: String {
         switch self {
         case .tenMinutes:
-            return "10 分钟"
+            return AppLocalization.runtimeString("settings.duration_10_minutes")
         case .twentyMinutes:
-            return "20 分钟"
+            return AppLocalization.runtimeString("settings.duration_20_minutes")
         case .thirtyMinutes:
-            return "30 分钟"
+            return AppLocalization.runtimeString("settings.duration_30_minutes")
         case .sixtyMinutes:
-            return "1 小时"
+            return AppLocalization.runtimeString("settings.duration_1_hour")
         }
     }
 }
@@ -178,18 +182,18 @@ enum NotchDisplayMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .compact:
-            return "简约"
+            return AppLocalization.runtimeString("settings.compact")
         case .detailed:
-            return "详细"
+            return AppLocalization.runtimeString("settings.detailed")
         }
     }
 
     var subtitle: String {
         switch self {
         case .compact:
-            return "只显示图标和会话数量"
+            return AppLocalization.runtimeString("settings.show_only_the_icon_and_session_count")
         case .detailed:
-            return "额外显示激活会话的最新消息"
+            return AppLocalization.runtimeString("settings.also_show_the_latest_message_from_the_active")
         }
     }
 }
@@ -203,9 +207,9 @@ enum ClosedNotchTrailingContentMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .sessionCount:
-            return "会话数量"
+            return AppLocalization.runtimeString("settings.session_count")
         case .traeTaskIcon:
-            return "Trae 任务图标"
+            return AppLocalization.runtimeString("settings.trae_task_icon")
         }
     }
 }
@@ -219,18 +223,18 @@ enum ToolApprovalMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .prompt:
-            return "每次询问"
+            return AppLocalization.runtimeString("settings.ask_every_time")
         case .autoApprove:
-            return "自动允许"
+            return AppLocalization.runtimeString("session.automatically_allow")
         }
     }
 
     var subtitle: String {
         switch self {
         case .prompt:
-            return "写文件、Edit、Bash 等修改类工具需要手动批准"
+            return AppLocalization.runtimeString("settings.writing_files_edit_bash_and_other_modifying_tools")
         case .autoApprove:
-            return "TRAE 的工具调用自动放行，不再弹窗"
+            return AppLocalization.runtimeString("settings.automatically_approve_trae_tool_calls_without_showing_a")
         }
     }
 }
@@ -244,18 +248,18 @@ enum IslandSurfaceMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .notch:
-            return "刘海屏方式"
+            return AppLocalization.runtimeString("settings.top_island")
         case .floatingPet:
-            return "独立悬浮宠物"
+            return AppLocalization.runtimeString("settings.floating_pet")
         }
     }
 
     var subtitle: String {
         switch self {
         case .notch:
-            return "固定在屏幕顶部中央，沿用 Island 刘海/胶囊体验"
+            return AppLocalization.runtimeString("settings.keep_island_centered_at_the_top_of_the")
         case .floatingPet:
-            return "默认贴近当前激活窗口右下角，可拖动并记住位置"
+            return AppLocalization.runtimeString("settings.place_the_floating_pet_near_the_bottom_right")
         }
     }
 }
@@ -275,22 +279,22 @@ enum FloatingPetSizeMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .automatic:
-            return "自动"
+            return AppLocalization.runtimeString("common.automatic")
         case .standard:
-            return "标准"
+            return AppLocalization.runtimeString("settings.standard")
         case .large:
-            return "较大"
+            return AppLocalization.runtimeString("settings.large")
         }
     }
 
     var subtitle: String {
         switch self {
         case .automatic:
-            return "按显示器分辨率调整，高分屏会更醒目"
+            return AppLocalization.runtimeString("settings.scale_with_display_resolution_for_better_visibility_on")
         case .standard:
-            return "固定为旧版悬浮宠物尺寸"
+            return AppLocalization.runtimeString("settings.use_the_original_floating_mascot_size")
         case .large:
-            return "在所有显示器上放大宠物形象"
+            return AppLocalization.runtimeString("settings.enlarge_the_mascot_on_all_displays")
         }
     }
 }
@@ -304,18 +308,18 @@ enum SubagentVisibilityMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .hidden:
-            return "不显示"
+            return AppLocalization.runtimeString("settings.hidden")
         case .visible:
-            return "显示"
+            return AppLocalization.runtimeString("settings.display")
         }
     }
 
     var subtitle: String {
         switch self {
         case .hidden:
-            return "主列表里隐藏挂靠在主 Agent 下的子 Agent 项"
+            return AppLocalization.runtimeString("settings.hide_sub_agents_attached_to_main_agents_in")
         case .visible:
-            return "主列表里将明确的子 Agent 挂靠在主 Agent 下展示"
+            return AppLocalization.runtimeString("settings.show_explicit_sub_agents_under_their_main_agent")
         }
     }
 

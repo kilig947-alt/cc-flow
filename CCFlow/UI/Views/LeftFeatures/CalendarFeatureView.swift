@@ -30,21 +30,21 @@ struct CalendarFeatureView: View {
         HStack(spacing: 6) {
             Image(systemName: "calendar")
             if !service.actionableReminders.isEmpty {
-                Text(AppLocalization.format("%@ 项待办到期", String(describing: service.actionableReminders.count))).fontWeight(.semibold)
+                Text(AppLocalization.format("calendar.reminders_due", String(describing: service.actionableReminders.count))).fontWeight(.semibold)
             } else if let event = service.nextEvent {
                 Text(event.title).lineLimit(1)
-                Text(appLocalized: event.isAllDay ? "全天" : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
+                Text(appLocalized: event.isAllDay ? AppLocalization.runtimeString("calendar.all_day") : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
                     .foregroundStyle(.secondary).monospacedDigit()
-            } else { Text("近期无日程").foregroundStyle(.secondary) }
+            } else { Text("calendar.no_upcoming_events").foregroundStyle(.secondary) }
         }.font(.system(size: 10, weight: .semibold))
     }
 
     private var expandedContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("日历", systemImage: "calendar").font(.headline)
+                Label("calendar.title", systemImage: "calendar").font(.headline)
                 Spacer()
-                Button("今天") {
+                Button("calendar.today") {
                     selectedDate = Date()
                     displayedMonth = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
                 }
@@ -92,19 +92,19 @@ struct CalendarFeatureView: View {
                     ForEach(eventsForSelectedDate) { event in
                         HStack { Circle().fill(.green).frame(width: 8, height: 8)
                             VStack(alignment: .leading) { Text(event.title).fontWeight(.semibold)
-                                Text(event.isAllDay ? AppLocalization.format("全天 · %@", String(describing: event.calendarName)) : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
+                                Text(event.isAllDay ? AppLocalization.format("calendar.all_day_2", String(describing: event.calendarName)) : event.start.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(locale)))
                                     .font(.caption).foregroundStyle(.secondary)
                             }; Spacer()
                         }.padding(9).background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
                     }
                     Divider().padding(.vertical, 4)
-                    HStack { Label("提醒事项", systemImage: "checklist").fontWeight(.semibold); Spacer()
+                    HStack { Label("calendar.reminders", systemImage: "checklist").fontWeight(.semibold); Spacer()
                         if service.reminderAuthorization != .fullAccess && service.reminderAuthorization != .authorized {
-                            Button("授权") { service.requestReminderAccess() }
+                            Button("settings.authorize") { service.requestReminderAccess() }
                         }
                     }
                     if service.actionableReminders.isEmpty {
-                        Text("今天没有到期的待办").foregroundStyle(.secondary).font(.caption)
+                        Text("calendar.no_reminders_due_today").foregroundStyle(.secondary).font(.caption)
                     }
                     ForEach(service.actionableReminders) { reminder in
                         reminderRow(reminder)
@@ -128,9 +128,9 @@ struct CalendarFeatureView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("标记为已完成")
-                .accessibilityLabel(AppLocalization.format("完成：%@", String(describing: reminder.title)))
-                .accessibilityHint("标记为已完成并同步到 macOS 提醒事项")
+                .help("calendar.mark_as_complete")
+                .accessibilityLabel(AppLocalization.format("calendar.complete", String(describing: reminder.title)))
+                .accessibilityHint("calendar.mark_as_complete_and_sync_to_macos_reminders")
 
                 Button {
                     withAnimation(.easeOut(duration: 0.18)) {
@@ -146,7 +146,7 @@ struct CalendarFeatureView: View {
                                 if let due = reminder.dueDate {
                                     Text(due.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(locale)))
                                 }
-                                if reminder.calendarName != "提醒事项" {
+                                if reminder.calendarName != AppLocalization.runtimeString("calendar.reminders") {
                                     Text("· \(reminder.calendarName)")
                                 }
                             }
@@ -162,7 +162,7 @@ struct CalendarFeatureView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityHint(Text(appLocalized: isExpanded ? "收起待办详情" : "查看待办详情"))
+                .accessibilityHint(Text(appLocalized: isExpanded ? AppLocalization.runtimeString("calendar.collapse_reminder_details") : AppLocalization.runtimeString("calendar.view_reminder_details")))
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 8)
@@ -192,7 +192,7 @@ struct CalendarFeatureView: View {
             }
             if let notes = reminder.notes {
                 VStack(alignment: .leading, spacing: 4) {
-                    Label("备注", systemImage: "note.text")
+                    Label("calendar.notes", systemImage: "note.text")
                     Text(notes)
                         .foregroundStyle(.primary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -218,9 +218,9 @@ struct CalendarFeatureView: View {
 
     private func reminderPriorityText(_ priority: Int) -> String? {
         switch priority {
-        case 1...4: "高优先级"
-        case 5: "中优先级"
-        case 6...9: "低优先级"
+        case 1...4: AppLocalization.runtimeString("calendar.high_priority")
+        case 5: AppLocalization.runtimeString("calendar.medium_priority")
+        case 6...9: AppLocalization.runtimeString("calendar.low_priority")
         default: nil
         }
     }
@@ -266,8 +266,8 @@ struct CalendarFeatureView: View {
 
     private var permissionContent: some View {
         VStack(spacing: compact ? 4 : 10) {
-            Label("需要日历权限", systemImage: "calendar.badge.exclamationmark")
-            Button("授权访问") { service.requestAccess() }.buttonStyle(.borderedProminent)
+            Label("calendar.calendar_permission_required", systemImage: "calendar.badge.exclamationmark")
+            Button("calendar.grant_access") { service.requestAccess() }.buttonStyle(.borderedProminent)
         }
         .font(.system(size: compact ? 10 : 13, weight: .semibold))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
