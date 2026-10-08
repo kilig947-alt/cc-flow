@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AVFoundation
+import ImageIO
 
 /// 灵动岛展开态 Giflow 录制结果列表与控制面板（全岛内原生交互，不依赖外部弹窗）
 struct GiflowExpandedView: View {
@@ -593,6 +594,7 @@ struct GiflowExpandedView: View {
 private struct MediaThumbnailView: View {
     let item: GiflowRecordingItem
     @State private var mp4Thumbnail: NSImage?
+    @State private var isHovering = false
 
     var body: some View {
         Group {
@@ -615,9 +617,12 @@ private struct MediaThumbnailView: View {
                     loadMP4Thumbnail()
                 }
             } else {
-                GifImageView(url: item.fileURL)
+                GifImageView(url: item.fileURL, isPlaying: isHovering)
             }
         }
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        .onDisappear { isHovering = false }
     }
 
     private func loadMP4Thumbnail() {
@@ -642,11 +647,14 @@ private struct MediaThumbnailView: View {
 /// decorative: leave all mouse handling (including dragging) to the SwiftUI host.
 private final class GiflowThumbnailImageView: NSImageView {
     var loadedURL: URL?
+    var firstFrame: NSImage?
+    var isPlaying = false
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 struct GifImageView: NSViewRepresentable {
     let url: URL
+    var isPlaying = false
 
     func makeNSView(context: Context) -> NSImageView {
         makeImageView()
@@ -655,7 +663,7 @@ struct GifImageView: NSViewRepresentable {
     func makeImageView() -> NSImageView {
         let iv = GiflowThumbnailImageView()
         iv.imageScaling = .scaleProportionallyUpOrDown
-        iv.animates = true
+        iv.animates = false
         loadImage(into: iv)
         return iv
     }
@@ -666,10 +674,34 @@ struct GifImageView: NSViewRepresentable {
 
     func loadImage(into iv: NSImageView) {
         guard let thumbnail = iv as? GiflowThumbnailImageView else { return }
-        guard thumbnail.loadedURL != url else { return }
-        thumbnail.loadedURL = url
-        // Giflow exports have distinct URLs. Preserve the decoded image and
-        // playback timeline across unrelated SwiftUI / session updates.
-        thumbnail.image = NSImage(contentsOf: url)
+        if thumbnail.loadedURL != url {
+            thumbnail.animates = false
+            thumbnail.isPlaying = false
+            thumbnail.loadedURL = url
+            thumbnail.firstFrame = Self.loadFirstFrame(url: url)
+            thumbnail.image = thumbnail.firstFrame
+        }
+        // Preserve playback across unrelated parent updates. Loading an animated
+        // representation is deferred until hover; idle rows hold only a small bitmap.
+        guard thumbnail.isPlaying != isPlaying else { return }
+        thumbnail.isPlaying = isPlaying
+        thumbnail.animates = false
+        thumbnail.image = isPlaying ? NSImage(contentsOf: url) : thumbnail.firstFrame
+        thumbnail.animates = isPlaying
+    }
+
+    static func dismantleNSView(_ nsView: NSImageView, coordinator: ()) {
+        nsView.animates = false
+        nsView.image = nil
+    }
+
+    private static func loadFirstFrame(url: URL) -> NSImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let frame = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: 160,
+                kCGImageSourceCreateThumbnailWithTransform: true
+              ] as CFDictionary) else { return nil }
+        return NSImage(cgImage: frame, size: NSSize(width: frame.width, height: frame.height))
     }
 }

@@ -12,10 +12,24 @@ final class GiflowHitTestingTests: XCTestCase {
         let view = GifImageView(url: url)
         let imageView = view.makeImageView()
         let original = try XCTUnwrap(imageView.image)
+        XCTAssertFalse(imageView.animates, "Idle thumbnails must not animate")
         for _ in 0..<100 { view.loadImage(into: imageView) }
         XCTAssertTrue(imageView.image === original, "Unrelated state updates must preserve the image and animation timeline")
+        let hoveredView = GifImageView(url: url, isPlaying: true)
+        hoveredView.loadImage(into: imageView)
+        XCTAssertTrue(imageView.animates, "Hover starts playback")
+        let animatedImage = try XCTUnwrap(imageView.image)
+        hoveredView.loadImage(into: imageView)
+        XCTAssertTrue(imageView.image === animatedImage, "Parent updates must not restart hovered playback")
+        view.loadImage(into: imageView)
+        XCTAssertFalse(imageView.animates)
+        XCTAssertTrue(imageView.image === original, "Leaving hover restores the cached first frame")
         GifImageView(url: url.appendingPathExtension("missing")).loadImage(into: imageView)
         XCTAssertNil(imageView.image, "Changing source must not leave the old image visible")
+        hoveredView.loadImage(into: imageView)
+        GifImageView.dismantleNSView(imageView, coordinator: ())
+        XCTAssertFalse(imageView.animates, "Closing the list must stop playback")
+        XCTAssertNil(imageView.image)
     }
 
     func testPanelHitTestingUsesActualParentCoordinates() throws {
