@@ -89,7 +89,6 @@ struct NotchView: View {
     /// Spec: 左侧展开面板拖拽调整尺寸时记录的起始尺寸，拖拽结束后复位为 nil
     @State private var leftExpandedResizeStartSize: CGSize?
 
-    @Namespace private var activityNamespace
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let petIconSize: CGFloat = 22
@@ -701,7 +700,7 @@ struct NotchView: View {
         let shadowColor = (isOpened || isHovering) ? Color.black.opacity(0.7) : .clear
 
         return notchLayout
-            .frame(maxWidth: isOpened ? notchSize.width : nil, alignment: .top)
+            .frame(maxWidth: isOpened ? notchSize.width : closedNotchSize.width, alignment: .top)
             .padding(.horizontal, horizontalInset)
             .padding([.horizontal, .bottom], isOpened ? 12 : 0)
             .background(.black)
@@ -721,8 +720,8 @@ struct NotchView: View {
                 alignment: .top
             )
             .frame(
-                maxWidth: isOpened ? notchSize.width : nil,
-                maxHeight: isOpened ? notchSize.height : nil,
+                maxWidth: isOpened ? notchSize.width : closedNotchSize.width,
+                maxHeight: isOpened ? notchSize.height : closedNotchSize.height,
                 alignment: .top
             )
             .transaction(value: isOpened) { transaction in
@@ -787,11 +786,6 @@ struct NotchView: View {
     /// Whether to show the expanded closed state (processing, pending permission, or waiting for input)
     private var showClosedActivity: Bool {
         isProcessing || hasPendingPermission || hasHumanIntervention || hasCompletedReadyState
-    }
-
-    /// Keep the closed notch footprint stable and always show the leading icon.
-    private var showsClosedLeadingIcon: Bool {
-        viewModel.status != .opened || showClosedActivity
     }
 
     /// In fullscreen on physical-notch displays, the closed state should visually
@@ -872,16 +866,17 @@ struct NotchView: View {
 
                     // Spec 2.3: flow Island右侧 — MascotView 宠物图标 + 活跃会话计数 badge
                     if viewModel.status != .opened {
-                        closedRightMascotRegion
+                        rightMascotRegion
                             .frame(width: closedTrailingWidth, alignment: .trailing)
                     }
                     }
 
                     compactBroadcastOverlay
                 }
+                .frame(width: viewModel.status == .opened ? nil : closedInnerWidth)
             }
         }
-        .frame(height: closedNotchSize.height)
+        .frame(width: viewModel.status == .opened ? nil : closedInnerWidth, height: closedNotchSize.height)
     }
 
     private var usesClosedIconOnlyLayout: Bool {
@@ -908,7 +903,6 @@ struct NotchView: View {
                     size: iconOnlySize
                 )
                 .environment(\.mascotAnimationsIgnoreEnergyPolicy, true)
-                .matchedGeometryEffect(id: "pet", in: activityNamespace, isSource: showsClosedLeadingIcon)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -918,11 +912,11 @@ struct NotchView: View {
         max(12, min(petIconSize, closedInnerWidth))
     }
 
-    /// Spec 2.3: 关闭态右半区 — MascotView 宠物图标 + 活跃会话计数 badge。
+    /// 紧凑态和展开态共用右侧宠物与会话计数，保持相邻且整体靠右。
     /// 右侧显示宠物/品牌图标和 pending 会话数。
     /// 当有手动关注事项时，在宠物右上角叠加铃铛徽章，但不替换宠物。
     @ViewBuilder
-    private var closedRightMascotRegion: some View {
+    private var rightMascotRegion: some View {
         let activeCount = countedClosedSessions.count
 
         HStack(spacing: 3) {
@@ -938,7 +932,6 @@ struct NotchView: View {
                         size: petIconSize
                     )
                     .environment(\.mascotAnimationsIgnoreEnergyPolicy, true)
-                    .matchedGeometryEffect(id: "pet", in: activityNamespace, isSource: showsClosedLeadingIcon)
                 }
 
                 if hasManualAttentionIndicator {
@@ -956,6 +949,7 @@ struct NotchView: View {
                     .accessibilityLabel(AppLocalization.format("island.active_sessions", String(describing: activeCount)))
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.trailing, 4)
     }
 
@@ -1170,15 +1164,8 @@ struct NotchView: View {
 
             Spacer()
 
-            // 展开态顶部保留固定、声音、设置三个快捷按钮，
-            // 自定义内容展开时额外显示"切换到任务列表"按钮。
+            // 快捷按钮右侧始终保留宠物与数量，点击切换到任务列表。
             HStack(spacing: 8) {
-                if viewModel.contentType == .customExpanded {
-                    InstanceListToggleButton(pendingCount: sessionMonitor.instances.filter(\.needsAttention).count) {
-                        viewModel.presentSessionList(reason: .click)
-                    }
-                }
-
                 if let feature = leftFeatureStore.expandedActiveFeature {
                     NotchDesktopWidgetButton {
                         DesktopWidgetController.shared.deploy(featureID: feature.id, revealDesktop: true)
@@ -1207,6 +1194,15 @@ struct NotchView: View {
                     hasUnseenUpdate: updateManager.hasUnseenUpdate,
                     action: openSettingsWindow
                 )
+
+                Button {
+                    viewModel.presentSessionList(reason: .click)
+                } label: {
+                    rightMascotRegion
+                }
+                .buttonStyle(.plain)
+                .help("island.tasks")
+                .accessibilityLabel("island.tasks")
             }
             .fixedSize()
             .layoutPriority(1)
@@ -2493,57 +2489,6 @@ private struct NotchDesktopWidgetButton: View {
                 isHovering = hovering
             }
         }
-    }
-}
-
-/// 展开态头部"切换到任务列表"按钮：自定义内容面板右上角入口，点击回到任务列表。
-private struct InstanceListToggleButton: View {
-    let pendingCount: Int
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "list.bullet")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(iconForegroundStyle)
-                .frame(width: 28, height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(backgroundFillColor)
-                )
-                .contentShape(Rectangle())
-                .overlay(alignment: .topTrailing) {
-                    if pendingCount > 0 {
-                        Text(pendingCount > 99 ? "99+" : "\(pendingCount)")
-                            .font(.system(size: 9, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 3)
-                            .frame(minWidth: 14, minHeight: 14)
-                            .background(Color.orange, in: Capsule())
-                            .offset(x: 4, y: -4)
-                            .allowsHitTesting(false)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .help("island.tasks")
-        .accessibilityLabel("island.tasks")
-        .onHover { hovering in
-            withAnimation(.easeOut(duration: 0.12)) {
-                isHovering = hovering
-            }
-        }
-    }
-
-    private var iconForegroundStyle: AnyShapeStyle {
-        AnyShapeStyle(isHovering ? Color.black : (pendingCount > 0 ? Color.orange : Color.white.opacity(0.92)))
-    }
-
-    private var backgroundFillColor: Color {
-        isHovering ? Color.white.opacity(0.95) : Color.white.opacity(0.1)
     }
 }
 
